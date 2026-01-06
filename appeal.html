@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Faire appel | Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let user = null;
+
+onAuthStateChanged(auth, u => {
+  if (!u) location.href = "auth.html";
+  user = u;
+});
+
+window.sendAppeal = () => {
+  const type = document.getElementById("type").value;
+  const targetId = document.getElementById("target").value.trim();
+  const strike = document.getElementById("strike").value;
+  const message = document.getElementById("message").value.trim();
+
+  if (!targetId || !strike || message.length < 20) {
+    alert("Veuillez remplir correctement tous les champs.");
+    return;
+  }
+
+  push(ref(db, "appeals"), {
+    type,
+    targetId,
+    strikeType: strike,
+    message,
+    appellantUid: user.uid,
+    status: "pending",
+    createdAt: Date.now()
+  });
+
+  alert("Appel envoyé. L’équipe Lumio va examiner votre demande.");
+  location.href = "index.html";
+};
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.box{
+  background:#202020;
+  width:100%;
+  max-width:460px;
+  padding:26px;
+  border-radius:18px;
+}
+
+h2{
+  margin-top:0;
+}
+
+p{
+  font-size:13px;
+  color:#bbb;
+  margin-bottom:18px;
+}
+
+label{
+  display:block;
+  margin-top:14px;
+  font-size:13px;
+}
+
+select,input,textarea{
+  width:100%;
+  margin-top:6px;
+  padding:10px;
+  border-radius:12px;
+  border:none;
+  background:#2a2a2a;
+  color:white;
+}
+
+textarea{
+  resize:none;
+  height:110px;
+}
+
+button{
+  margin-top:24px;
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:22px;
+  background:#ff8800;
+  color:black;
+  font-weight:700;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Faire appel</h2>
+  <p>Si vous pensez qu’une décision est incorrecte, vous pouvez la contester ici.</p>
+
+  <label>Type de contenu</label>
+  <select id="type">
+    <option value="video">Vidéo</option>
+    <option value="channel">Chaîne</option>
+    <option value="comment">Commentaire</option>
+    <option value="live">Live</option>
+  </select>
+
+  <label>ID du contenu</label>
+  <input id="target" placeholder="Ex: videoId / channelId">
+
+  <label>Raison de la sanction</label>
+  <select id="strike">
+    <option value="">Choisir</option>
+    <option value="copyright">Droits d’auteur</option>
+    <option value="guidelines">Règles de la communauté</option>
+    <option value="spam">Spam / abus</option>
+    <option value="other">Autre</option>
+  </select>
+
+  <label>Expliquez votre situation (min. 20 caractères)</label>
+  <textarea id="message" placeholder="Décrivez clairement pourquoi cette décision est injustifiée…"></textarea>
+
+  <button onclick="sendAppeal()">Envoyer l’appel</button>
+</div>
+
+</body>
+</html>
