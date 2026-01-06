@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio – Tendances</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// UI Elements
+const startBtn = document.getElementById("startBtn");
+const profileBtn = document.getElementById("profileBtn");
+const uploadBtn = document.getElementById("uploadBtn");
+const trendingGrid = document.getElementById("trendingGrid");
+const mvGrid = document.getElementById("mvGrid");
+const searchInput = document.getElementById("searchInput");
+
+// Auth State
+onAuthStateChanged(auth, user => {
+  if(user){
+    startBtn.style.display="none";
+    profileBtn.style.display="flex";
+    uploadBtn.style.display="flex";
+  } else {
+    startBtn.style.display="flex";
+    profileBtn.style.display="none";
+    uploadBtn.style.display="none";
+  }
+});
+
+// Charger vidéos tendances
+onValue(ref(db, "videos"), snap=>{
+  trendingGrid.innerHTML="";
+  mvGrid.innerHTML="";
+
+  if(!snap.exists()) return;
+
+  Object.entries(snap.val())
+    .sort((a,b)=>b[1].views - a[1].views) // tri par vues
+    .forEach(([id,v])=>{
+      const card = document.createElement("div");
+      card.className="card";
+      card.onclick = ()=>location.href=`player.html?id=${id}`;
+      card.innerHTML=`
+        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+        <div class="card-body">
+          <div class="title">${v.title}</div>
+          <div class="meta">
+            <span>${v.channelName}</span>
+            <span>${v.views || 0} vues</span>
+          </div>
+        </div>
+      `;
+      if(v.category==="MV") mvGrid.appendChild(card);
+      else trendingGrid.appendChild(card);
+    });
+});
+
+// Recherche
+function doSearch(){
+  const q = searchInput.value.trim();
+  if(q) location.href=`search.html?q=${encodeURIComponent(q)}`;
+}
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont;background:#181818;color:white;}
+header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10;}
+.left,.right{display:flex;align-items:center;gap:14px;}
+.left h2{margin:0;font-size:20px;}
+.right button{background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer;}
+.search input{padding:8px 14px;border-radius:20px;border:none;outline:none;background:#222;color:white;}
+.layout{display:flex;margin-top:56px;}
+.sidebar{width:72px;background:#0f0f0f;padding-top:12px;}
+.sidebar a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;font-size:11px;color:#aaa;text-decoration:none;}
+.sidebar a i{font-size:18px;}
+.sidebar a:hover{background:#1f1f1f;color:white;}
+.content{flex:1;padding:16px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;}
+.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer;}
+.thumb{height:140px;background-size:cover;background-position:center;}
+.card-body{padding:10px;}
+.title{font-weight:600;font-size:14px;}
+.meta{font-size:12px;color:#aaa;}
+.meta span{display:block;}
+h3{margin-bottom:10px;color:#ffa500;} /* Orange doux pour section title */
+@media(max-width:640px){.sidebar{display:none;}}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="left">
+    <h2>Lumio</h2>
+    <div class="search">
+      <input type="text" id="searchInput" placeholder="Rechercher sur Lumio...">
+      <button onclick="doSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </div>
+  </div>
+
+  <div class="right">
+    <button id="uploadBtn" style="display:none" onclick="location.href='upload.html'">
+      <i class="fa-solid fa-plus"></i>
+    </button>
+    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
+    <button id="profileBtn" style="display:none" onclick="location.href='channel.html'">
+      <i class="fa-solid fa-user"></i>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <nav class="sidebar">
+    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
+    <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
+    <a href="shorts.html"><i class="fa-solid fa-tv"></i><span>MV</span></a>
+    <a href="subscriptions.html"><i class="fa-solid fa-video"></i><span>Abos</span></a>
+    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
+    <a href="downloads.html"><i class="fa-solid fa-download"></i><span>Téléchargements</span></a>
+  </nav>
+
+  <main class="content">
+    <h3>Vidéos tendances</h3>
+    <div class="grid" id="trendingGrid"></div>
+
+    <h3>MV tendances</h3>
+    <div class="grid" id="mvGrid"></div>
+  </main>
+
+</div>
+
+</body>
+</html>
