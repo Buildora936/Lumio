@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Confidentialité – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let uid;
+
+onAuthStateChanged(auth, user => {
+  if(!user) window.location.href="auth.html";
+  else {
+    uid = user.uid;
+    loadPrivacy();
+  }
+});
+
+function loadPrivacy(){
+  const refUser = ref(db, "users/"+uid+"/privacy");
+  onValue(refUser, snap=>{
+    const data = snap.val() || {};
+    document.getElementById("channelPublic").checked = data.channelPublic ?? true;
+    document.getElementById("videosPublic").checked = data.videosPublic ?? true;
+    document.getElementById("allowComments").checked = data.allowComments ?? true;
+    document.getElementById("showStats").checked = data.showStats ?? true;
+    document.getElementById("showActivity").checked = data.showActivity ?? true;
+  });
+}
+
+function savePrivacy(){
+  const privacyData = {
+    channelPublic: document.getElementById("channelPublic").checked,
+    videosPublic: document.getElementById("videosPublic").checked,
+    allowComments: document.getElementById("allowComments").checked,
+    showStats: document.getElementById("showStats").checked,
+    showActivity: document.getElementById("showActivity").checked
+  };
+  set(ref(db, "users/"+uid+"/privacy"), privacyData)
+    .then(()=>alert("Paramètres de confidentialité sauvegardés !"))
+    .catch(err=>alert(err.message));
+}
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+header{position:fixed;top:0;left:0;right:0;height:56px;background:#111;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10}
+header h1{color:#ff8c42}
+header .right button{background:#ff8c42;border:none;padding:8px 14px;border-radius:12px;color:#111;cursor:pointer;margin-left:8px}
+.layout{display:flex;margin-top:56px}
+
+/* SIDEBAR */
+.sidebar{width:72px;background:#111;padding-top:12px}
+.sidebar a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;font-size:11px;color:#aaa;text-decoration:none}
+.sidebar a:hover{background:#1f1f1f;color:white}
+.sidebar a i{font-size:18px}
+
+/* CONTENT */
+.content{flex:1;padding:16px}
+.section{margin-bottom:20px}
+.section h2{color:#ff8c42;margin-bottom:10px}
+label{display:flex;align-items:center;font-size:14px;margin-bottom:10px}
+input[type="checkbox"]{margin-right:10px}
+button.save-btn{background:#ff8c42;color:#111;padding:10px 16px;border:none;border-radius:20px;cursor:pointer}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Lumio</h1>
+  <div class="right">
+    <button onclick="savePrivacy()">Sauvegarder</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
+    <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
+    <a href="#"><i class="fa-solid fa-tv"></i><span>Abos</span></a>
+    <a href="#"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
+  </nav>
+
+  <main class="content">
+    <div class="section">
+      <h2>Paramètres de confidentialité</h2>
+      <label><input type="checkbox" id="channelPublic"> Chaîne visible publiquement</label>
+      <label><input type="checkbox" id="videosPublic"> Vidéos visibles publiquement par défaut</label>
+      <label><input type="checkbox" id="allowComments"> Autoriser les commentaires</label>
+      <label><input type="checkbox" id="showStats"> Afficher statistiques publiques (abonnés, vues)</label>
+      <label><input type="checkbox" id="showActivity"> Autoriser les autres à voir mon activité</label>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
