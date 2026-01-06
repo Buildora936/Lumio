@@ -2,13 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Publier un MV – Lumio</title>
+<title>Publier MV – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Font Awesome pour icônes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -21,55 +24,131 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let user, channel;
+let currentUser = null;
 
-onAuthStateChanged(auth, async u=>{
-  if(!u){location.href="auth.html";return;}
-  user=u;
-  const snap = await get(ref(db,`channels/${u.uid}`));
-  channel = snap.val();
+// Vérifier l’utilisateur connecté
+onAuthStateChanged(auth, user => {
+  if(!user){
+    alert("Vous devez être connecté pour publier un MV.");
+    location.href = "auth.html";
+  } else {
+    currentUser = user;
+  }
 });
 
-const toBase64 = f => new Promise(r=>{
-  const reader=new FileReader();
-  reader.onload=()=>r(reader.result);
-  reader.readAsDataURL(f);
-});
+// 🔶 Upload MV
+const form = document.getElementById("uploadForm");
 
-publish.onclick = async ()=>{
-  if(!video.files[0]){alert("Sélectionne une vidéo");return;}
-  publish.disabled=true;
+form.addEventListener("submit", async e => {
+  e.preventDefault();
 
-  await push(ref(db,"mv"),{
-    videoBase64: await toBase64(video.files[0]),
-    channelId: user.uid,
-    channelName: channel.name,
-    createdAt: Date.now(),
-    views:0,
-    likes:0,
-    type:"mv"
+  if(!currentUser) return;
+
+  const title = document.getElementById("title").value.trim();
+  const description = document.getElementById("description").value.trim();
+  const videoFile = document.getElementById("video").files[0];
+  const thumbFile = document.getElementById("thumbnail").files[0];
+  const commentsEnabled = document.getElementById("comments").checked;
+
+  if(!title || !videoFile || !thumbFile){
+    alert("Veuillez remplir tous les champs obligatoires.");
+    return;
+  }
+
+  // Convertir vidéo et thumbnail en base64
+  const toBase64 = file => new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => res(reader.result);
+    reader.onerror = error => rej(error);
   });
 
-  location.href="shorts.html";
-};
+  const videoBase64 = await toBase64(videoFile);
+  const thumbnailBase64 = await toBase64(thumbFile);
+
+  // Enregistrer dans Firebase RTDB
+  const videoRef = push(ref(db, "videos"));
+  await videoRef.set({
+    title,
+    description,
+    thumbnailBase64,
+    videoBase64,
+    commentsEnabled,
+    channelId: currentUser.uid,
+    channelName: currentUser.displayName || "Utilisateur",
+    createdAt: serverTimestamp(),
+    views: 0,
+    likes: 0,
+    category: "MV",
+    live: false
+  });
+
+  alert("MV publié avec succès !");
+  form.reset();
+});
 </script>
 
 <style>
-body{margin:0;background:#181818;color:white;font-family:system-ui}
-.box{max-width:420px;margin:100px auto;padding:20px}
-input{width:100%;padding:14px;background:#202020;border:none;border-radius:14px;color:white}
-button{margin-top:16px;width:100%;padding:14px;border:none;border-radius:20px;background:white;color:black;font-weight:600}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont;
+  background:#181818;
+  color:white;
+}
+
+/* HEADER */
+header{
+  position:fixed; top:0; left:0; right:0; height:56px;
+  background:#0f0f0f; display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; z-index:10;
+}
+header h1{font-size:20px; font-weight:600;}
+header button{background:#202020; color:white; border:none; padding:6px 12px; border-radius:12px; cursor:pointer;}
+
+/* CONTENT */
+main{margin-top:72px; padding:16px; max-width:600px; margin-left:auto; margin-right:auto;}
+
+form{display:flex; flex-direction:column; gap:16px;}
+label{font-weight:600;}
+input, textarea{padding:8px; border-radius:10px; border:none; outline:none; width:100%; background:#222; color:white;}
+textarea{resize:none; height:100px;}
+button.submit-btn{
+  background:#ff8800; color:white; border:none; padding:12px; border-radius:20px; font-weight:600; cursor:pointer;
+}
+button.submit-btn:hover{background:#ffa633;}
 </style>
 </head>
 
 <body>
 
-<div class="box">
-  <h2>Publier un MV</h2>
-  <p>Vidéo courte, format vertical conseillé</p>
-  <input id="video" type="file" accept="video/*">
-  <button id="publish">Publier le MV</button>
-</div>
+<header>
+  <h1>Publier un MV</h1>
+  <button onclick="location.href='index.html'"><i class="fa-solid fa-arrow-left"></i></button>
+</header>
+
+<main>
+  <form id="uploadForm">
+    <label for="title">Titre</label>
+    <input id="title" type="text" placeholder="Titre du MV" required>
+
+    <label for="description">Description</label>
+    <textarea id="description" placeholder="Description du MV"></textarea>
+
+    <label for="thumbnail">Thumbnail (image)</label>
+    <input id="thumbnail" type="file" accept="image/*" required>
+
+    <label for="video">Vidéo (MP4 depuis la galerie)</label>
+    <input id="video" type="file" accept="video/*" required>
+
+    <label>
+      <input id="comments" type="checkbox" checked>
+      Autoriser les commentaires
+    </label>
+
+    <button class="submit-btn" type="submit">Publier</button>
+  </form>
+</main>
 
 </body>
 </html>
