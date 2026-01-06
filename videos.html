@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio Studio – Vos vidéos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const list = document.getElementById("videoList");
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    location.href = "auth.html";
+    return;
+  }
+
+  onValue(ref(db, "videos"), snap => {
+    list.innerHTML = "";
+    if (!snap.exists()) return;
+
+    Object.entries(snap.val())
+      .filter(([_, v]) => v.creatorId === user.uid)
+      .sort((a,b)=>b[1].createdAt - a[1].createdAt)
+      .forEach(([id, v]) => {
+        const row = document.createElement("div");
+        row.className = "row";
+
+        row.innerHTML = `
+          <img src="${v.thumbnailBase64}">
+          <div class="info">
+            <div class="title">${v.title}</div>
+            <div class="meta">
+              ${v.views || 0} vues • ${v.likes || 0} likes • ${v.type.toUpperCase()}
+            </div>
+          </div>
+
+          <div class="actions">
+            <button onclick="togglePublic('${id}', ${v.isPublic})">
+              <i class="fa-solid ${v.isPublic ? "fa-eye" : "fa-eye-slash"}"></i>
+            </button>
+
+            <button onclick="toggleComments('${id}', ${v.commentsEnabled})">
+              <i class="fa-solid fa-comments"></i>
+            </button>
+
+            <button onclick="location.href='edit-video.html?id=${id}'">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+
+            <button class="danger" onclick="deleteVideo('${id}')">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `;
+
+        list.appendChild(row);
+      });
+  });
+});
+
+window.togglePublic = (id, state) => {
+  update(ref(db, "videos/" + id), { isPublic: !state });
+};
+
+window.toggleComments = (id, state) => {
+  update(ref(db, "videos/" + id), { commentsEnabled: !state });
+};
+
+window.deleteVideo = id => {
+  if (confirm("Supprimer définitivement cette vidéo ?")) {
+    remove(ref(db, "videos/" + id));
+  }
+};
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+}
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+}
+header h1{font-size:18px}
+
+button{
+  background:#202020;
+  border:none;
+  color:white;
+  padding:8px 10px;
+  border-radius:10px;
+  cursor:pointer;
+}
+button:hover{background:#333}
+.danger{background:#400}
+.danger:hover{background:#700}
+
+.content{padding:16px}
+
+.row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:#202020;
+  padding:12px;
+  border-radius:14px;
+  margin-bottom:12px;
+}
+.row img{
+  width:160px;
+  height:90px;
+  object-fit:cover;
+  border-radius:10px;
+  background:#000;
+}
+.info{flex:1}
+.title{font-weight:600}
+.meta{font-size:12px;color:#aaa}
+
+.actions{
+  display:flex;
+  gap:8px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Vos vidéos</h1>
+  <button onclick="location.href='studio.html'">
+    <i class="fa-solid fa-arrow-left"></i>
+  </button>
+</header>
+
+<main class="content">
+  <div id="videoList"></div>
+</main>
+
+</body>
+</html>
