@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio – Lives</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Font Awesome pour icônes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// UI Elements
+const startBtn = document.getElementById("startBtn");
+const profileBtn = document.getElementById("profileBtn");
+const uploadBtn = document.getElementById("uploadBtn");
+const liveGrid = document.getElementById("liveGrid");
+
+// 🔐 Auth state
+onAuthStateChanged(auth, user => {
+  if(user){
+    startBtn.style.display = "none";
+    profileBtn.style.display = "flex";
+    uploadBtn.style.display = "flex";
+  } else {
+    startBtn.style.display = "flex";
+    profileBtn.style.display = "none";
+    uploadBtn.style.display = "none";
+  }
+});
+
+// 🔴 Charger Lives et MV en direct depuis Firebase
+onValue(ref(db, "liveVideos"), snap => {
+  liveGrid.innerHTML = "";
+  if(!snap.exists()) return;
+
+  Object.entries(snap.val())
+    .filter(([id, v]) => v.live === true)
+    .sort((a,b) => b[1].viewers - a[1].viewers) // Tri par viewers
+    .forEach(([id, v]) => {
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.onclick = () => location.href = `player.html?id=${id}`;
+
+      card.innerHTML = `
+        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')">
+          <div class="live-badge">LIVE • ${v.viewers} spectateurs</div>
+        </div>
+        <div class="card-body">
+          <div class="title">${v.title}</div>
+          <div class="meta">
+            <span>${v.channelName}</span>
+            <span>${v.category === 'MV' ? 'MV' : 'Vidéo'}</span>
+          </div>
+        </div>
+      `;
+
+      liveGrid.appendChild(card);
+    });
+});
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont;
+  background:#181818;
+  color:white;
+}
+
+/* HEADER */
+header{
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  z-index:10;
+}
+header h1{font-size:20px; font-weight:600;}
+.left, .right{display:flex; align-items:center; gap:14px;}
+button{
+  background:#202020; color:white; border:none; padding:8px 14px; border-radius:20px; cursor:pointer;
+}
+
+/* SEARCH */
+.search{
+  flex:1; max-width:420px; margin:0 16px;
+}
+.search input{
+  width:100%; padding:8px 14px; border-radius:20px; border:none; outline:none; background:#222; color:white;
+}
+
+/* BOUTON COMMENCER / UPLOAD / PROFIL */
+#uploadBtn, #profileBtn, #startBtn{
+  display:none;
+}
+
+/* LAYOUT */
+.layout{display:flex; margin-top:56px;}
+
+/* SIDEBAR */
+.sidebar{
+  width:72px; background:#0f0f0f; border-right:1px solid #222; padding-top:12px;
+}
+.sidebar a{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:14px 0; font-size:11px; color:#ccc; text-decoration:none;
+}
+.sidebar a i{font-size:18px;}
+.sidebar a:hover{background:#1f1f1f; color:white;}
+
+/* CONTENT */
+.content{flex:1; padding:16px;}
+
+/* GRID */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;
+}
+
+/* CARD */
+.card{
+  background:#202020; border-radius:14px; overflow:hidden; cursor:pointer; position:relative;
+}
+.thumb{
+  height:140px; background-size:cover; background-position:center; position:relative;
+}
+.live-badge{
+  position:absolute; bottom:8px; left:8px; background:#cc0000; color:white; font-size:12px;
+  padding:2px 6px; border-radius:4px; font-weight:600;
+}
+.card-body{padding:10px;}
+.title{font-weight:600; font-size:14px; margin-bottom:4px;}
+.meta{font-size:12px; color:#aaa;}
+.meta span{display:block;}
+
+/* MOBILE */
+@media(max-width:640px){.sidebar{display:none;}}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="left">
+    <h2>Lumio</h2>
+  </div>
+
+  <div class="right">
+    <div class="search">
+      <input id="searchInput" placeholder="Rechercher">
+    </div>
+    <button id="uploadBtn" onclick="location.href='upload.html'">
+      <i class="fa-solid fa-plus"></i>
+    </button>
+    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
+    <button id="profileBtn" onclick="location.href='channel.html'">
+      <i class="fa-solid fa-user"></i>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <nav class="sidebar">
+    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
+    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
+    <a href="shorts.html"><i class="fa-solid fa-tv"></i><span>MV</span></a>
+    <a href="subscriptions.html"><i class="fa-solid fa-video"></i><span>Abos</span></a>
+    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
+    <a href="downloads.html"><i class="fa-solid fa-download"></i><span>Télécharg.</span></a>
+  </nav>
+
+  <main class="content">
+    <h2>Lives en direct</h2>
+    <div class="grid" id="liveGrid"></div>
+  </main>
+
+</div>
+
+</body>
+</html>
