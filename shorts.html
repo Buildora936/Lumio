@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio – MV</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const container = document.getElementById("container");
+
+/* 🔁 Charger MV */
+onValue(ref(db, "shorts"), snap => {
+  container.innerHTML = "";
+  if (!snap.exists()) return;
+
+  Object.entries(snap.val())
+    .sort((a,b)=>b[1].createdAt-a[1].createdAt)
+    .forEach(([id, s]) => {
+      const el = document.createElement("section");
+      el.className = "short";
+
+      el.innerHTML = `
+        <video src="${s.videoBase64}" loop muted playsinline></video>
+
+        <div class="overlay">
+          <p>${s.description || ""}</p>
+        </div>
+
+        <div class="actions">
+          <button onclick="like('${id}')">
+            <i class="fa-solid fa-heart"></i>
+            <span>${s.likes || 0}</span>
+          </button>
+          <div>
+            <i class="fa-solid fa-eye"></i>
+            <span>${s.views || 0}</span>
+          </div>
+        </div>
+      `;
+
+      container.appendChild(el);
+
+      const video = el.querySelector("video");
+
+      const observer = new IntersectionObserver(entries=>{
+        entries.forEach(e=>{
+          if(e.isIntersecting){
+            video.play();
+            runTransaction(ref(db, "shorts/"+id+"/views"), v => (v||0)+1);
+          }else{
+            video.pause();
+          }
+        });
+      },{threshold:0.8});
+
+      observer.observe(el);
+    });
+});
+
+/* ❤️ Like */
+window.like = id => {
+  runTransaction(ref(db,"shorts/"+id+"/likes"), v => (v||0)+1);
+};
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:black;
+  color:white;
+  font-family:system-ui
+}
+
+#container{
+  height:100vh;
+  overflow-y:scroll;
+  scroll-snap-type:y mandatory;
+}
+
+.short{
+  position:relative;
+  height:100vh;
+  scroll-snap-align:start;
+}
+
+.short video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.overlay{
+  position:absolute;
+  bottom:80px;
+  left:16px;
+  max-width:70%;
+  font-size:14px;
+}
+
+.actions{
+  position:absolute;
+  right:16px;
+  bottom:120px;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  align-items:center;
+}
+
+.actions button{
+  background:none;
+  border:none;
+  color:white;
+  font-size:22px;
+  cursor:pointer;
+}
+.actions span{
+  font-size:12px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="container"></div>
+
+</body>
+</html>
