@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio – Abonnements</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const grid = document.getElementById("grid");
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    location.href = "auth.html";
+    return;
+  }
+
+  onValue(ref(db, "subscriptions/" + user.uid), subSnap => {
+    grid.innerHTML = "";
+
+    if (!subSnap.exists()) {
+      grid.innerHTML = "<p>Aucune chaîne suivie</p>";
+      return;
+    }
+
+    const channels = Object.keys(subSnap.val());
+
+    onValue(ref(db, "videos"), vidSnap => {
+      grid.innerHTML = "";
+      if (!vidSnap.exists()) return;
+
+      Object.entries(vidSnap.val())
+        .filter(([_,v]) => channels.includes(v.channelId))
+        .sort((a,b)=>b[1].createdAt - a[1].createdAt)
+        .forEach(([id,v]) => {
+
+          const card = document.createElement("div");
+          card.className = "card";
+          card.onclick = () => location.href = `player.html?id=${id}`;
+
+          card.innerHTML = `
+            <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+            <div class="card-body">
+              <div class="title">${v.title}</div>
+              <div class="meta">
+                <span>${v.channelName}</span>
+                <span>${v.views || 0} vues</span>
+              </div>
+            </div>
+          `;
+
+          grid.appendChild(card);
+        });
+    });
+  });
+});
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#181818;
+  color:white;
+  font-family:system-ui;
+}
+
+/* HEADER */
+header{
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#111;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  z-index:10;
+}
+
+/* LAYOUT */
+.layout{
+  display:flex;
+  margin-top:56px;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:72px;
+  background:#111;
+  padding-top:12px;
+}
+.sidebar a{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  padding:12px 0;
+  font-size:11px;
+  color:#aaa;
+  text-decoration:none;
+}
+.sidebar a:hover{background:#1f1f1f}
+
+/* CONTENT */
+.content{
+  flex:1;
+  padding:16px;
+}
+
+/* GRID */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;
+}
+
+/* CARD */
+.card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+  cursor:pointer;
+}
+.thumb{
+  height:140px;
+  background-size:cover;
+  background-position:center;
+}
+.card-body{padding:10px}
+.title{
+  font-weight:600;
+  font-size:14px;
+}
+.meta{
+  font-size:12px;
+  color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>Lumio</h2>
+  <div>Abonnements</div>
+  <div></div>
+</header>
+
+<div class="layout">
+
+  <nav class="sidebar">
+    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
+    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tend.</span></a>
+    <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
+    <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Abos</span></a>
+    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
+  </nav>
+
+  <main class="content">
+    <div class="grid" id="grid"></div>
+  </main>
+
+</div>
+
+</body>
+</html>
