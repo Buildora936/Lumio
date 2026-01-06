@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Paramètres – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, updateEmail, updatePassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let uid;
+
+// Vérifier si connecté
+onAuthStateChanged(auth, user => {
+  if(!user) window.location.href = "auth.html";
+  else {
+    uid = user.uid;
+    loadSettings();
+  }
+});
+
+// Charger infos existantes
+function loadSettings(){
+  // Infos publiques
+  get(ref(db,"users/"+uid)).then(snap=>{
+    if(snap.exists()){
+      const data = snap.val();
+      document.getElementById("channelName").value = data.name || "";
+      document.getElementById("avatar").value = data.avatar || "";
+      document.getElementById("description").value = data.description || "";
+      document.getElementById("banner").value = data.banner || "";
+      document.getElementById("social").value = data.social || "";
+      document.getElementById("location").value = data.location || "";
+      document.getElementById("website").value = data.website || "";
+      document.getElementById("language").value = data.language || "";
+      document.getElementById("theme").value = data.theme || "";
+      document.getElementById("category").value = data.category || "";
+    }
+  });
+  // Email perso
+  document.getElementById("email").value = auth.currentUser.email;
+}
+
+// Sauvegarder infos publiques
+function savePublic(){
+  const name = document.getElementById("channelName").value.trim();
+  const avatar = document.getElementById("avatar").value.trim();
+  if(!name || !avatar){
+    alert("Nom de chaîne et avatar obligatoires!");
+    return;
+  }
+  set(ref(db,"users/"+uid),{
+    name,
+    avatar,
+    description: document.getElementById("description").value.trim(),
+    banner: document.getElementById("banner").value.trim(),
+    social: document.getElementById("social").value.trim(),
+    location: document.getElementById("location").value.trim(),
+    website: document.getElementById("website").value.trim(),
+    language: document.getElementById("language").value.trim(),
+    theme: document.getElementById("theme").value.trim(),
+    category: document.getElementById("category").value.trim()
+  }).then(()=> alert("Infos publiques sauvegardées!"));
+}
+
+// Sauvegarder infos perso
+function savePersonal(){
+  const email = document.getElementById("email").value.trim();
+  const newPassword = document.getElementById("password").value.trim();
+
+  if(email !== auth.currentUser.email){
+    updateEmail(auth.currentUser,email).then(()=> alert("Email mis à jour!")).catch(e=> alert(e.message));
+  }
+  if(newPassword){
+    updatePassword(auth.currentUser,newPassword).then(()=> alert("Mot de passe mis à jour!")).catch(e=> alert(e.message));
+  }
+}
+
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:#181818;color:white;padding-top:56px}
+header{position:fixed;top:0;left:0;right:0;height:56px;background:#111;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10;color:#ff8c42}
+header h1{font-weight:600}
+header .right button{background:#ff8c42;border:none;padding:8px 14px;border-radius:12px;color:#111;cursor:pointer;margin-left:8px}
+
+.container{max-width:800px;margin:20px auto;padding:16px;background:#202020;border-radius:12px}
+h2{color:#ff8c42;margin-bottom:10px}
+input, textarea, select{width:100%;padding:8px;margin:6px 0;border-radius:6px;border:none;background:#333;color:white}
+button.save-btn{background:#ff8c42;color:#111;border:none;padding:10px 16px;border-radius:12px;cursor:pointer;margin-top:8px}
+button.save-btn:hover{background:#e67e22}
+
+.section{margin-bottom:24px}
+label{display:block;margin-bottom:4px;color:#ccc}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Lumio</h1>
+  <div class="right">
+    <button onclick="location.href='profile.html'">Profil</button>
+    <button onclick="location.href='auth.html'">Déconnexion</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="section">
+    <h2>Infos publiques</h2>
+    <label>Nom de la chaîne *</label>
+    <input id="channelName" placeholder="Nom de la chaîne">
+    <label>Avatar *</label>
+    <input id="avatar" placeholder="URL ou Base64 de l'image">
+    <label>Description</label>
+    <textarea id="description" placeholder="Courte description"></textarea>
+    <label>Bannière</label>
+    <input id="banner" placeholder="URL ou Base64">
+    <label>Réseaux sociaux</label>
+    <input id="social" placeholder="Ex: twitter.com/username">
+    <label>Localisation</label>
+    <input id="location">
+    <label>Site Web</label>
+    <input id="website">
+    <label>Langue</label>
+    <input id="language">
+    <label>Thème</label>
+    <select id="theme">
+      <option value="">Sélectionner</option>
+      <option value="dark">Sombre</option>
+      <option value="light">Clair</option>
+    </select>
+    <label>Catégorie</label>
+    <input id="category">
+    <button class="save-btn" onclick="savePublic()">Sauvegarder Infos Publiques</button>
+  </div>
+
+  <div class="section">
+    <h2>Infos personnelles</h2>
+    <label>Email *</label>
+    <input id="email" placeholder="Email">
+    <label>Changer mot de passe</label>
+    <input type="password" id="password" placeholder="Nouveau mot de passe">
+    <button class="save-btn" onclick="savePersonal()">Sauvegarder Infos Personnelles</button>
+  </div>
+</div>
+
+</body>
+</html>
