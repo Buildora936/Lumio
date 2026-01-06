@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio Studio – Copyright</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let currentUser;
+
+onAuthStateChanged(auth, user => {
+  if (!user) location.href = "auth.html";
+  currentUser = user;
+  loadClaims();
+});
+
+function loadClaims(){
+  onValue(ref(db, "copyrightClaims"), snap => {
+    const box = document.getElementById("claims");
+    box.innerHTML = "";
+    if (!snap.exists()) return;
+
+    Object.entries(snap.val()).forEach(([id,c]) => {
+      if (c.ownerId !== currentUser.uid) return;
+
+      box.innerHTML += `
+        <div class="card">
+          <b>Vidéo :</b> ${c.videoId}<br>
+          <b>Motif :</b> ${c.reason}<br>
+          <b>Status :</b> ${c.status}
+          ${c.status === "pending" ? `
+            <button onclick="resolve('${id}','accepted')">Accepter</button>
+            <button onclick="resolve('${id}','rejected')">Rejeter</button>
+          ` : ""}
+        </div>
+      `;
+    });
+  });
+}
+
+window.resolve = (id, status) => {
+  update(ref(db,"copyrightClaims/"+id), { status });
+};
+
+window.appeal = () => {
+  const msg = document.getElementById("appeal").value.trim();
+  if (!msg) return;
+
+  push(ref(db,"appeals"), {
+    creatorId: currentUser.uid,
+    message: msg,
+    createdAt: Date.now()
+  });
+
+  alert("Appel envoyé");
+};
+</script>
+
+<style>
+body{
+  margin:0;
+  background:#181818;
+  color:white;
+  font-family:system-ui;
+}
+header{
+  background:#0f0f0f;
+  height:56px;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+}
+.container{padding:16px;max-width:720px;margin:auto}
+.card{
+  background:#202020;
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:12px;
+}
+button{
+  margin-top:8px;
+  margin-right:8px;
+  background:#ff8800;
+  border:none;
+  padding:8px 14px;
+  border-radius:16px;
+  font-weight:600;
+}
+textarea{
+  width:100%;
+  background:#202020;
+  border:none;
+  color:white;
+  padding:12px;
+  border-radius:12px;
+  margin-top:8px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>Copyright</h2>
+</header>
+
+<div class="container">
+
+  <h3>Réclamations reçues</h3>
+  <div id="claims"></div>
+
+  <h3>Faire un appel</h3>
+  <textarea id="appeal" placeholder="Explique pourquoi cette réclamation est incorrecte..."></textarea>
+  <button onclick="appeal()">Envoyer l’appel</button>
+
+</div>
+
+</body>
+</html>
