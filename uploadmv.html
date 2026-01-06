@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Publier un MV – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let user, channel;
+
+onAuthStateChanged(auth, async u=>{
+  if(!u){location.href="auth.html";return;}
+  user=u;
+  const snap = await get(ref(db,`channels/${u.uid}`));
+  channel = snap.val();
+});
+
+const toBase64 = f => new Promise(r=>{
+  const reader=new FileReader();
+  reader.onload=()=>r(reader.result);
+  reader.readAsDataURL(f);
+});
+
+publish.onclick = async ()=>{
+  if(!video.files[0]){alert("Sélectionne une vidéo");return;}
+  publish.disabled=true;
+
+  await push(ref(db,"mv"),{
+    videoBase64: await toBase64(video.files[0]),
+    channelId: user.uid,
+    channelName: channel.name,
+    createdAt: Date.now(),
+    views:0,
+    likes:0,
+    type:"mv"
+  });
+
+  location.href="shorts.html";
+};
+</script>
+
+<style>
+body{margin:0;background:#181818;color:white;font-family:system-ui}
+.box{max-width:420px;margin:100px auto;padding:20px}
+input{width:100%;padding:14px;background:#202020;border:none;border-radius:14px;color:white}
+button{margin-top:16px;width:100%;padding:14px;border:none;border-radius:20px;background:white;color:black;font-weight:600}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Publier un MV</h2>
+  <p>Vidéo courte, format vertical conseillé</p>
+  <input id="video" type="file" accept="video/*">
+  <button id="publish">Publier le MV</button>
+</div>
+
+</body>
+</html>
