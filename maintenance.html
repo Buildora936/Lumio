@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Maintenance | Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont;
+  background:#181818;
+  color:white;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.wrapper{
+  max-width:460px;
+  padding:24px;
+  text-align:center;
+}
+
+.icon{
+  font-size:70px;
+  color:#ff8800;
+  margin-bottom:18px;
+}
+
+h1{
+  font-size:24px;
+  margin-bottom:10px;
+}
+
+p{
+  font-size:14px;
+  color:#bbb;
+  margin-bottom:22px;
+  line-height:1.5;
+}
+
+.box{
+  background:#202020;
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:22px;
+  font-size:14px;
+}
+
+.time{
+  color:#ff8800;
+  font-weight:600;
+}
+
+.actions{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+button{
+  background:#202020;
+  color:white;
+  border:none;
+  padding:10px 18px;
+  border-radius:20px;
+  cursor:pointer;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+button.primary{
+  background:#ff8800;
+  color:black;
+}
+
+button:hover{
+  opacity:.9;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+  <div class="icon">
+    <i class="fa-solid fa-screwdriver-wrench"></i>
+  </div>
+
+  <h1>Maintenance en cours</h1>
+
+  <p>
+    Lumio est temporairement indisponible.<br>
+    Nous améliorons la plateforme pour une meilleure expérience.
+  </p>
+
+  <div class="box">
+    ⏱️ Retour prévu :<br>
+    <span class="time" id="time">Aujourd’hui à 23:00</span>
+  </div>
+
+  <div class="actions">
+    <button onclick="location.reload()">
+      <i class="fa-solid fa-rotate"></i>
+      Actualiser
+    </button>
+
+    <button class="primary" onclick="location.href='status.html'">
+      <i class="fa-solid fa-circle-info"></i>
+      Statut
+    </button>
+  </div>
+
+</div>
+
+<script>
+/*
+  Si la maintenance est terminée,
+  redirection automatique
+*/
+const maintenanceOver = false; // mettre true quand terminé
+
+if (maintenanceOver) {
+  location.href = "index.html";
+}
+</script>
+
+</body>
+</html>
