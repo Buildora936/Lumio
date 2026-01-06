@@ -2,175 +2,144 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Lecture Vidéo</title>
+<title>Lumio – Lecture</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Font Awesome pour icônes -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, onValue, update, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-
-// 🔹 Config Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-
-// 🔹 Lecture de la vidéo depuis l'URL ?id=
-const urlParams = new URLSearchParams(window.location.search);
-const videoId = urlParams.get("id");
-
-const videoPlayer = document.getElementById("videoPlayer");
-const titleEl = document.getElementById("videoTitle");
-const descriptionEl = document.getElementById("videoDescription");
-const channelNameEl = document.getElementById("channelName");
-const channelSubsEl = document.getElementById("channelSubs");
-const subscribeBtn = document.getElementById("subscribeBtn");
-const likeBtn = document.getElementById("likeBtn");
-const dislikeBtn = document.getElementById("dislikeBtn");
-const shareBtn = document.getElementById("shareBtn");
-const saveBtn = document.getElementById("saveBtn");
-const relatedGrid = document.getElementById("relatedGrid");
-
-// 🔹 UI Auth / upload
-const startBtn = document.getElementById("startBtn");
-const profileBtn = document.getElementById("profileBtn");
-const uploadBtn = document.getElementById("uploadBtn");
-
-onAuthStateChanged(auth, user => {
-  if(user){
-    startBtn.style.display = "none";
-    profileBtn.style.display = "flex";
-    uploadBtn.style.display = "flex";
-  } else {
-    startBtn.style.display = "flex";
-    profileBtn.style.display = "none";
-    uploadBtn.style.display = "none";
-  }
-});
-
-// 🔹 Charger la vidéo
-if(videoId){
-  const videoRef = ref(db, `videos/${videoId}`);
-  onValue(videoRef, snap => {
-    if(!snap.exists()) return alert("Vidéo introuvable !");
-    const v = snap.val();
-    videoPlayer.src = v.videoBase64;
-    titleEl.textContent = v.title;
-    descriptionEl.textContent = v.description;
-    
-    // Chaîne
-    const channelRef = ref(db, `channels/${v.channelId}`);
-    onValue(channelRef, chSnap => {
-      if(!chSnap.exists()) return;
-      const ch = chSnap.val();
-      channelNameEl.textContent = ch.name;
-      channelSubsEl.textContent = `${ch.subscribers || 0} abonnés`;
-      
-      if(auth.currentUser && ch.subscribersList && ch.subscribersList[auth.currentUser.uid]){
-        subscribeBtn.style.display = "none"; // déjà abonné
-      } else {
-        subscribeBtn.style.display = "inline-block";
-      }
-    });
-    
-    // Likes/Dislike
-    if(auth.currentUser){
-      likeBtn.onclick = () => {
-        const likeRef = ref(db, `videos/${videoId}/likes/${auth.currentUser.uid}`);
-        update(likeRef, { liked:true });
-      };
-      dislikeBtn.onclick = () => {
-        const dislikeRef = ref(db, `videos/${videoId}/dislikes/${auth.currentUser.uid}`);
-        update(dislikeRef, { disliked:true });
-      };
-    }
-    
-    // Subscribe
-    subscribeBtn.onclick = () => {
-      if(!auth.currentUser) return alert("Connecte-toi !");
-      const subRef = ref(db, `channels/${v.channelId}/subscribersList/${auth.currentUser.uid}`);
-      update(subRef, {subscribed:true});
-      subscribeBtn.style.display = "none";
-    };
-    
-    // Share
-    shareBtn.onclick = () => {
-      navigator.clipboard.writeText(window.location.href).then(()=> alert("Lien copié !"));
-    };
-    
-    // Save sur Lumio
-    saveBtn.onclick = () => {
-      if(!auth.currentUser) return alert("Connecte-toi !");
-      const userSavedRef = ref(db, `users/${auth.currentUser.uid}/savedVideos/${videoId}`);
-      update(userSavedRef, { savedAt: Date.now() });
-      alert("Vidéo sauvegardée sur Lumio !");
-    };
-  });
-}
-
-// 🔹 Vidéos et MV liées
-const videosRef = ref(db, "videos");
-onValue(videosRef, snap => {
-  relatedGrid.innerHTML = "";
-  if(!snap.exists()) return;
-  
-  Object.entries(snap.val())
-    .filter(([id, v]) => id !== videoId)
-    .forEach(([id, v])=>{
-      const card = document.createElement("div");
-      card.className = "card";
-      card.onclick = () => location.href=`player.html?id=${id}`;
-      card.innerHTML = `
-        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-        <div class="card-body">
-          <div class="title">${v.title}</div>
-          <div class="meta">${v.channelName} • ${v.views || 0} vues</div>
-        </div>
-      `;
-      relatedGrid.appendChild(card);
-    });
-});
-</script>
 
 <style>
 *{box-sizing:border-box}
-body{margin:0; font-family:system-ui; background:#181818; color:#fff;}
-header{position:fixed; top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px; z-index:10;}
-header .left, header .right{display:flex;align-items:center;gap:14px;}
-header input{width:250px;padding:6px 12px;border-radius:20px;border:none;background:#222;color:#fff;}
-button{background:#202020;color:white;border:none;padding:6px 12px;border-radius:20px;cursor:pointer;margin-left:6px;}
-button:hover{background:#333;}
-.layout{display:flex;margin-top:56px;}
-.sidebar{width:72px;background:#0f0f0f;padding-top:12px;}
-.sidebar a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;font-size:11px;color:#aaa;text-decoration:none;}
-.sidebar a:hover{background:#1f1f1f;}
-.content{flex:1;padding:16px;}
-.video-player{width:100%;max-height:480px;background:#000;margin-bottom:16px;}
-.video-title{font-size:18px;font-weight:600;margin-bottom:4px;}
-.video-meta{font-size:12px;color:#aaa;margin-bottom:10px;}
-.channel-info{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-.channel-info img{width:48px;height:48px;border-radius:50%;background:#333;}
-.channel-info .name{font-weight:600;}
-.channel-subs{font-size:12px;color:#ccc;}
-.actions{display:flex;gap:8px;margin-bottom:16px;}
-.description{background:#202020;padding:12px;border-radius:10px;margin-bottom:16px;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;}
-.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer;}
-.thumb{height:140px;background-size:cover;background-position:center;}
-.card-body{padding:10px;}
-.title{font-weight:600;font-size:14px;}
-.meta{font-size:12px;color:#aaa;}
-@media(max-width:640px){.sidebar{display:none}}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+}
+
+/* HEADER */
+header{
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#111;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  z-index:10;
+}
+.left,.right{display:flex;align-items:center;gap:14px}
+button{
+  background:#202020;
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:20px;
+  cursor:pointer;
+}
+
+/* LAYOUT */
+.layout{
+  display:flex;
+  margin-top:56px;
+  padding:16px;
+  gap:16px;
+}
+.main{
+  flex:2;
+}
+.side{
+  flex:1;
+}
+
+/* VIDEO */
+video{
+  width:100%;
+  max-height:70vh;
+  background:black;
+  border-radius:14px;
+}
+
+/* INFO */
+.title{
+  font-size:20px;
+  font-weight:600;
+  margin:12px 0;
+}
+.meta{
+  color:#aaa;
+  font-size:13px;
+}
+
+/* CHANNEL */
+.channel{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:16px 0;
+}
+.channel-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.channel img{
+  width:48px;height:48px;
+  border-radius:50%;
+  background:#333;
+}
+.sub-btn{
+  background:#cc0000;
+  border-radius:20px;
+  padding:10px 16px;
+  font-weight:600;
+}
+
+/* ACTIONS */
+.actions{
+  display:flex;
+  gap:12px;
+  margin:12px 0;
+}
+.actions button{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+/* DESCRIPTION */
+.desc{
+  background:#202020;
+  padding:14px;
+  border-radius:14px;
+  font-size:14px;
+  white-space:pre-line;
+}
+
+/* SUGGESTIONS */
+.card{
+  display:flex;
+  gap:10px;
+  margin-bottom:12px;
+  cursor:pointer;
+}
+.card .thumb{
+  width:160px;
+  height:90px;
+  background:#000;
+  border-radius:10px;
+  background-size:cover;
+  background-position:center;
+}
+.card .info{
+  font-size:13px;
+}
+.card .info .t{
+  font-weight:600;
+}
+.card .info .m{
+  color:#aaa;
+}
 </style>
 </head>
 
@@ -179,56 +148,149 @@ button:hover{background:#333;}
 <header>
   <div class="left">
     <h2>Lumio</h2>
-    <input id="searchInput" placeholder="Rechercher sur Lumio">
   </div>
   <div class="right">
-    <button id="uploadBtn" style="display:none" onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i></button>
-    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
-    <button id="profileBtn" style="display:none" onclick="location.href='channel.html'"><i class="fa-solid fa-user"></i></button>
+    <button onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i></button>
+    <button onclick="location.href='channel.html'"><i class="fa-solid fa-user"></i></button>
   </div>
 </header>
 
 <div class="layout">
 
-  <nav class="sidebar">
-    <a href="#"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
-    <a href="#"><i class="fa-solid fa-tv"></i><span>MV</span></a>
-    <a href="#"><i class="fa-solid fa-video"></i><span>Abonnements</span></a>
-    <a href="#"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
-    <a href="#"><i class="fa-solid fa-download"></i><span>Téléchargement</span></a>
-  </nav>
+  <!-- MAIN -->
+  <div class="main">
+    <video id="video" controls></video>
 
-  <main class="content">
+    <div class="title" id="title"></div>
+    <div class="meta" id="meta"></div>
 
-    <video id="videoPlayer" controls></video>
-    <div class="video-title" id="videoTitle"></div>
-    <div class="video-meta" id="videoMeta"></div>
-
-    <div class="channel-info">
-      <img src="" alt="Avatar chaîne">
-      <div>
-        <div class="name" id="channelName"></div>
-        <div class="channel-subs" id="channelSubs"></div>
+    <div class="channel">
+      <div class="channel-left">
+        <img id="channelImg">
+        <div>
+          <div id="channelName"></div>
+          <div class="meta"><span id="subsCount"></span> abonnés</div>
+        </div>
       </div>
+      <button class="sub-btn" id="subBtn">S’abonner</button>
     </div>
 
     <div class="actions">
-      <button id="likeBtn"><i class="fa-solid fa-thumbs-up"></i> Like</button>
-      <button id="dislikeBtn"><i class="fa-solid fa-thumbs-down"></i> Je n’aime pas</button>
-      <button id="subscribeBtn">S’abonner</button>
-      <button id="shareBtn"><i class="fa-solid fa-share"></i> Partager</button>
-      <button id="saveBtn"><i class="fa-solid fa-download"></i> Enregistrer</button>
+      <button id="likeBtn"><i class="fa-solid fa-thumbs-up"></i> <span id="likes">0</span></button>
+      <button id="dislikeBtn"><i class="fa-solid fa-thumbs-down"></i></button>
+      <button onclick="share()"><i class="fa-solid fa-share"></i> Partager</button>
+      <button id="saveBtn"><i class="fa-solid fa-bookmark"></i> Enregistrer</button>
     </div>
 
-    <div class="description" id="videoDescription"></div>
+    <div class="desc" id="desc"></div>
+  </div>
 
-    <h3>Vidéos & MV recommandées</h3>
-    <div class="grid" id="relatedGrid"></div>
-
-  </main>
+  <!-- SUGGESTIONS -->
+  <div class="side" id="suggestions"></div>
 
 </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get, update, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const id = new URLSearchParams(location.search).get("id");
+
+const videoEl = document.getElementById("video");
+const titleEl = document.getElementById("title");
+const metaEl = document.getElementById("meta");
+const descEl = document.getElementById("desc");
+
+const channelImg = document.getElementById("channelImg");
+const channelName = document.getElementById("channelName");
+const subsCount = document.getElementById("subsCount");
+const subBtn = document.getElementById("subBtn");
+
+const likesEl = document.getElementById("likes");
+const suggestions = document.getElementById("suggestions");
+
+let videoData, channelId;
+
+// Charger vidéo
+const snap = await get(ref(db, "videos/"+id));
+if(!snap.exists()) location.href="index.html";
+
+videoData = snap.val();
+channelId = videoData.channelId;
+
+videoEl.src = videoData.videoBase64;
+titleEl.textContent = videoData.title;
+descEl.textContent = videoData.description;
+metaEl.textContent = `${videoData.views || 0} vues`;
+
+likesEl.textContent = videoData.likes || 0;
+
+// +1 vue
+update(ref(db,"videos/"+id),{
+  views:(videoData.views||0)+1
+});
+
+// Charger chaîne
+const chSnap = await get(ref(db,"channels/"+channelId));
+if(chSnap.exists()){
+  const c = chSnap.val();
+  channelImg.src = c.photoBase64 || "";
+  channelName.textContent = c.name;
+  subsCount.textContent = c.subscribers || 0;
+}
+
+// Like
+document.getElementById("likeBtn").onclick=()=>{
+  update(ref(db,"videos/"+id),{
+    likes:(videoData.likes||0)+1
+  });
+};
+
+// Save
+document.getElementById("saveBtn").onclick=()=>{
+  if(!auth.currentUser) return alert("Connecte-toi");
+  push(ref(db,"downloads/"+auth.currentUser.uid),{
+    videoId:id,
+    savedAt:Date.now()
+  });
+  alert("Enregistré sur Lumio");
+};
+
+// Suggestions
+const all = await get(ref(db,"videos"));
+all.forEach(s=>{
+  if(s.key===id) return;
+  const v=s.val();
+  const card=document.createElement("div");
+  card.className="card";
+  card.onclick=()=>location.href="player.html?id="+s.key;
+  card.innerHTML=`
+    <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+    <div class="info">
+      <div class="t">${v.title}</div>
+      <div class="m">${v.channelName}</div>
+    </div>
+  `;
+  suggestions.appendChild(card);
+});
+
+window.share=()=>{
+  navigator.clipboard.writeText(location.href);
+  alert("Lien copié");
+};
+</script>
 
 </body>
 </html>
