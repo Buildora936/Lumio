@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Font Awesome pour icônes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// UI Elements
+const videoGrid = document.getElementById("videoGrid");
+const filterSelect = document.getElementById("filterSelect");
+const uploadBtn = document.getElementById("uploadBtn");
+
+// 🔐 Auth
+let currentUserId = null;
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUserId = user.uid;
+    loadVideos();
+  } else {
+    alert("Vous devez être connecté pour accéder au Studio");
+    location.href = "auth.html";
+  }
+});
+
+// 📹 Charger les vidéos du créateur
+function loadVideos() {
+  onValue(ref(db, "videos"), snap => {
+    videoGrid.innerHTML = "";
+    if (!snap.exists()) return;
+
+    Object.entries(snap.val())
+      .filter(([id, v]) => v.creatorId === currentUserId)
+      .filter(([id, v]) => {
+        const filter = filterSelect.value;
+        if(filter === "all") return true;
+        if(filter === "mv") return v.type === "mv";
+        return v.type === "video";
+      })
+      .sort((a,b) => b[1].createdAt - a[1].createdAt)
+      .forEach(([id, v]) => {
+
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+          <div class="card-body">
+            <div class="title">${v.title}</div>
+            <div class="meta">
+              <span>Vues: ${v.views || 0}</span>
+              <span>${v.type.toUpperCase()}</span>
+            </div>
+            <div class="actions">
+              <button class="edit-btn" onclick="editVideo('${id}')">Modifier</button>
+              <button class="delete-btn" onclick="deleteVideo('${id}')">Supprimer</button>
+            </div>
+          </div>
+        `;
+
+        videoGrid.appendChild(card);
+      });
+  });
+}
+
+// ✏️ Edit video
+function editVideo(id) {
+  location.href = `edit-video.html?id=${id}`;
+}
+
+// ❌ Delete video
+function deleteVideo(id) {
+  if(confirm("Voulez-vous vraiment supprimer cette vidéo ?")) {
+    remove(ref(db, "videos/"+id))
+      .then(() => alert("Vidéo supprimée !"))
+      .catch(e => alert("Erreur: "+e.message));
+  }
+}
+
+// 🔘 Filter
+filterSelect.addEventListener("change", loadVideos);
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont;
+  background:#181818;
+  color:white;
+}
+
+/* HEADER */
+header{
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  z-index:10;
+}
+header h1{font-size:20px;font-weight:600}
+header .right{display:flex;gap:10px;align-items:center}
+button{
+  background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer;
+}
+button:hover{background:#333}
+
+/* FILTER & UPLOAD */
+.controls{margin-top:56px;display:flex;justify-content:space-between;align-items:center;padding:16px}
+.controls select{padding:6px 12px;border-radius:12px;border:none;background:#202020;color:white;cursor:pointer}
+
+/* GRID */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;
+  padding:16px;
+}
+.card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+}
+.thumb{height:140px;background-size:cover;background-position:center}
+.card-body{padding:10px}
+.title{font-weight:600;font-size:14px;margin-bottom:6px}
+.meta{font-size:12px;color:#aaa;margin-bottom:6px}
+.actions{display:flex;gap:6px}
+.edit-btn{background:#f90;color:#111;font-weight:600}
+.delete-btn{background:#cc0000;color:white;font-weight:600}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Lumio Studio</h1>
+  <div class="right">
+    <button id="uploadBtn" onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i> Publier</button>
+  </div>
+</header>
+
+<div class="controls">
+  <label for="filterSelect">Filtrer:</label>
+  <select id="filterSelect">
+    <option value="all">Toutes</option>
+    <option value="video">Vidéos</option>
+    <option value="mv">MV</option>
+  </select>
+</div>
+
+<div class="grid" id="videoGrid"></div>
+
+</body>
+</html>
