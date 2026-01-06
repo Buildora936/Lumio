@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Publier une vidéo – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let currentUser = null;
+let channelData = null;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    alert("Connexion requise");
+    location.href = "auth.html";
+    return;
+  }
+  currentUser = user;
+  const chSnap = await get(ref(db, `channels/${user.uid}`));
+  if (!chSnap.exists()) {
+    alert("Aucune chaîne trouvée");
+    location.href = "channel.html";
+    return;
+  }
+  channelData = chSnap.val();
+});
+
+function toBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result);
+    reader.onerror = err => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById("publishBtn").onclick = async () => {
+  const title = titleInput.value.trim();
+  const description = descriptionInput.value.trim();
+  const videoFile = videoInput.files[0];
+  const thumbFile = thumbInput.files[0];
+  const allowComments = commentsToggle.checked;
+
+  if(!title || !description || !videoFile || !thumbFile){
+    alert("Tous les champs sont obligatoires");
+    return;
+  }
+
+  publishBtn.disabled = true;
+  publishBtn.textContent = "Publication…";
+
+  const videoBase64 = await toBase64(videoFile);
+  const thumbBase64 = await toBase64(thumbFile);
+
+  await push(ref(db,"videos"),{
+    title,
+    description,
+    videoBase64,
+    thumbnailBase64: thumbBase64,
+    channelId: currentUser.uid,
+    channelName: channelData.name,
+    createdAt: Date.now(),
+    views: 0,
+    allowComments,
+    type: "video"
+  });
+
+  location.href = "index.html";
+};
+</script>
+
+<style>
+body{margin:0;background:#181818;color:white;font-family:system-ui}
+.container{max-width:640px;margin:80px auto;padding:20px}
+input,textarea{width:100%;padding:12px;margin-top:10px;border-radius:10px;border:none;background:#202020;color:white}
+button{margin-top:16px;padding:14px;border:none;border-radius:20px;background:#fff;color:#000;font-weight:600;cursor:pointer}
+label{font-size:14px;color:#ccc;margin-top:12px;display:block}
+.toggle{display:flex;align-items:center;gap:10px;margin-top:12px}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>Publier une vidéo</h2>
+
+  <label>Titre de la vidéo</label>
+  <input id="titleInput" placeholder="Ex : Découvrir Lumio">
+
+  <label>Description</label>
+  <textarea id="descriptionInput" rows="4"></textarea>
+
+  <label>Vidéo (galerie)</label>
+  <input id="videoInput" type="file" accept="video/*">
+
+  <label>Miniature (image)</label>
+  <input id="thumbInput" type="file" accept="image/*">
+
+  <div class="toggle">
+    <input type="checkbox" id="commentsToggle" checked>
+    <label for="commentsToggle">Autoriser les commentaires</label>
+  </div>
+
+  <button id="publishBtn">Publier</button>
+</div>
+
+</body>
+</html>
