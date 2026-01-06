@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Playlists – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let currentUser = null;
+
+// 🔐 Auth check
+onAuthStateChanged(auth, user => {
+  if(!user){
+    alert("Vous devez être connecté pour voir vos playlists.");
+    location.href = "auth.html";
+  } else {
+    currentUser = user;
+    loadPlaylists();
+  }
+});
+
+// Charger les playlists
+const grid = document.getElementById("grid");
+
+function loadPlaylists(){
+  onValue(ref(db, "playlists"), snap => {
+    grid.innerHTML = "";
+    if(!snap.exists()) return;
+
+    Object.entries(snap.val())
+      .sort((a,b) => b[1].createdAt - a[1].createdAt)
+      .forEach(([id, p]) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.onclick = () => location.href = `player.html?id=${p.videoId}`;
+
+        card.innerHTML = `
+          <div class="thumb" style="background-image:url('${p.thumbnailBase64}')"></div>
+          <div class="card-body">
+            <div class="title">${p.title}</div>
+            <div class="meta">${p.videosCount || 1} vidéo(s)</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+  });
+}
+
+// 🔶 Créer playlist
+const createForm = document.getElementById("createForm");
+createForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  if(!currentUser) return;
+
+  const title = document.getElementById("playlistTitle").value.trim();
+  const videoFile = document.getElementById("video").files[0];
+  const thumbFile = document.getElementById("thumbnail").files[0];
+
+  if(!title || !videoFile || !thumbFile){
+    alert("Veuillez remplir tous les champs obligatoires.");
+    return;
+  }
+
+  // Convertir fichiers en base64
+  const toBase64 = file => new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => res(reader.result);
+    reader.onerror = error => rej(error);
+  });
+
+  const videoBase64 = await toBase64(videoFile);
+  const thumbnailBase64 = await toBase64(thumbFile);
+
+  const playlistRef = push(ref(db, "playlists"));
+  await playlistRef.set({
+    title,
+    videoBase64,
+    thumbnailBase64,
+    videosCount: 1,
+    createdBy: currentUser.uid,
+    createdAt: serverTimestamp()
+  });
+
+  alert("Playlist créée !");
+  createForm.reset();
+});
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont;background:#181818;color:white;}
+
+/* HEADER */
+header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10;}
+header h1{font-size:20px;font-weight:600;}
+header button{background:#202020;color:white;border:none;padding:6px 12px;border-radius:12px;cursor:pointer;}
+
+/* CONTENT */
+main{margin-top:72px;padding:16px;max-width:800px;margin-left:auto;margin-right:auto;}
+
+/* FORM */
+form{display:flex;flex-direction:column;gap:12px;margin-bottom:24px;}
+input[type=text], input[type=file]{padding:8px;border-radius:10px;border:none;background:#222;color:white;width:100%;}
+button.submit-btn{background:#ff8800;color:white;border:none;padding:12px;border-radius:20px;font-weight:600;cursor:pointer;}
+button.submit-btn:hover{background:#ffa633;}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;}
+.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer;}
+.thumb{height:140px;background-size:cover;background-position:center;}
+.card-body{padding:10px;}
+.title{font-weight:600;font-size:14px;margin-bottom:6px;}
+.meta{font-size:12px;color:#aaa;}
+
+/* SIDEBAR */
+.sidebar{width:72px;background:#0f0f0f;padding-top:12px;position:fixed;top:56px;left:0;height:100%;}
+.sidebar a{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;font-size:11px;color:#ccc;text-decoration:none;}
+.sidebar a i{font-size:18px;}
+.sidebar a:hover{background:#1f1f1f;color:white;}
+
+/* MOBILE */
+@media(max-width:640px){.sidebar{display:none;}}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Playlists</h1>
+  <button onclick="location.href='index.html'"><i class="fa-solid fa-arrow-left"></i></button>
+</header>
+
+<div class="sidebar">
+  <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
+  <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
+  <a href="#"><i class="fa-solid fa-tv"></i><span>Abos</span></a>
+  <a href="#"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
+  <a href="#"><i class="fa-solid fa-circle-plus"></i><span>Créer Playlist</span></a>
+</div>
+
+<main>
+  <form id="createForm">
+    <input id="playlistTitle" type="text" placeholder="Titre de la playlist" required>
+    <label>Thumbnail (image)</label>
+    <input id="thumbnail" type="file" accept="image/*" required>
+    <label>Vidéo (MP4)</label>
+    <input id="video" type="file" accept="video/*" required>
+    <button class="submit-btn" type="submit">Créer Playlist</button>
+  </form>
+
+  <div class="grid" id="grid"></div>
+</main>
+
+</body>
+</html>
