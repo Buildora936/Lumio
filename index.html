@@ -5,7 +5,6 @@
 <title>Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="em2dfNvqk0T6RU-Pq7e8b4Jwv1Dutfqnpnt0uSzHsuc" />
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
@@ -24,12 +23,19 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+// UI
 const grid = document.getElementById("grid");
 const startBtn = document.getElementById("startBtn");
 const profileBtn = document.getElementById("profileBtn");
 const uploadBtn = document.getElementById("uploadBtn");
-
 const searchInput = document.getElementById("searchInput");
+
+// Menu burger
+const burgerMenu = document.getElementById("burgerMenu");
+function openMenu(){ burgerMenu.style.left = "0"; }
+function closeMenu(){ burgerMenu.style.left = "-250px"; }
+
+// Recherche
 searchInput.addEventListener("keypress", e => {
   if(e.key === "Enter"){
     const query = encodeURIComponent(searchInput.value.trim());
@@ -39,7 +45,7 @@ searchInput.addEventListener("keypress", e => {
 
 // Auth state
 onAuthStateChanged(auth, user => {
-  if(user){
+  if (user) {
     startBtn.style.display = "none";
     profileBtn.style.display = "flex";
     uploadBtn.style.display = "flex";
@@ -53,7 +59,7 @@ onAuthStateChanged(auth, user => {
 // Load videos
 onValue(ref(db, "videos"), snap => {
   grid.innerHTML = "";
-  if(!snap.exists()) return;
+  if (!snap.exists()) return;
 
   Object.entries(snap.val())
     .sort((a,b) => b[1].createdAt - a[1].createdAt)
@@ -75,151 +81,69 @@ onValue(ref(db, "videos"), snap => {
       grid.appendChild(card);
     });
 });
-
-// Menu burger open/close
-function openMenu(){ document.getElementById("burgerMenu").style.left = "0"; }
-function closeMenu(){ document.getElementById("burgerMenu").style.left = "-250px"; }
 </script>
 
 <style>
 *{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#181818;
-  color:white;
-}
+body{margin:0;font-family:system-ui;background:#181818;color:white}
 
 /* HEADER */
 header{
-  position:fixed; top:0; left:0; right:0;
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-  z-index:20;
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;z-index:10
 }
-.left,.center,.right{
-  display:flex;
-  align-items:center;
-  gap:14px;
-}
+.left,.center,.right{display:flex;align-items:center;gap:14px}
 .search input{
-  width:420px;
-  max-width:60vw;
-  padding:8px 16px;
-  border-radius:20px;
-  border:none;
-  outline:none;
-  background:#202020;
-  color:white;
+  width:420px;max-width:60vw;padding:8px 16px;border-radius:20px;border:none;outline:none;
+  background:#202020;color:white
 }
 button{
-  background:#202020;
-  color:white;
-  border:none;
-  padding:8px 14px;
-  border-radius:20px;
-  cursor:pointer;
+  background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer
 }
 
 /* LAYOUT */
-.layout{
-  display:flex;
-  margin-top:56px;
-}
+.layout{display:flex;margin-top:56px}
 
 /* SIDEBAR */
 .sidebar{
-  width:80px;
-  background:#0f0f0f;
+  width:80px;background:#0f0f0f;
 }
 .sidebar a{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:6px;
-  padding:14px 0;
-  font-size:11px;
-  color:#aaa;
-  text-decoration:none;
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;
+  font-size:11px;color:#aaa;text-decoration:none
 }
-.sidebar i{ font-size:20px; }
-.sidebar a:hover{ background:#1f1f1f; color:white; }
-
-/* CONTENT */
-.content{
-  flex:1;
-  padding:16px;
-}
+.sidebar i{font-size:20px}
+.sidebar a:hover{background:#1f1f1f;color:white}
 
 /* GRID */
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-  gap:16px;
-}
-
-/* CARD */
-.card{
-  background:#202020;
-  border-radius:14px;
-  overflow:hidden;
-  cursor:pointer;
-}
-.thumb{
-  height:140px;
-  background-size:cover;
-  background-position:center;
-}
+.content{flex:1;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer}
+.thumb{height:140px;background-size:cover;background-position:center}
 .card-body{padding:10px}
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
 
 /* BURGER MENU */
 #burgerMenu{
-  position:fixed;
-  top:0;
-  left:-250px;
-  width:250px;
-  height:100%;
-  background:#111;
-  color:white;
-  transition:0.3s;
-  padding:20px;
-  z-index:30;
+  position:fixed;top:0;left:-250px;width:250px;height:100%;
+  background:#111;color:white;transition:0.3s;padding:20px;z-index:100;
+  display:flex;flex-direction:column;
 }
-#burgerMenu button{margin-bottom:20px; font-size:20px; background:none; color:#ff6a00; border:none; cursor:pointer;}
+#burgerMenu button{margin-bottom:20px;font-size:20px;background:none;color:white;border:none;cursor:pointer;text-align:left}
 #burgerMenu nav a{
-  display:block;
-  padding:10px 0;
-  color:#aaa;
-  text-decoration:none;
-  font-weight:500;
+  padding:10px 0;color:white;text-decoration:none;font-weight:500;
 }
-#burgerMenu nav a:hover{color:white;}
-
+#burgerMenu nav a:hover{color:#ff6a00}
 #openBtn{
-  position:fixed;
-  top:10px;
-  left:10px;
-  font-size:24px;
-  background:#ff6a00;
-  color:white;
-  border:none;
-  padding:10px;
-  border-radius:6px;
-  z-index:31;
-  cursor:pointer;
+  position:fixed;top:12px;left:12px;font-size:24px;background:none;color:white;border:none;cursor:pointer;z-index:101;
 }
 </style>
 </head>
 
 <body>
-
-<!-- Burger Menu -->
+<!-- Menu burger -->
 <div id="burgerMenu">
   <button onclick="closeMenu()">&times; Fermer</button>
   <nav>
@@ -241,16 +165,12 @@ button{
   </nav>
 </div>
 
-<!-- Open Burger Button -->
-<button id="openBtn" onclick="openMenu()">☰ Menu</button>
+<!-- Bouton burger -->
+<button id="openBtn" onclick="openMenu()">☰</button>
 
 <header>
-  <div class="left">
-    <h2>Lumio</h2>
-  </div>
-  <div class="search">
-    <input id="searchInput" placeholder="Rechercher sur Lumio">
-  </div>
+  <div class="left"><h2>Lumio</h2></div>
+  <div class="search"><input id="searchInput" placeholder="Rechercher sur Lumio"></div>
   <div class="right">
     <button id="uploadBtn" style="display:none" onclick="location.href='upload.html'">
       <i class="fa-solid fa-plus"></i>
@@ -270,11 +190,10 @@ button{
     <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
     <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
   </nav>
-  
+
   <main class="content">
     <div class="grid" id="grid"></div>
   </main>
 </div>
-
 </body>
 </html>
