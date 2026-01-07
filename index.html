@@ -5,8 +5,8 @@
 <title>Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="em2dfNvqk0T6RU-Pq7e8b4Jwv1Dutfqnpnt0uSzHsuc" />
-<link rel="stylesheet"
- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -29,16 +29,16 @@ const grid = document.getElementById("grid");
 const startBtn = document.getElementById("startBtn");
 const profileBtn = document.getElementById("profileBtn");
 const uploadBtn = document.getElementById("uploadBtn");
-
-
 const searchInput = document.getElementById("searchInput");
+
+// Barre de recherche
 searchInput.addEventListener("keypress", e => {
   if(e.key === "Enter"){
     const query = encodeURIComponent(searchInput.value.trim());
     if(query) window.location.href = `search.html?q=${query}`;
   }
 });
- 
+
 // Auth state
 onAuthStateChanged(auth, user => {
   if (user) {
@@ -65,8 +65,7 @@ onValue(ref(db, "videos"), snap => {
       card.onclick = () => location.href = `player.html?id=${id}`;
 
       card.innerHTML = `
-        <div class="thumb"
-         style="background-image:url('${v.thumbnailBase64}')"></div>
+        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
         <div class="card-body">
           <div class="title">${v.title}</div>
           <div class="meta">
@@ -78,10 +77,14 @@ onValue(ref(db, "videos"), snap => {
       grid.appendChild(card);
     });
 });
+
+// Menu burger
+function openMenu(){ document.getElementById("burgerMenu").style.left = "0"; }
+function closeMenu(){ document.getElementById("burgerMenu").style.left = "-250px"; }
 </script>
 
 <style>
-*{box-sizing:border-box}
+*{box-sizing:border-box;}
 body{
   margin:0;
   font-family:system-ui;
@@ -91,144 +94,28 @@ body{
 
 /* HEADER */
 header{
-  position:fixed;
-  top:0;left:0;right:0;
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-  z-index:10;
+  position:fixed; top:0; left:0; right:0; height:56px;
+  background:#0f0f0f; display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; z-index:10;
 }
-
 .left,.center,.right{
-  display:flex;
-  align-items:center;
-  gap:14px;
+  display:flex; align-items:center; gap:14px;
 }
-
 .search input{
-  width:420px;
-  max-width:60vw;
-  padding:8px 16px;
-  border-radius:20px;
-  border:none;
-  outline:none;
-  background:#202020;
-  color:white;
+  width:420px; max-width:60vw; padding:8px 16px; border-radius:20px;
+  border:none; outline:none; background:#202020; color:white;
 }
-
 button{
-  background:#202020;
-  color:white;
-  border:none;
-  padding:8px 14px;
-  border-radius:20px;
-  cursor:pointer;
+  background:#202020; color:white; border:none; padding:8px 14px;
+  border-radius:20px; cursor:pointer;
 }
 
 /* LAYOUT */
-.layout{
-  display:flex;
-  margin-top:56px;
-}
+.layout{ display:flex; margin-top:56px; }
 
 /* SIDEBAR */
 .sidebar{
-  width:80px;
-  background:#0f0f0f;
+  width:80px; background:#0f0f0f;
 }
 .sidebar a{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:6px;
-  padding:14px 0;
-  font-size:11px;
-  color:#aaa;
-  text-decoration:none;
-}
-.sidebar i{
-  font-size:20px;
-}
-.sidebar a:hover{
-  background:#1f1f1f;
-  color:white;
-}
-
-/* CONTENT */
-.content{
-  flex:1;
-  padding:16px;
-}
-
-/* GRID */
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-  gap:16px;
-}
-
-/* CARD */
-.card{
-  background:#202020;
-  border-radius:14px;
-  overflow:hidden;
-  cursor:pointer;
-}
-.thumb{
-  height:140px;
-  background-size:cover;
-  background-position:center;
-}
-.card-body{padding:10px}
-.title{font-weight:600}
-.meta{font-size:12px;color:#aaa}
-</style>
-</head>
-
-<body>
-
-<header>
-  <div class="left">
-    <h2>Lumio</h2>
-  </div>
-
-  <div class="search">
-  <input id="searchInput" placeholder="Rechercher sur Lumio">
-</div>
-
-  <div class="right">
-    <button id="uploadBtn" style="display:none"
-     onclick="location.href='upload.html'">
-      <i class="fa-solid fa-plus"></i>
-    </button>
-
-    <button id="startBtn" onclick="location.href='auth.html'">
-      Commencer
-    </button>
-
-    <button id="profileBtn" style="display:none"
-     onclick="location.href='channel.html'">
-      <i class="fa-solid fa-user"></i>
-    </button>
-  </div>
-</header>
-
-<div class="layout">
-  <nav class="sidebar">
-    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
-    <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
-    <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
-    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
-  </nav>
- 
-  <main class="content">
-    <div class="grid" id="grid"></div>
-  </main>
-</div>
-
-</body>
-</html>
+  display:flex; flex-direction:column
