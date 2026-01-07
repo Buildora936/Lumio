@@ -24,14 +24,12 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// UI
 const grid = document.getElementById("grid");
 const startBtn = document.getElementById("startBtn");
 const profileBtn = document.getElementById("profileBtn");
 const uploadBtn = document.getElementById("uploadBtn");
-const searchInput = document.getElementById("searchInput");
 
-// Barre de recherche
+const searchInput = document.getElementById("searchInput");
 searchInput.addEventListener("keypress", e => {
   if(e.key === "Enter"){
     const query = encodeURIComponent(searchInput.value.trim());
@@ -41,7 +39,7 @@ searchInput.addEventListener("keypress", e => {
 
 // Auth state
 onAuthStateChanged(auth, user => {
-  if (user) {
+  if(user){
     startBtn.style.display = "none";
     profileBtn.style.display = "flex";
     uploadBtn.style.display = "flex";
@@ -55,7 +53,7 @@ onAuthStateChanged(auth, user => {
 // Load videos
 onValue(ref(db, "videos"), snap => {
   grid.innerHTML = "";
-  if (!snap.exists()) return;
+  if(!snap.exists()) return;
 
   Object.entries(snap.val())
     .sort((a,b) => b[1].createdAt - a[1].createdAt)
@@ -78,13 +76,13 @@ onValue(ref(db, "videos"), snap => {
     });
 });
 
-// Menu burger
+// Menu burger open/close
 function openMenu(){ document.getElementById("burgerMenu").style.left = "0"; }
 function closeMenu(){ document.getElementById("burgerMenu").style.left = "-250px"; }
 </script>
 
 <style>
-*{box-sizing:border-box;}
+*{box-sizing:border-box}
 body{
   margin:0;
   font-family:system-ui;
@@ -94,71 +92,136 @@ body{
 
 /* HEADER */
 header{
-  position:fixed; top:0; left:0; right:0; height:56px;
-  background:#0f0f0f; display:flex; align-items:center; justify-content:space-between;
-  padding:0 16px; z-index:10;
+  position:fixed; top:0; left:0; right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  z-index:20;
 }
 .left,.center,.right{
-  display:flex; align-items:center; gap:14px;
+  display:flex;
+  align-items:center;
+  gap:14px;
 }
 .search input{
-  width:420px; max-width:60vw; padding:8px 16px; border-radius:20px;
-  border:none; outline:none; background:#202020; color:white;
+  width:420px;
+  max-width:60vw;
+  padding:8px 16px;
+  border-radius:20px;
+  border:none;
+  outline:none;
+  background:#202020;
+  color:white;
 }
 button{
-  background:#202020; color:white; border:none; padding:8px 14px;
-  border-radius:20px; cursor:pointer;
+  background:#202020;
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:20px;
+  cursor:pointer;
 }
 
 /* LAYOUT */
-.layout{ display:flex; margin-top:56px; }
+.layout{
+  display:flex;
+  margin-top:56px;
+}
 
 /* SIDEBAR */
 .sidebar{
-  width:80px; background:#0f0f0f;
+  width:80px;
+  background:#0f0f0f;
 }
 .sidebar a{
-  display:flex; flex-direction:column; align-items:center; gap:6px;
-  padding:14px 0; font-size:11px; color:#aaa; text-decoration:none;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  padding:14px 0;
+  font-size:11px;
+  color:#aaa;
+  text-decoration:none;
 }
 .sidebar i{ font-size:20px; }
 .sidebar a:hover{ background:#1f1f1f; color:white; }
 
 /* CONTENT */
-.content{ flex:1; padding:16px; }
+.content{
+  flex:1;
+  padding:16px;
+}
 
 /* GRID */
 .grid{
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;
 }
 
 /* CARD */
-.card{ background:#202020; border-radius:14px; overflow:hidden; cursor:pointer; }
-.thumb{ height:140px; background-size:cover; background-position:center; }
+.card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+  cursor:pointer;
+}
+.thumb{
+  height:140px;
+  background-size:cover;
+  background-position:center;
+}
 .card-body{padding:10px}
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
 
 /* BURGER MENU */
 #burgerMenu{
-  position:fixed; top:0; left:-250px; width:250px; height:100%;
-  background:#111; color:white; transition:0.3s; padding:20px; z-index:100;
+  position:fixed;
+  top:0;
+  left:-250px;
+  width:250px;
+  height:100%;
+  background:#111;
+  color:white;
+  transition:0.3s;
+  padding:20px;
+  z-index:30;
 }
-#burgerMenu nav{ display:flex; flex-direction:column; gap:14px; }
-#burgerMenu a{ color:white; text-decoration:none; font-weight:600; }
-#burgerMenu a:hover{ color:#ff6a00; }
+#burgerMenu button{margin-bottom:20px; font-size:20px; background:none; color:#ff6a00; border:none; cursor:pointer;}
+#burgerMenu nav a{
+  display:block;
+  padding:10px 0;
+  color:#aaa;
+  text-decoration:none;
+  font-weight:500;
+}
+#burgerMenu nav a:hover{color:white;}
+
 #openBtn{
-  position:fixed; top:10px; left:10px; font-size:24px;
-  background:#ff6a00; color:white; border:none; padding:10px; border-radius:6px; z-index:101; cursor:pointer;
+  position:fixed;
+  top:10px;
+  left:10px;
+  font-size:24px;
+  background:#ff6a00;
+  color:white;
+  border:none;
+  padding:10px;
+  border-radius:6px;
+  z-index:31;
+  cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<!-- Menu burger -->
+<!-- Burger Menu -->
 <div id="burgerMenu">
-  <button onclick="closeMenu()" style="margin-bottom:20px;font-size:20px;">&times; Fermer</button>
+  <button onclick="closeMenu()">&times; Fermer</button>
   <nav>
     <a href="index.html">Accueil</a>
     <a href="trending.html">Tendances</a>
@@ -178,7 +241,7 @@ button{
   </nav>
 </div>
 
-<!-- Bouton hamburger -->
+<!-- Open Burger Button -->
 <button id="openBtn" onclick="openMenu()">☰ Menu</button>
 
 <header>
@@ -207,7 +270,7 @@ button{
     <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
     <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
   </nav>
-
+  
   <main class="content">
     <div class="grid" id="grid"></div>
   </main>
