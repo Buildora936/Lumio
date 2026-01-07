@@ -10,7 +10,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, push, set, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -23,131 +23,96 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUser = null;
-let channelId = null;
+let currentUser;
+let channelId;
+let channelName;
 
+/* 🔐 AUTH + CHANNEL CHECK */
 onAuthStateChanged(auth, async user => {
   if (!user) return location.href = "auth.html";
   currentUser = user;
 
-  const snap = await get(ref(db, "userChannels/" + user.uid));
+  const q = query(ref(db, "channels"), orderByChild("ownerUid"), equalTo(user.uid));
+  const snap = await get(q);
+
   if (!snap.exists()) {
-    alert("Aucune chaîne trouvée");
-    location.href = "channel.html";
-  }
-  channelId = snap.val();
-});
-
-/* 📁 base64 */
-function toBase64(file){
-  return new Promise(res => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result);
-    reader.readAsDataURL(file);
-  });
-}
-
-/* 🚀 Upload */
-document.getElementById("form").onsubmit = async e => {
-  e.preventDefault();
-
-  const title = titleInput.value.trim();
-  const description = descInput.value.trim();
-  const allowComments = commentsToggle.checked;
-  const videoFile = videoInput.files[0];
-  const thumbFile = thumbInput.files[0];
-
-  if (!title || !videoFile || !thumbFile) {
-    alert("Champs obligatoires manquants");
+    location.href = "add-channel.html";
     return;
   }
 
-  const videoBase64 = await toBase64(videoFile);
-  const thumbBase64 = await toBase64(thumbFile);
+  const data = snap.val();
+  channelId = Object.keys(data)[0];
+  channelName = data[channelId].name;
+});
 
-  const videoRef = push(ref(db, "videos"));
-  await set(videoRef, {
-    title,
-    description,
-    videoBase64,
-    thumbnailBase64: thumbBase64,
-    channelId,
-    createdAt: Date.now(),
-    views: 0,
-    likes: 0,
-    dislikes: 0,
-    allowComments
-  });
+/* 🔁 base64 */
+const toBase64 = file => new Promise(res => {
+  const reader = new FileReader();
+  reader.onload = () => res(reader.result);
+  reader.readAsDataURL(file);
+});
 
-  location.href = "index.html";
-};
+/* 🚀 UPLOAD */
+document.addEventListener("DOMContentLoaded", () => {
+  form.onsubmit = async e => {
+    e.preventDefault();
+
+    const title = titleInput.value.trim();
+    const description = descInput.value.trim();
+    const allowComments = commentsToggle.checked;
+    const videoFile = videoInput.files[0];
+    const thumbFile = thumbInput.files[0];
+
+    if (!title || !videoFile || !thumbFile) {
+      alert("Champs obligatoires manquants");
+      return;
+    }
+
+    const videoBase64 = await toBase64(videoFile);
+    const thumbBase64 = await toBase64(thumbFile);
+
+    const videoRef = push(ref(db, "videos"));
+
+    await set(videoRef, {
+      ownerUid: currentUser.uid,
+      channelId,
+      channelName,
+      title,
+      description,
+      videoBase64,
+      thumbnailBase64: thumbBase64,
+      allowComments,
+      views: 0,
+      likes: 0,
+      dislikes: 0,
+      monetized: false,
+      createdAt: Date.now()
+    });
+
+    location.href = "index.html";
+  };
+});
 </script>
 
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#181818;
-  color:white
-}
-main{
-  max-width:600px;
-  margin:80px auto;
-  background:#202020;
-  padding:24px;
-  border-radius:14px
-}
-h2{text-align:center;margin-bottom:20px}
-input,textarea{
-  width:100%;
-  padding:12px;
-  margin-bottom:14px;
-  border:none;
-  border-radius:8px;
-  background:#2a2a2a;
-  color:white
-}
-label{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:14px
-}
-button{
-  width:100%;
-  padding:14px;
-  background:#ff6a00;
-  border:none;
-  border-radius:20px;
-  font-weight:700;
-  cursor:pointer
-}
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+main{max-width:600px;margin:80px auto;background:#202020;padding:24px;border-radius:14px}
+input,textarea{width:100%;padding:12px;margin-bottom:14px;border:none;border-radius:8px;background:#2a2a2a;color:white}
+button{width:100%;padding:14px;background:#ff6a00;border:none;border-radius:20px;font-weight:700;cursor:pointer}
 </style>
 </head>
 
 <body>
-
 <main>
   <h2>Publier une vidéo</h2>
-
   <form id="form">
-    <input id="titleInput" placeholder="Titre de la vidéo" required>
-    <textarea id="descInput" placeholder="Description (optionnel)"></textarea>
-
-    <label>
-      <input type="checkbox" id="commentsToggle" checked>
-      Autoriser les commentaires
-    </label>
-
-    <input type="file" id="videoInput" accept="video/*" required>
-    <input type="file" id="thumbInput" accept="image/*" required>
-
-    <button type="submit">
-      Publier maintenant
-    </button>
+    <input id="titleInput" placeholder="Titre" required>
+    <textarea id="descInput" placeholder="Description"></textarea>
+    <label><input type="checkbox" id="commentsToggle" checked> Autoriser les commentaires</label>
+    <input id="videoInput" type="file" accept="video/*" required>
+    <input id="thumbInput" type="file" accept="image/*" required>
+    <button type="submit">Publier</button>
   </form>
 </main>
-
 </body>
 </html>
