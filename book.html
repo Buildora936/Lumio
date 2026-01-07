@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Livre – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com"
+});
+
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+const id = new URLSearchParams(location.search).get("id");
+
+const title = document.getElementById("title");
+const desc = document.getElementById("desc");
+const img = document.getElementById("img");
+const buyBtn = document.getElementById("buy");
+
+let currentUser;
+
+onAuthStateChanged(auth, u => currentUser = u);
+
+get(ref(db, "books/"+id)).then(snap=>{
+  const b = snap.val();
+  title.textContent = b.title;
+  desc.textContent = b.description;
+  img.src = b.coverBase64;
+  buyBtn.textContent = `Acheter $${b.price}`;
+});
+
+buyBtn.onclick = () => {
+  if (!currentUser) return alert("Connecte-toi");
+  set(ref(db, `bookSales/${id}/${currentUser.uid}`), {
+    paid:true,
+    paidAt:Date.now()
+  }).then(()=>alert("Livre ajouté à ta bibliothèque"));
+};
+</script>
+
+<style>
+body{background:#181818;color:white;font-family:system-ui;margin:0;padding:16px}
+img{width:200px;border-radius:12px}
+button{
+  background:#ff7f50;
+  border:none;
+  padding:12px 20px;
+  border-radius:20px;
+  font-weight:600;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+<img id="img">
+<h2 id="title"></h2>
+<p id="desc"></p>
+<button id="buy"></button>
+</body>
+</html>
