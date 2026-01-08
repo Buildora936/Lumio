@@ -2,15 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Créer une Chaîne – Lumio</title>
+<title>Créer une chaîne – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -23,86 +21,84 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUser = null;
+let user = null;
 
-onAuthStateChanged(auth, user => {
-  if (!user) {
-    alert("Vous devez être connecté pour créer une chaîne.");
-    location.href = "auth.html";
-  } else {
-    currentUser = user;
-  }
+onAuthStateChanged(auth, async u => {
+  if (!u) return location.href = "auth.html";
+  user = u;
+
+  const exists = await get(ref(db, "userChannels/" + user.uid));
+  if (exists.exists()) location.href = "channel.html";
 });
 
 document.getElementById("form").onsubmit = async e => {
   e.preventDefault();
-  if (!currentUser) return;
 
-  const name = document.getElementById("name").value.trim();
-  const description = document.getElementById("description").value.trim();
-  const avatarFile = document.getElementById("avatar").files[0];
+  const name = channelName.value.trim();
+  const description = channelDesc.value.trim();
 
-  if (!name || !avatarFile) {
-    alert("Nom et avatar obligatoires.");
-    return;
-  }
+  if (!name) return alert("Nom de chaîne requis");
 
-  const toBase64 = file => new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => res(reader.result);
-    reader.onerror = err => rej(err);
-  });
+  const channelId = crypto.randomUUID();
 
-  const avatarBase64 = await toBase64(avatarFile);
-
-  const channelRef = push(ref(db, "channels"));
-  await set(channelRef, {
-    userId: currentUser.uid,
+  await set(ref(db, "channels/" + channelId), {
+    ownerUid: user.uid,
     name,
     description,
-    avatarBase64,
-    createdAt: Date.now(),
-    subscribers: 0
+    subscribers: 0,
+    createdAt: Date.now()
   });
 
-  // Lier la chaîne à l'utilisateur
-  await set(ref(db, "userChannels/" + currentUser.uid), channelRef.key);
+  await set(ref(db, "userChannels/" + user.uid), channelId);
 
-  alert("Chaîne créée avec succès !");
   location.href = "channel.html";
 };
 </script>
 
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui;background:#181818;color:white}
-main{max-width:600px;margin:80px auto;padding:24px;background:#202020;border-radius:14px}
-h2{text-align:center;margin-bottom:20px}
-input,textarea{width:100%;padding:12px;margin-bottom:14px;border:none;border-radius:8px;background:#2a2a2a;color:white}
-label{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-weight:600}
-button{width:100%;padding:14px;background:#ff6a00;border:none;border-radius:20px;font-weight:700;cursor:pointer}
-button:hover{background:#ffa633}
+body{
+  margin:0;
+  background:#181818;
+  color:white;
+  font-family:system-ui;
+}
+main{
+  max-width:500px;
+  margin:100px auto;
+  background:#202020;
+  padding:24px;
+  border-radius:14px;
+}
+input,textarea{
+  width:100%;
+  padding:12px;
+  margin-bottom:14px;
+  background:#2a2a2a;
+  border:none;
+  border-radius:8px;
+  color:white;
+}
+button{
+  width:100%;
+  padding:14px;
+  background:#ff6a00;
+  border:none;
+  border-radius:20px;
+  font-weight:700;
+  cursor:pointer;
+}
 </style>
 </head>
 
 <body>
 
 <main>
-<h2>Créer une chaîne</h2>
-
-<form id="form">
-  <label for="name">Nom de la chaîne</label>
-  <input id="name" type="text" placeholder="Nom de votre chaîne" required>
-
-  <label for="description">Description (optionnel)</label>
-  <textarea id="description" placeholder="Parlez de votre chaîne"></textarea>
-
-  <label for="avatar">Avatar de la chaîne</label>
-  <input id="avatar" type="file" accept="image/*" required>
-
-  <button type="submit">Créer la chaîne</button>
-</form>
+  <h2>Créer votre chaîne</h2>
+  <form id="form">
+    <input id="channelName" placeholder="Nom de la chaîne" required>
+    <textarea id="channelDesc" placeholder="Description (optionnel)"></textarea>
+    <button>Créer la chaîne</button>
+  </form>
 </main>
 
 </body>
