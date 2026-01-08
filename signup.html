@@ -8,7 +8,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -16,50 +16,124 @@ const firebaseConfig = {
   databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId: "lumio-6efed"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-function signup() {
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const pass = document.getElementById("pass").value;
+const form = document.getElementById("signupForm");
+const errorBox = document.getElementById("error");
 
-  createUserWithEmailAndPassword(auth,email,pass)
-    .then(userCred => {
-      const uid = userCred.user.uid;
-      set(ref(db, "users/"+uid), {
-        name:name,
-        email:email,
-        createdAt:Date.now(),
-        subscribers:0
-      });
-      window.location.href="index.html";
-    })
-    .catch(e=>{ alert(e.message); });
+function isTempEmail(email){
+  return /(mailinator|tempmail|10minutemail|guerrillamail)/i.test(email);
 }
+
+function toBase64(file){
+  return new Promise((res, rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = err=>rej(err);
+    r.readAsDataURL(file);
+  });
+}
+
+form.onsubmit = async e => {
+  e.preventDefault();
+  errorBox.textContent = "";
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  const confirm = confirmInput.value;
+  const username = usernameInput.value.trim().toLowerCase();
+  const fullName = fullNameInput.value.trim();
+  const country = countryInput.value;
+  const language = languageInput.value;
+  const bio = bioInput.value;
+  const photo = photoInput.files[0];
+  const accepted = termsInput.checked && privacyInput.checked;
+
+  if(password !== confirm) return errorBox.textContent = "Les mots de passe ne correspondent pas";
+  if(password.length < 8) return errorBox.textContent = "Mot de passe trop court";
+  if(!/\d/.test(password)) return errorBox.textContent = "Ajoute un chiffre";
+  if(!/[a-zA-Z]/.test(password)) return errorBox.textContent = "Ajoute une lettre";
+  if(isTempEmail(email)) return errorBox.textContent = "Email temporaire refusé";
+  if(!photo) return errorBox.textContent = "Photo obligatoire";
+  if(!accepted) return errorBox.textContent = "Accepte les conditions";
+
+  const usernameSnap = await get(ref(db, "usernames/" + username));
+  if(usernameSnap.exists()) return errorBox.textContent = "Username déjà utilisé";
+
+  const photoBase64 = await toBase64(photo);
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  const uid = cred.user.uid;
+
+  await set(ref(db, "users/" + uid), {
+    email,
+    username,
+    fullName: fullName || null,
+    photoURL: photoBase64,
+    bio,
+    country,
+    language,
+    role: "user",
+    verified: false,
+    createdAt: Date.now()
+  });
+
+  await set(ref(db, "usernames/" + username), uid);
+
+  location.href = "add-channel.html";
+};
 </script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#181818;color:white;display:flex;justify-content:center;align-items:center;height:100vh}
-.box{background:#111;padding:24px;border-radius:16px;text-align:center;width:90%;max-width:360px;}
-.box h1{margin-bottom:10px;color:#ff8c42}
-input{width:100%;padding:10px;margin:10px 0;border-radius:12px;border:none;background:#222;color:white}
-button{width:100%;padding:12px;margin-top:14px;border:none;border-radius:12px;font-size:16px;cursor:pointer;background:#ff8c42;color:#111}
+body{margin:0;font-family:system-ui;background:#0f0f0f;color:white}
+.container{max-width:420px;margin:40px auto;padding:20px}
+input,select,textarea,button{
+  width:100%;margin:8px 0;padding:12px;
+  border-radius:10px;border:none;background:#1f1f1f;color:white
+}
+button{background:white;color:black;font-weight:600;cursor:pointer}
+label{font-size:14px}
+.error{color:#ff5555;font-size:14px}
 </style>
 </head>
+
 <body>
+<div class="container">
+<h2>Créer un compte Lumio</h2>
 
-<div class="box">
-  <h1>Lumio</h1>
-  <input type="text" id="name" placeholder="Nom">
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="pass" placeholder="Mot de passe">
-  <button onclick="signup()">Créer un compte</button>
-  <p style="margin-top:10px;font-size:12px;">
-    Déjà un compte ? <a href="login.html" style="color:#ff8c42;">Se connecter</a>
-  </p>
+<form id="signupForm">
+<input id="emailInput" type="email" placeholder="Email" required>
+<input id="passwordInput" type="password" placeholder="Mot de passe" required>
+<input id="confirmInput" type="password" placeholder="Confirmer mot de passe" required>
+
+<input id="usernameInput" placeholder="Nom d’utilisateur public" required>
+<input id="fullNameInput" placeholder="Nom complet (optionnel)">
+
+<select id="countryInput" required>
+<option value="">Pays</option>
+<option value="HT">Haïti</option>
+<option value="FR">France</option>
+<option value="CA">Canada</option>
+</select>
+
+<select id="languageInput">
+<option value="fr">Français</option>
+<option value="en">English</option>
+</select>
+
+<input id="photoInput" type="file" accept="image/*" required>
+
+<textarea id="bioInput" maxlength="1000" placeholder="Bio (1000 caractères max)"></textarea>
+
+<label><input type="checkbox" id="termsInput"> J’accepte les conditions</label><br>
+<label><input type="checkbox" id="privacyInput"> J’accepte la politique de confidentialité</label>
+
+<div class="error" id="error"></div>
+
+<button type="submit">Créer le compte</button>
+</form>
 </div>
-
 </body>
 </html>
