@@ -5,15 +5,14 @@
 <title>Notifications – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -25,94 +24,124 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUser = null;
+const list = document.getElementById("list");
 
 onAuthStateChanged(auth, user => {
-  if(!user){
-    alert("Connectez-vous pour voir vos notifications");
-    location.href = "auth.html";
-  } else {
-    currentUser = user;
-    loadNotifications();
-  }
-});
+  if (!user) location.href = "auth.html";
 
-const grid = document.getElementById("grid");
+  const notifRef = ref(db, `notifications/${user.uid}`);
 
-// Charger notifications
-function loadNotifications(){
-  const notifRef = ref(db, `notifications/${currentUser.uid}`);
-  onValue(notifRef, snap=>{
-    grid.innerHTML = "";
-    if(!snap.exists()) return;
+  onValue(notifRef, snap => {
+    list.innerHTML = "";
+
+    if (!snap.exists()) {
+      list.innerHTML = "<p class='empty'>Aucune notification</p>";
+      return;
+    }
 
     Object.entries(snap.val())
       .sort((a,b)=>b[1].createdAt - a[1].createdAt)
-      .forEach(([id, n])=>{
+      .forEach(([id,n]) => {
         const div = document.createElement("div");
-        div.className = "notification";
+        div.className = "notif" + (n.read ? "" : " unread");
 
-        let icon = "";
-        if(n.type === "like") icon = "<i class='fa-solid fa-thumbs-up'></i>";
-        if(n.type === "comment") icon = "<i class='fa-solid fa-comment'></i>";
-        if(n.type === "subscribe") icon = "<i class='fa-solid fa-user-plus'></i>";
-        if(n.type === "mv") icon = "<i class='fa-solid fa-video'></i>";
+        div.onclick = async () => {
+          if (!n.read) {
+            await update(ref(db, `notifications/${user.uid}/${id}`), {
+              read:true
+            });
+          }
+
+          if (n.videoId) {
+            location.href = `player.html?id=${n.videoId}`;
+          }
+        };
 
         div.innerHTML = `
-          <div class="icon">${icon}</div>
-          <div class="body">
-            <div class="text">${n.text}</div>
-            <div class="time">${new Date(n.createdAt).toLocaleString()}</div>
+          <i class="fa-solid ${icon(n.type)}"></i>
+          <div class="content">
+            <p>${n.message}</p>
+            <span>${new Date(n.createdAt).toLocaleString()}</span>
           </div>
         `;
 
-        grid.appendChild(div);
+        list.appendChild(div);
       });
   });
-}
+});
 
-// Ajouter une notification (exemple, à appeler depuis player.html, channel.html etc)
-export function addNotification(userId, type, text){
-  const notifRef = push(ref(db, `notifications/${userId}`));
-  notifRef.set({type, text, createdAt: serverTimestamp()});
+function icon(type){
+  if(type==="comment") return "fa-comment";
+  if(type==="like") return "fa-thumbs-up";
+  if(type==="subscribe") return "fa-user-plus";
+  return "fa-bell";
 }
 </script>
 
 <style>
-body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont;background:#181818;color:white;}
-header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10;}
-header h1{font-size:20px;font-weight:600;}
-header button{background:#202020;color:white;border:none;padding:6px 12px;border-radius:12px;cursor:pointer;}
-main{margin-top:72px;padding:16px;max-width:800px;margin-left:auto;margin-right:auto;}
-.notification{display:flex;gap:12px;padding:12px;border-bottom:1px solid #222;align-items:center;}
-.notification .icon{width:40px;height:40px;border-radius:50%;background:#333;display:flex;align-items:center;justify-content:center;font-size:18px;}
-.notification .body{flex:1;}
-.notification .text{color:#ccc;}
-.notification .time{font-size:12px;color:#777;margin-top:4px;}
-.sidebar{width:72px;background:#0f0f0f;padding-top:12px;position:fixed;top:56px;left:0;height:100%;}
-.sidebar a{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;font-size:11px;color:#ccc;text-decoration:none;}
-.sidebar a i{font-size:18px;}
-.sidebar a:hover{background:#1f1f1f;color:white;}
-@media(max-width:640px){.sidebar{display:none;}}
+body{
+  margin:0;
+  background:#181818;
+  color:white;
+  font-family:system-ui;
+}
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+}
+header i{cursor:pointer}
+
+main{
+  max-width:720px;
+  margin:16px auto;
+  padding:16px;
+}
+
+.notif{
+  display:flex;
+  gap:14px;
+  background:#202020;
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:12px;
+  cursor:pointer;
+}
+.notif.unread{
+  background:#2a2a2a;
+  border-left:4px solid #ff7a00;
+}
+.notif i{
+  font-size:20px;
+  margin-top:4px;
+}
+.content p{
+  margin:0;
+  font-weight:500;
+}
+.content span{
+  font-size:12px;
+  color:#aaa;
+}
+.empty{
+  text-align:center;
+  color:#aaa;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>Notifications</h1>
-  <button onclick="location.href='index.html'"><i class="fa-solid fa-arrow-left"></i></button>
+  <i class="fa-solid fa-arrow-left"
+     onclick="history.back()"></i>
+  <h3 style="margin-left:12px">Notifications</h3>
 </header>
 
-<div class="sidebar">
-  <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-  <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
-  <a href="#"><i class="fa-solid fa-tv"></i><span>Abos</span></a>
-  <a href="#"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
-</div>
-
 <main>
-  <div id="grid"></div>
+  <div id="list"></div>
 </main>
 
 </body>
