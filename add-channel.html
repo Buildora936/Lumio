@@ -5,11 +5,15 @@
 <title>Créer une chaîne – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+/* 🔥 Firebase config */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -23,86 +27,167 @@ const db = getDatabase(app);
 
 let currentUser = null;
 
-onAuthStateChanged(auth, async user => {
-  if(!user) location.href = "login.html";
-  currentUser = user;
-
-  // Bloquer si chaîne déjà créée
-  const snap = await get(ref(db, "userChannels/" + user.uid));
-  if(snap.exists()) location.href = "channel.html";
+/* 🔐 Vérifier connexion */
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    location.href = "auth.html";
+  } else {
+    currentUser = user;
+  }
 });
 
-function toBase64(file){
-  return new Promise(res=>{
-    const r = new FileReader();
-    r.onload = ()=>res(r.result);
-    r.readAsDataURL(file);
+/* 🚀 Création chaîne */
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("form");
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+
+    const name = channelName.value.trim();
+    const description = channelDesc.value.trim();
+
+    if (!name) {
+      alert("Le nom de la chaîne est obligatoire");
+      return;
+    }
+
+    try {
+      /* 1️⃣ Créer la chaîne */
+      const channelRef = push(ref(db, "channels"));
+      const channelId = channelRef.key;
+
+      await set(channelRef, {
+        name,
+        description,
+        ownerUid: currentUser.uid,
+        ownerEmail: currentUser.email,
+        createdAt: Date.now(),
+        subscribers: 0,
+        verified: false
+      });
+
+      /* 2️⃣ Lier user → channel */
+      await set(
+        ref(db, "userChannels/" + currentUser.uid),
+        channelId
+      );
+
+      /* 3️⃣ Redirection finale */
+      location.href = `channel.html?id=${channelId}`;
+
+    } catch (err) {
+      alert("Erreur lors de la création");
+      console.error(err);
+    }
   });
-}
-
-form.onsubmit = async e => {
-  e.preventDefault();
-
-  const name = channelName.value.trim();
-  const handle = channelHandle.value.trim().toLowerCase();
-  const description = channelDesc.value.trim();
-  const bannerFile = bannerInput.files[0];
-
-  if(!name || !handle || !bannerFile){
-    alert("Champs obligatoires manquants");
-    return;
-  }
-
-  const handleSnap = await get(ref(db,"channelHandles/"+handle));
-  if(handleSnap.exists()){
-    alert("Handle déjà utilisé");
-    return;
-  }
-
-  const bannerBase64 = await toBase64(bannerFile);
-  const channelId = push(ref(db,"channels")).key;
-
-  await set(ref(db,"channels/"+channelId),{
-    id: channelId,
-    owner: currentUser.uid,
-    name,
-    handle,
-    description,
-    banner: bannerBase64,
-    subscribers: 0,
-    createdAt: Date.now()
-  });
-
-  await set(ref(db,"userChannels/"+currentUser.uid), channelId);
-  await set(ref(db,"channelHandles/"+handle), channelId);
-
-  location.href = "channel.html";
-};
+});
 </script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#0f0f0f;color:white}
-.container{max-width:420px;margin:40px auto;padding:20px}
-input,textarea,button{
-  width:100%;padding:12px;margin:8px 0;
-  border-radius:10px;border:none;background:#1f1f1f;color:white
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
 }
-button{background:white;color:black;font-weight:600}
+
+/* HEADER */
+header{
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+}
+header h1{
+  font-size:20px;
+  font-weight:600;
+}
+
+/* MAIN */
+main{
+  max-width:520px;
+  margin:96px auto;
+  background:#202020;
+  padding:24px;
+  border-radius:16px;
+}
+
+h2{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+/* FORM */
+input, textarea{
+  width:100%;
+  padding:12px;
+  margin-bottom:14px;
+  border:none;
+  border-radius:10px;
+  background:#2a2a2a;
+  color:white;
+  outline:none;
+}
+
+textarea{
+  resize:none;
+  height:100px;
+}
+
+button{
+  width:100%;
+  padding:14px;
+  background:#ff7a00;
+  border:none;
+  border-radius:24px;
+  font-weight:700;
+  cursor:pointer;
+}
+button:hover{
+  background:#ff8f26;
+}
+
+.note{
+  font-size:12px;
+  color:#aaa;
+  margin-top:10px;
+  text-align:center;
+}
 </style>
 </head>
 
 <body>
-<div class="container">
-<h2>Créer ta chaîne</h2>
 
-<form id="form">
-<input id="channelName" placeholder="Nom de la chaîne" required>
-<input id="channelHandle" placeholder="@handle" required>
-<textarea id="channelDesc" placeholder="Description"></textarea>
-<input id="bannerInput" type="file" accept="image/*" required>
+<header>
+  <h1>Lumio</h1>
+</header>
 
-<button type="submit">Créer la chaîne</button>
-</form>
-</div>
+<main>
+  <h2>Créer votre chaîne</h2>
+
+  <form id="form">
+    <input id="channelName"
+     placeholder="Nom de la chaîne"
+     maxlength="100"
+     required>
+
+    <textarea id="channelDesc"
+     placeholder="Description (optionnelle)"
+     maxlength="1000"></textarea>
+
+    <button type="submit">
+      Créer la chaîne
+    </button>
+  </form>
+
+  <div class="note">
+    Une chaîne est nécessaire pour publier des vidéos sur Lumio.
+  </div>
+</main>
+
 </body>
 </html>
