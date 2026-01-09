@@ -4,196 +4,12 @@
 <meta charset="UTF-8">
 <title>Lumio – Lecture</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-<style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#181818;
-  color:white;
-}
-
-/* HEADER */
-header{
-  position:fixed;
-  top:0;left:0;right:0;
-  height:56px;
-  background:#111;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-  z-index:10;
-}
-.left,.right{display:flex;align-items:center;gap:14px}
-button{
-  background:#202020;
-  color:white;
-  border:none;
-  padding:8px 14px;
-  border-radius:20px;
-  cursor:pointer;
-}
-
-/* LAYOUT */
-.layout{
-  display:flex;
-  margin-top:56px;
-  padding:16px;
-  gap:16px;
-}
-.main{
-  flex:2;
-}
-.side{
-  flex:1;
-}
-
-/* VIDEO */
-video{
-  width:100%;
-  max-height:70vh;
-  background:black;
-  border-radius:14px;
-}
-
-/* INFO */
-.title{
-  font-size:20px;
-  font-weight:600;
-  margin:12px 0;
-}
-.meta{
-  color:#aaa;
-  font-size:13px;
-}
-
-/* CHANNEL */
-.channel{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin:16px 0;
-}
-.channel-left{
-  display:flex;
-  align-items:center;
-  gap:12px;
-}
-.channel img{
-  width:48px;height:48px;
-  border-radius:50%;
-  background:#333;
-}
-.sub-btn{
-  background:#cc0000;
-  border-radius:20px;
-  padding:10px 16px;
-  font-weight:600;
-}
-
-/* ACTIONS */
-.actions{
-  display:flex;
-  gap:12px;
-  margin:12px 0;
-}
-.actions button{
-  display:flex;
-  align-items:center;
-  gap:6px;
-}
-
-/* DESCRIPTION */
-.desc{
-  background:#202020;
-  padding:14px;
-  border-radius:14px;
-  font-size:14px;
-  white-space:pre-line;
-}
-
-/* SUGGESTIONS */
-.card{
-  display:flex;
-  gap:10px;
-  margin-bottom:12px;
-  cursor:pointer;
-}
-.card .thumb{
-  width:160px;
-  height:90px;
-  background:#000;
-  border-radius:10px;
-  background-size:cover;
-  background-position:center;
-}
-.card .info{
-  font-size:13px;
-}
-.card .info .t{
-  font-weight:600;
-}
-.card .info .m{
-  color:#aaa;
-}
-</style>
-</head>
-
-<body>
-
-<header>
-  <div class="left">
-    <h2>Lumio</h2>
-  </div>
-  <div class="right">
-    <button onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i></button>
-    <button onclick="location.href='channel.html'"><i class="fa-solid fa-user"></i></button>
-  </div>
-</header>
-
-<div class="layout">
-
-  <!-- MAIN -->
-  <div class="main">
-    <video id="video" controls></video>
-
-    <div class="title" id="title"></div>
-    <div class="meta" id="meta"></div>
-
-    <div class="channel">
-      <div class="channel-left">
-        <img id="channelImg">
-        <div>
-          <div id="channelName"></div>
-          <div class="meta"><span id="subsCount"></span> abonnés</div>
-        </div>
-      </div>
-      <button class="sub-btn" id="subBtn">S’abonner</button>
-    </div>
-
-    <div class="actions">
-      <button id="likeBtn"><i class="fa-solid fa-thumbs-up"></i> <span id="likes">0</span></button>
-      <button id="dislikeBtn"><i class="fa-solid fa-thumbs-down"></i></button>
-      <button onclick="share()"><i class="fa-solid fa-share"></i> Partager</button>
-      <button id="saveBtn"><i class="fa-solid fa-bookmark"></i> Enregistrer</button>
-    </div>
-
-    <div class="desc" id="desc"></div>
-  </div>
-
-  <!-- SUGGESTIONS -->
-  <div class="side" id="suggestions"></div>
-
-</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, update, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -206,91 +22,156 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const id = new URLSearchParams(location.search).get("id");
+let currentUser = null;
+let videoId = new URLSearchParams(window.location.search).get("id");
 
-const videoEl = document.getElementById("video");
-const titleEl = document.getElementById("title");
-const metaEl = document.getElementById("meta");
-const descEl = document.getElementById("desc");
-
-const channelImg = document.getElementById("channelImg");
-const channelName = document.getElementById("channelName");
-const subsCount = document.getElementById("subsCount");
-const subBtn = document.getElementById("subBtn");
-
-const likesEl = document.getElementById("likes");
-const suggestions = document.getElementById("suggestions");
-
-let videoData, channelId;
-
-// Charger vidéo
-const snap = await get(ref(db, "videos/"+id));
-if(!snap.exists()) location.href="index.html";
-
-videoData = snap.val();
-channelId = videoData.channelId;
-
-videoEl.src = videoData.videoBase64;
-titleEl.textContent = videoData.title;
-descEl.textContent = videoData.description;
-metaEl.textContent = `${videoData.views || 0} vues`;
-
-likesEl.textContent = videoData.likes || 0;
-
-// +1 vue
-update(ref(db,"videos/"+id),{
-  views:(videoData.views||0)+1
+onAuthStateChanged(auth, user=>{
+  currentUser = user;
 });
 
-// Charger chaîne
-const chSnap = await get(ref(db,"channels/"+channelId));
-if(chSnap.exists()){
-  const c = chSnap.val();
-  channelImg.src = c.photoBase64 || "";
-  channelName.textContent = c.name;
-  subsCount.textContent = c.subscribers || 0;
+// 🔹 Charger la vidéo
+const videoPlayer = document.getElementById("videoPlayer");
+const titleEl = document.getElementById("videoTitle");
+const descEl = document.getElementById("videoDesc");
+const channelNameEl = document.getElementById("channelName");
+const subsCountEl = document.getElementById("subsCount");
+const subscribeBtn = document.getElementById("subscribeBtn");
+const likeBtn = document.getElementById("likeBtn");
+const dislikeBtn = document.getElementById("dislikeBtn");
+const saveBtn = document.getElementById("saveBtn");
+const recommendationsGrid = document.getElementById("recommendations");
+
+async function loadVideo() {
+  if(!videoId) return alert("Vidéo introuvable");
+
+  const snap = await get(ref(db,"videos/"+videoId));
+  if(!snap.exists()) return alert("Vidéo introuvable");
+  const v = snap.val();
+
+  videoPlayer.src = v.videoBase64;
+  titleEl.textContent = v.title;
+  descEl.textContent = v.description || "";
+  channelNameEl.textContent = v.channelName;
+
+  // Vue automatique
+  const views = (v.views || 0) + 1;
+  update(ref(db,"videos/"+videoId), {views});
+
+  // Charger abonnés
+  const subsSnap = await get(ref(db,"channels/"+v.channelId+"/subscribers"));
+  subsCountEl.textContent = (subsSnap.exists()? Object.keys(subsSnap.val()).length : 0) + " abonnés";
+
+  // Détecter si l'utilisateur est abonné
+  if(currentUser && subsSnap.exists() && subsSnap.val()[currentUser.uid]) {
+    subscribeBtn.textContent = "Abonné";
+    subscribeBtn.disabled = true;
+  }
+
+  // Charger recommandations (MV et autres)
+  onValue(ref(db,"videos"), recSnap=>{
+    recommendationsGrid.innerHTML="";
+    if(!recSnap.exists()) return;
+    Object.entries(recSnap.val())
+      .filter(([id])=>id!==videoId)
+      .slice(0,8)
+      .forEach(([id,v])=>{
+        const card = document.createElement("div");
+        card.className="recCard";
+        card.onclick = ()=> location.href="player.html?id="+id;
+        card.innerHTML=`
+          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+          <div class="title">${v.title}</div>
+        `;
+        recommendationsGrid.appendChild(card);
+      });
+  });
 }
 
-// Like
-document.getElementById("likeBtn").onclick=()=>{
-  update(ref(db,"videos/"+id),{
-    likes:(videoData.likes||0)+1
-  });
+loadVideo();
+
+// 🔹 Actions
+subscribeBtn.onclick = async ()=>{
+  if(!currentUser) return alert("Connectez-vous pour vous abonner");
+  await set(ref(db,"channels/"+channelNameEl.textContent+"/subscribers/"+currentUser.uid),true);
+  subscribeBtn.textContent="Abonné";
+  subscribeBtn.disabled=true;
 };
 
-// Save
-document.getElementById("saveBtn").onclick=()=>{
-  if(!auth.currentUser) return alert("Connecte-toi");
-  push(ref(db,"downloads/"+auth.currentUser.uid),{
-    videoId:id,
-    savedAt:Date.now()
-  });
-  alert("Enregistré sur Lumio");
+likeBtn.onclick = async ()=>{
+  if(!currentUser) return alert("Connectez-vous pour liker");
+  const snap = await get(ref(db,"videos/"+videoId+"/likes"));
+  const likes = snap.exists()? snap.val()+1 : 1;
+  set(ref(db,"videos/"+videoId+"/likes"), likes);
+  alert("Vous aimez cette vidéo !");
 };
 
-// Suggestions
-const all = await get(ref(db,"videos"));
-all.forEach(s=>{
-  if(s.key===id) return;
-  const v=s.val();
-  const card=document.createElement("div");
-  card.className="card";
-  card.onclick=()=>location.href="player.html?id="+s.key;
-  card.innerHTML=`
-    <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-    <div class="info">
-      <div class="t">${v.title}</div>
-      <div class="m">${v.channelName}</div>
-    </div>
-  `;
-  suggestions.appendChild(card);
-});
-
-window.share=()=>{
-  navigator.clipboard.writeText(location.href);
-  alert("Lien copié");
+dislikeBtn.onclick = async ()=>{
+  if(!currentUser) return alert("Connectez-vous pour ne pas aimer");
+  const snap = await get(ref(db,"videos/"+videoId+"/dislikes"));
+  const dislikes = snap.exists()? snap.val()+1 : 1;
+  set(ref(db,"videos/"+videoId+"/dislikes"), dislikes);
+  alert("Vous n'aimez pas cette vidéo !");
 };
+
+saveBtn.onclick = async ()=>{
+  if(!currentUser) return alert("Connectez-vous pour enregistrer");
+  await set(ref(db,"users/"+currentUser.uid+"/savedVideos/"+videoId), true);
+  alert("Vidéo enregistrée sur Lumio !");
+};
+
 </script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:#181818;color:white;}
+header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10}
+.left,.center,.right{display:flex;align-items:center;gap:14px}
+button{background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer}
+.content{margin-top:64px;padding:16px;max-width:960px;margin-left:auto;margin-right:auto}
+.videoContainer{width:100%;max-height:480px;overflow:hidden;background:#000;border-radius:12px;margin-bottom:16px}
+video{width:100%;border-radius:12px}
+.actions{display:flex;gap:12px;margin:8px 0}
+.channelInfo{display:flex;align-items:center;gap:12px;margin:12px 0}
+.recGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:24px}
+.recCard{cursor:pointer;background:#202020;border-radius:10px;overflow:hidden}
+.recCard .thumb{height:100px;background-size:cover;background-position:center}
+.recCard .title{padding:6px;font-size:12px}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="left"><h2>Lumio</h2></div>
+  <div class="center">
+    <input id="searchInput" placeholder="Rechercher sur Lumio">
+  </div>
+  <div class="right">
+    <button onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i></button>
+    <button onclick="location.href='channel.html'"><i class="fa-solid fa-user"></i></button>
+  </div>
+</header>
+
+<div class="content">
+  <div class="videoContainer">
+    <video id="videoPlayer" controls></video>
+  </div>
+  <h2 id="videoTitle"></h2>
+  <div class="channelInfo">
+    <span id="channelName"></span> | <span id="subsCount"></span>
+  </div>
+  <p id="videoDesc"></p>
+
+  <div class="actions">
+    <button id="likeBtn"><i class="fa-regular fa-thumbs-up"></i> Like</button>
+    <button id="dislikeBtn"><i class="fa-regular fa-thumbs-down"></i> Je n'aime pas</button>
+    <button id="subscribeBtn">S'abonner</button>
+    <button id="saveBtn"><i class="fa-solid fa-bookmark"></i> Enregistrer</button>
+  </div>
+
+  <h3>Recommandations</h3>
+  <div id="recommendations" class="recGrid"></div>
+</div>
 
 </body>
 </html>
