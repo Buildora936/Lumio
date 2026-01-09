@@ -9,85 +9,76 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from
+ "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get, push, set }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const firebaseConfig = {
+const app = initializeApp({
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
   databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId: "lumio-6efed"
-};
+});
 
-const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUser = null;
+let channelId = null;
+let channelName = null;
 
-// Vérifier l’utilisateur connecté
-onAuthStateChanged(auth, user => {
-  if(!user){
-    alert("Vous devez être connecté pour publier un MV.");
-    location.href = "auth.html";
-  } else {
-    currentUser = user;
-  }
-});
+onAuthStateChanged(auth, async user => {
+  if (!user) return location.href="auth.html";
 
-// 🔶 Upload MV
-const form = document.getElementById("uploadForm");
-
-form.addEventListener("submit", async e => {
-  e.preventDefault();
-
-  if(!currentUser) return;
-
-  const title = document.getElementById("title").value.trim();
-  const description = document.getElementById("description").value.trim();
-  const videoFile = document.getElementById("video").files[0];
-  const thumbFile = document.getElementById("thumbnail").files[0];
-  const commentsEnabled = document.getElementById("comments").checked;
-
-  if(!title || !videoFile || !thumbFile){
-    alert("Veuillez remplir tous les champs obligatoires.");
+  const userSnap = await get(ref(db,"users/"+user.uid));
+  if(!userSnap.exists() || !userSnap.val().channelId){
+    location.href="add-channel.html";
     return;
   }
 
-  // Convertir vidéo et thumbnail en base64
-  const toBase64 = file => new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => res(reader.result);
-    reader.onerror = error => rej(error);
-  });
-
-  const videoBase64 = await toBase64(videoFile);
-  const thumbnailBase64 = await toBase64(thumbFile);
-
-  // Enregistrer dans Firebase RTDB
-  const videoRef = push(ref(db, "videos"));
-  await videoRef.set({
-    title,
-    description,
-    thumbnailBase64,
-    videoBase64,
-    commentsEnabled,
-    channelId: currentUser.uid,
-    channelName: currentUser.displayName || "Utilisateur",
-    createdAt: serverTimestamp(),
-    views: 0,
-    likes: 0,
-    category: "MV",
-    live: false
-  });
-
-  alert("MV publié avec succès !");
-  form.reset();
+  channelId = userSnap.val().channelId;
+  const channelSnap = await get(ref(db,"channels/"+channelId));
+  channelName = channelSnap.val().name;
 });
-</script>
 
+const toBase64 = file => new Promise(res=>{
+  const r=new FileReader();
+  r.onload=()=>res(r.result);
+  r.readAsDataURL(file);
+});
+
+uploadForm.onsubmit = async e =>{
+  e.preventDefault();
+
+  const title=title.value.trim();
+  const video=videoFile.files[0];
+  const thumb=thumbFile.files[0];
+
+  if(!title||!video||!thumb) return alert("Champs manquants");
+
+  const v64=await toBase64(video);
+  const t64=await toBase64(thumb);
+
+  const refVid = push(ref(db,"videos"));
+  await set(refVid,{
+    title,
+    videoBase64:v64,
+    thumbnailBase64:t64,
+    channelId,
+    channelName,
+    category:"MV",
+    createdAt:Date.now(),
+    views:0,
+    likes:0,
+    allowComments:true
+  });
+
+  await set(ref(db,`channels/${channelId}/videos/${refVid.key}`),true);
+  location.href="index.html";
+};
+</script>
 <style>
 *{box-sizing:border-box}
 body{
