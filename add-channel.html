@@ -8,7 +8,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -21,85 +21,88 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let user = null;
+let currentUser = null;
 
-onAuthStateChanged(auth, async u => {
-  if (!u) return location.href = "auth.html";
-  user = u;
+onAuthStateChanged(auth, async user => {
+  if(!user) location.href = "login.html";
+  currentUser = user;
 
-  const exists = await get(ref(db, "userChannels/" + user.uid));
-  if (exists.exists()) location.href = "channel.html";
+  // Bloquer si chaîne déjà créée
+  const snap = await get(ref(db, "userChannels/" + user.uid));
+  if(snap.exists()) location.href = "channel.html";
 });
 
-document.getElementById("form").onsubmit = async e => {
+function toBase64(file){
+  return new Promise(res=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.readAsDataURL(file);
+  });
+}
+
+form.onsubmit = async e => {
   e.preventDefault();
 
   const name = channelName.value.trim();
+  const handle = channelHandle.value.trim().toLowerCase();
   const description = channelDesc.value.trim();
+  const bannerFile = bannerInput.files[0];
 
-  if (!name) return alert("Nom de chaîne requis");
+  if(!name || !handle || !bannerFile){
+    alert("Champs obligatoires manquants");
+    return;
+  }
 
-  const channelId = crypto.randomUUID();
+  const handleSnap = await get(ref(db,"channelHandles/"+handle));
+  if(handleSnap.exists()){
+    alert("Handle déjà utilisé");
+    return;
+  }
 
-  await set(ref(db, "channels/" + channelId), {
-    ownerUid: user.uid,
+  const bannerBase64 = await toBase64(bannerFile);
+  const channelId = push(ref(db,"channels")).key;
+
+  await set(ref(db,"channels/"+channelId),{
+    id: channelId,
+    owner: currentUser.uid,
     name,
+    handle,
     description,
+    banner: bannerBase64,
     subscribers: 0,
     createdAt: Date.now()
   });
 
-  await set(ref(db, "userChannels/" + user.uid), channelId);
+  await set(ref(db,"userChannels/"+currentUser.uid), channelId);
+  await set(ref(db,"channelHandles/"+handle), channelId);
 
   location.href = "channel.html";
 };
 </script>
 
 <style>
-body{
-  margin:0;
-  background:#181818;
-  color:white;
-  font-family:system-ui;
+body{margin:0;font-family:system-ui;background:#0f0f0f;color:white}
+.container{max-width:420px;margin:40px auto;padding:20px}
+input,textarea,button{
+  width:100%;padding:12px;margin:8px 0;
+  border-radius:10px;border:none;background:#1f1f1f;color:white
 }
-main{
-  max-width:500px;
-  margin:100px auto;
-  background:#202020;
-  padding:24px;
-  border-radius:14px;
-}
-input,textarea{
-  width:100%;
-  padding:12px;
-  margin-bottom:14px;
-  background:#2a2a2a;
-  border:none;
-  border-radius:8px;
-  color:white;
-}
-button{
-  width:100%;
-  padding:14px;
-  background:#ff6a00;
-  border:none;
-  border-radius:20px;
-  font-weight:700;
-  cursor:pointer;
-}
+button{background:white;color:black;font-weight:600}
 </style>
 </head>
 
 <body>
+<div class="container">
+<h2>Créer ta chaîne</h2>
 
-<main>
-  <h2>Créer votre chaîne</h2>
-  <form id="form">
-    <input id="channelName" placeholder="Nom de la chaîne" required>
-    <textarea id="channelDesc" placeholder="Description (optionnel)"></textarea>
-    <button>Créer la chaîne</button>
-  </form>
-</main>
+<form id="form">
+<input id="channelName" placeholder="Nom de la chaîne" required>
+<input id="channelHandle" placeholder="@handle" required>
+<textarea id="channelDesc" placeholder="Description"></textarea>
+<input id="bannerInput" type="file" accept="image/*" required>
 
+<button type="submit">Créer la chaîne</button>
+</form>
+</div>
 </body>
 </html>
