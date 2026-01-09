@@ -2,16 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Chaîne</title>
+<title>Chaîne – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, onValue, set, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+/* 🔥 Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -23,176 +25,163 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+/* 🆔 Channel ID */
 const params = new URLSearchParams(location.search);
 const channelId = params.get("id");
 
-const banner = document.getElementById("banner");
-const avatar = document.getElementById("avatar");
-const nameEl = document.getElementById("channelName");
-const subCount = document.getElementById("subCount");
-const subBtn = document.getElementById("subscribeBtn");
-const grid = document.getElementById("grid");
-
-let currentUser = null;
+if (!channelId) {
+  alert("Chaîne introuvable");
+  location.href = "index.html";
+}
 
 /* 🔐 Auth */
 onAuthStateChanged(auth, user => {
-  currentUser = user;
-  if (user) checkSubscription();
+  if (!user) location.href = "auth.html";
 });
 
-/* 📡 Charger chaîne */
-get(ref(db, "channels/" + channelId)).then(snap => {
-  if (!snap.exists()) return;
+/* 📡 Load channel */
+const banner = document.getElementById("banner");
+const avatar = document.getElementById("avatar");
+const nameEl = document.getElementById("name");
+const descEl = document.getElementById("description");
+const subsEl = document.getElementById("subs");
+
+onValue(ref(db, "channels/" + channelId), snap => {
+  if (!snap.exists()) {
+    alert("Chaîne supprimée ou inexistante");
+    location.href = "index.html";
+    return;
+  }
 
   const c = snap.val();
-  banner.style.backgroundImage = `url(${c.bannerBase64 || ""})`;
-  avatar.src = c.photoBase64 || "";
+  banner.style.backgroundImage = `url('${c.bannerBase64}')`;
+  avatar.src = c.avatarBase64;
   nameEl.textContent = c.name;
-  subCount.textContent = (c.subscribers || 0) + " abonnés";
+  descEl.textContent = c.description || "Aucune description";
+  subsEl.textContent = `${c.subscribers || 0} abonnés`;
 });
 
-/* 📹 Vidéos de la chaîne */
-onValue(ref(db, "videos"), snap => {
+/* 🎥 Videos */
+const grid = document.getElementById("videos");
+
+onValue(ref(db, "videosByChannel/" + channelId), snap => {
   grid.innerHTML = "";
   if (!snap.exists()) return;
 
-  Object.entries(snap.val())
-    .filter(([_, v]) => v.channelId === channelId)
-    .sort((a,b) => b[1].createdAt - a[1].createdAt)
-    .forEach(([id, v]) => {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.onclick = () => location.href = `player.html?id=${id}`;
-      card.innerHTML = `
-        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-        <div class="card-body">
-          <div class="title">${v.title}</div>
-          <div class="meta">${v.views || 0} vues</div>
-        </div>
-      `;
-      grid.appendChild(card);
-    });
-});
+  Object.entries(snap.val()).forEach(([id, v]) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.onclick = () => location.href = `player.html?id=${id}`;
 
-/* ❤️ Abonnement */
-function checkSubscription(){
-  if(!currentUser) return;
-  get(ref(db, `subscriptions/${currentUser.uid}/${channelId}`))
-    .then(s => subBtn.textContent = s.exists() ? "Abonné" : "S’abonner");
-}
-
-subBtn.onclick = () => {
-  if(!currentUser) return alert("Connecte-toi");
-  const path = `subscriptions/${currentUser.uid}/${channelId}`;
-
-  get(ref(db, path)).then(snap => {
-    if (snap.exists()) {
-      remove(ref(db, path));
-      subBtn.textContent = "S’abonner";
-    } else {
-      set(ref(db, path), true);
-      subBtn.textContent = "Abonné";
-    }
+    card.innerHTML = `
+      <div class="thumb"
+       style="background-image:url('${v.thumbnailBase64}')"></div>
+      <div class="title">${v.title}</div>
+    `;
+    grid.appendChild(card);
   });
-};
+});
 </script>
 
 <style>
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui;background:#181818;color:white}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+}
 
 /* HEADER */
 header{
-  position:fixed;top:0;left:0;right:0;height:56px;
-  background:#0f0f0f;display:flex;align-items:center;
-  justify-content:space-between;padding:0 16px;z-index:10
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+  z-index:10;
 }
-header h1{font-size:20px}
-
-/* LAYOUT */
-.layout{margin-top:56px}
+header button{
+  background:none;
+  border:none;
+  color:white;
+  font-size:18px;
+  cursor:pointer;
+}
 
 /* BANNER */
 .banner{
-  height:180px;
-  background:#000;
+  height:200px;
   background-size:cover;
   background-position:center;
+  margin-top:56px;
+  position:relative;
+}
+.avatar{
+  position:absolute;
+  bottom:-40px;
+  left:24px;
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  border:4px solid #181818;
+  object-fit:cover;
 }
 
-/* CHANNEL INFO */
-.channel{
-  display:flex;
-  align-items:center;
-  gap:16px;
+/* INFO */
+.info{
+  padding:60px 24px 16px;
+}
+.info h2{margin:0}
+.info p{color:#aaa;font-size:14px}
+
+/* VIDEOS */
+.videos{
   padding:16px;
-}
-.channel img{
-  width:80px;height:80px;border-radius:50%;
-  background:#333
-}
-.channel h2{margin:0}
-.channel p{color:#aaa;margin:4px 0}
-.channel button{
-  margin-left:auto;
-  background:#ff6a00;
-  border:none;
-  padding:10px 18px;
-  border-radius:20px;
-  color:black;
-  font-weight:600;
-  cursor:pointer
-}
-
-/* GRID */
-.grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
   gap:16px;
-  padding:16px
 }
 .card{
   background:#202020;
   border-radius:14px;
   overflow:hidden;
-  cursor:pointer
+  cursor:pointer;
 }
 .thumb{
-  height:140px;
+  height:120px;
   background-size:cover;
-  background-position:center
+  background-position:center;
 }
-.card-body{padding:10px}
-.title{font-weight:600}
-.meta{font-size:12px;color:#aaa}
+.title{
+  padding:10px;
+  font-weight:600;
+  font-size:14px;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>Lumio</h1>
-  <div></div>
-  <div></div>
+  <button onclick="history.back()">
+    <i class="fa-solid fa-arrow-left"></i>
+  </button>
 </header>
 
-<div class="layout">
-
-  <div class="banner" id="banner"></div>
-
-  <div class="channel">
-    <img id="avatar">
-    <div>
-      <h2 id="channelName"></h2>
-      <p id="subCount"></p>
-    </div>
-    <button id="subscribeBtn">S’abonner</button>
-  </div>
-
-  <div class="grid" id="grid"></div>
-
+<div class="banner" id="banner">
+  <img class="avatar" id="avatar">
 </div>
+
+<div class="info">
+  <h2 id="name"></h2>
+  <p id="subs"></p>
+  <p id="description"></p>
+</div>
+
+<div class="videos" id="videos"></div>
 
 </body>
 </html>
