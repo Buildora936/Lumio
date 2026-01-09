@@ -2,18 +2,17 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Monétisation</title>
+<title>Monétisation – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -25,127 +24,145 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// UI
-const videoList = document.getElementById("videoList");
-const revenueTotal = document.getElementById("revenueTotal");
+let channelId = null;
 
-// 🔐 Auth state
-onAuthStateChanged(auth, user => {
-  if (!user) {
-    alert("Connecte-toi pour voir tes vidéos.");
-    location.href = "auth.html";
+onAuthStateChanged(auth, async user => {
+  if (!user) return location.href = "auth.html";
+
+  const chSnap = await get(ref(db, "userChannels/" + user.uid));
+  if (!chSnap.exists()) {
+    alert("Créez une chaîne d'abord");
+    return location.href = "add-channel.html";
+  }
+  channelId = chSnap.val();
+
+  // Vérifier abonnés
+  const subSnap = await get(ref(db, "subscriptions/" + channelId));
+  const subs = subSnap.exists()
+    ? Object.keys(subSnap.val()).length
+    : 0;
+
+  document.getElementById("subs").textContent = subs;
+
+  if (subs < 1000) {
+    document.getElementById("blocked").style.display = "block";
+    document.getElementById("panel").style.display = "none";
     return;
   }
 
-  const uid = user.uid;
-
-  // 📹 Charger vidéos du créateur
-  onValue(ref(db, "videos"), snap => {
-    videoList.innerHTML = "";
-    let totalRevenue = 0;
-
-    if (!snap.exists()) return;
-
-    Object.entries(snap.val())
-      .filter(([id, v]) => v.channelId === uid)
-      .sort((a,b) => b[1].createdAt - a[1].createdAt)
-      .forEach(([id, v]) => {
-
-        const revenue = v.views * 0.01; // 0,01$ par vue (exemple)
-        totalRevenue += revenue;
-
-        const card = document.createElement("div");
-        card.className = "card";
-
-        card.innerHTML = `
-          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-          <div class="card-body">
-            <div class="title">${v.title}</div>
-            <div class="meta">
-              <span>Vues : ${v.views || 0}</span>
-              <span>Likes : ${v.likes || 0}</span>
-              <span>Partages : ${v.shares || 0}</span>
-              <span>Revenu estimé : $${revenue.toFixed(2)}</span>
-            </div>
-            <button class="monet-btn">${v.monetized ? "Désactiver" : "Activer"} Monétisation</button>
-          </div>
-        `;
-
-        const btn = card.querySelector(".monet-btn");
-        btn.onclick = () => {
-          update(ref(db, `videos/${id}`), { monetized: !v.monetized });
-        };
-
-        videoList.appendChild(card);
-      });
-
-    revenueTotal.textContent = `Revenu total estimé : $${totalRevenue.toFixed(2)}`;
-  });
+  // Charger config existante
+  const mSnap = await get(ref(db, "monetization/" + channelId));
+  if (mSnap.exists()) {
+    const m = mSnap.val();
+    ads.checked = m.ads;
+    donations.checked = m.donations;
+  }
 });
+
+saveBtn.onclick = async () => {
+  await set(ref(db, "monetization/" + channelId), {
+    enabled: true,
+    ads: ads.checked,
+    donations: donations.checked,
+    live: false,
+    createdAt: Date.now()
+  });
+  alert("Monétisation enregistrée ✅");
+};
 </script>
 
 <style>
-*{box-sizing:border-box}
 body{
   margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont;
+  font-family:system-ui;
   background:#181818;
   color:white;
 }
 header{
-  position:fixed; top:0; left:0; right:0; height:56px; background:#0f0f0f;
-  display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:10;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
 }
-header h1{font-size:20px; font-weight:600;}
-header .right button{
-  background:#ff7f50; color:white; border:none; padding:8px 14px; border-radius:20px; cursor:pointer;
+main{
+  max-width:700px;
+  margin:24px auto;
+  padding:16px;
 }
-.layout{display:flex; margin-top:56px;}
-.sidebar{width:72px; background:#0f0f0f; border-right:1px solid #222; padding-top:12px;}
-.sidebar a{
-  display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 0;
-  font-size:11px; color:#ccc; text-decoration:none;
+.box{
+  background:#202020;
+  border-radius:14px;
+  padding:20px;
 }
-.sidebar a i{font-size:18px;}
-.sidebar a:hover{background:#1f1f1f; color:white;}
-.content{flex:1; padding:16px;}
-.card{
-  background:#202020; border-radius:14px; overflow:hidden; margin-bottom:16px;
+.option{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:14px 0;
 }
-.thumb{height:140px; background-size:cover; background-position:center;}
-.card-body{padding:10px;}
-.title{font-weight:600; font-size:14px; margin-bottom:6px;}
-.meta{font-size:12px; color:#aaa; margin-bottom:6px;}
-.meta span{display:block; margin-bottom:2px;}
-.monet-btn{background:#ff7f50;color:white;border:none;padding:6px 12px;border-radius:12px;cursor:pointer;}
-.monet-btn:hover{background:#e66b3c;}
-.revenue{font-weight:600;margin-bottom:16px;}
+button{
+  width:100%;
+  margin-top:20px;
+  padding:14px;
+  background:#ff6a00;
+  border:none;
+  border-radius:20px;
+  font-weight:700;
+  cursor:pointer;
+}
+.notice{
+  background:#2a2a2a;
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:16px;
+  font-size:14px;
+}
+.blocked{
+  background:#331111;
+  padding:16px;
+  border-radius:14px;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>Lumio – Monétisation</h1>
-  <div class="right">
-    <button onclick="location.href='profile.html'">Profil</button>
-  </div>
+  <i class="fa-solid fa-arrow-left"
+     onclick="history.back()"></i>
+  <h3 style="margin-left:12px">Monétisation</h3>
 </header>
 
-<div class="layout">
-  <nav class="sidebar">
-    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
-    <a href="shorts.html"><i class="fa-solid fa-clapperboard"></i><span>MV</span></a>
-    <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Abonn.</span></a>
-    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
-  </nav>
+<main>
 
-  <main class="content">
-    <div class="revenue" id="revenueTotal">Revenu total estimé : $0.00</div>
-    <div id="videoList"></div>
-  </main>
-</div>
+  <div class="notice">
+    👥 Abonnés actuels : <b id="subs">0</b> / 1000 requis
+  </div>
+
+  <div id="blocked" class="blocked" style="display:none">
+    ❌ Vous devez atteindre <b>1000 abonnés</b> pour activer la monétisation.
+  </div>
+
+  <div id="panel" class="box">
+    <h3>Options disponibles</h3>
+
+    <div class="option">
+      <span>🟠 Publicité légère (5s max)</span>
+      <input type="checkbox" id="ads">
+    </div>
+
+    <div class="option">
+      <span>🔵 Dons / Soutien ❤️</span>
+      <input type="checkbox" id="donations">
+    </div>
+
+    <button id="saveBtn">
+      Enregistrer la monétisation
+    </button>
+  </div>
+
+</main>
 
 </body>
 </html>
