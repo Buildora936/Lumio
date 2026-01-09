@@ -2,65 +2,122 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Publier un livre – Lumio</title>
+<title>Ajouter un livre – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push, set, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app = initializeApp({
+const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com"
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let currentUser = null;
+let channelId = null;
+
+onAuthStateChanged(auth, async user => {
+  if(!user) return location.href="auth.html";
+  currentUser = user;
+
+  const snap = await get(ref(db, "userChannels/" + user.uid));
+  if(!snap.exists()){
+    alert("Aucune chaîne trouvée, créez-en une.");
+    location.href="add-channel.html";
+  }
+  channelId = snap.val();
 });
 
-const db = getDatabase(app);
-const auth = getAuth(app);
-
-const coverInput = document.getElementById("cover");
-const fileInput = document.getElementById("file");
-
-function toBase64(file, cb){
-  const r = new FileReader();
-  r.onload = () => cb(r.result);
-  r.readAsDataURL(file);
+// 🔹 Base64
+function toBase64(file){
+  return new Promise(res=>{
+    const reader = new FileReader();
+    reader.onload=()=>res(reader.result);
+    reader.readAsDataURL(file);
+  });
 }
 
-document.getElementById("publish").onclick = ()=>{
-  const u = auth.currentUser;
-  if(!u) return alert("Connexion requise");
+// 🔹 Formulaire
+document.getElementById("bookForm").onsubmit = async e=>{
+  e.preventDefault();
+  if(!currentUser || !channelId) return;
 
-  toBase64(coverInput.files[0], cover=>{
-    toBase64(fileInput.files[0], file=>{
-      push(ref(db,"books"),{
-        title:title.value,
-        description:desc.value,
-        coverBase64:cover,
-        fileBase64:file,
-        price:0.99,
-        authorId:u.uid,
-        authorName:u.displayName || "Auteur",
-        createdAt:Date.now()
-      }).then(()=>alert("Livre publié"));
-    });
-  });
+  const title = document.getElementById("title").value.trim();
+  const desc = document.getElementById("desc").value.trim();
+  const lang = document.getElementById("language").value;
+  const pages = parseInt(document.getElementById("pages").value);
+  const price = parseFloat(document.getElementById("price").value) || 0;
+  const coverFile = document.getElementById("cover").files[0];
+  const bookFile = document.getElementById("file").files[0];
+
+  if(!title || !coverFile || !bookFile || !pages) {
+    alert("Champs obligatoires manquants");
+    return;
+  }
+
+  const coverBase64 = await toBase64(coverFile);
+  const bookBase64 = await toBase64(bookFile);
+
+  const bookRef = push(ref(db,"books"));
+  const bookData = {
+    title,
+    description: desc,
+    price,
+    coverBase64,
+    fileBase64: bookBase64,
+    authorChannelId: channelId,
+    authorChannelName: currentUser.displayName || "Auteur",
+    language: lang,
+    pages,
+    createdAt: serverTimestamp(),
+    salesCount:0,
+    status:"public"
+  };
+  await set(bookRef, bookData);
+
+  // Lier au channel automatiquement
+  await set(ref(db, `channels/${channelId}/books/${bookRef.key}`), true);
+
+  alert("Livre ajouté avec succès !");
+  location.href="publish.html"; // portail de publication
 };
 </script>
 
 <style>
-body{background:#181818;color:white;font-family:system-ui;padding:16px}
-input,textarea{width:100%;margin-bottom:12px;padding:10px}
-button{background:#ff7f50;border:none;padding:12px;border-radius:20px}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:#181818;color:white;}
+main{max-width:600px;margin:80px auto;background:#202020;padding:24px;border-radius:14px}
+h2{text-align:center;margin-bottom:20px}
+input,textarea,select{width:100%;padding:12px;margin-bottom:14px;border:none;border-radius:8px;background:#2a2a2a;color:white}
+label{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+button{width:100%;padding:14px;background:#ff6a00;border:none;border-radius:20px;font-weight:700;cursor:pointer}
 </style>
 </head>
-
 <body>
-<h2>📘 Publier un livre</h2>
-<input id="title" placeholder="Titre">
-<textarea id="desc" placeholder="Description"></textarea>
-<input id="cover" type="file" accept="image/*">
-<input id="file" type="file" accept="application/pdf">
-<button id="publish">Publier</button>
+<main>
+  <h2>Ajouter un livre</h2>
+  <form id="bookForm">
+    <input id="title" placeholder="Titre du livre" required>
+    <textarea id="desc" placeholder="Description (optionnel)"></textarea>
+    <input id="price" type="number" min="0" placeholder="Prix ($), 0 si gratuit">
+    <select id="language">
+      <option value="fr">Français</option>
+      <option value="en">Anglais</option>
+    </select>
+    <input id="pages" type="number" min="1" placeholder="Nombre de pages" required>
+    <input id="cover" type="file" accept="image/*" required>
+    <input id="file" type="file" accept=".pdf,.epub" required>
+    <button type="submit">Publier le livre</button>
+  </form>
+</main>
 </body>
 </html>
