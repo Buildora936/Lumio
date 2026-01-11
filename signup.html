@@ -6,9 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -21,13 +21,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const form = document.getElementById("signupForm");
-const errorBox = document.getElementById("error");
-
-function isTempEmail(email){
-  return /(mailinator|tempmail|10minutemail|guerrillamail)/i.test(email);
-}
-
 function toBase64(file){
   return new Promise((res, rej)=>{
     const r = new FileReader();
@@ -37,6 +30,19 @@ function toBase64(file){
   });
 }
 
+function isTempEmail(email){
+  return /(mailinator|tempmail|10minutemail|guerrillamail)/i.test(email);
+}
+
+const form = document.getElementById("signupForm");
+const errorBox = document.getElementById("error");
+const createChannelBox = document.getElementById("createChannelBox");
+const channelFields = document.getElementById("channelFields");
+
+createChannelBox.onchange = () => {
+  channelFields.style.display = createChannelBox.checked ? "block" : "none";
+};
+
 form.onsubmit = async e => {
   e.preventDefault();
   errorBox.textContent = "";
@@ -45,44 +51,83 @@ form.onsubmit = async e => {
   const password = passwordInput.value;
   const confirm = confirmInput.value;
   const username = usernameInput.value.trim().toLowerCase();
-  const fullName = fullNameInput.value.trim();
   const country = countryInput.value;
   const language = languageInput.value;
   const bio = bioInput.value;
   const photo = photoInput.files[0];
-  const accepted = termsInput.checked && privacyInput.checked;
 
-  if(password !== confirm) return errorBox.textContent = "Les mots de passe ne correspondent pas";
+  if(password !== confirm) return errorBox.textContent = "Mots de passe différents";
   if(password.length < 8) return errorBox.textContent = "Mot de passe trop court";
-  if(!/\d/.test(password)) return errorBox.textContent = "Ajoute un chiffre";
-  if(!/[a-zA-Z]/.test(password)) return errorBox.textContent = "Ajoute une lettre";
   if(isTempEmail(email)) return errorBox.textContent = "Email temporaire refusé";
   if(!photo) return errorBox.textContent = "Photo obligatoire";
-  if(!accepted) return errorBox.textContent = "Accepte les conditions";
 
   const usernameSnap = await get(ref(db, "usernames/" + username));
-  if(usernameSnap.exists()) return errorBox.textContent = "Username déjà utilisé";
+  if(usernameSnap.exists()) return errorBox.textContent = "Nom déjà utilisé";
 
-  const photoBase64 = await toBase64(photo);
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  const uid = cred.user.uid;
+  try {
+    const photoBase64 = await toBase64(photo);
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
 
-  await set(ref(db, "users/" + uid), {
-    email,
-    username,
-    fullName: fullName || null,
-    photoURL: photoBase64,
-    bio,
-    country,
-    language,
-    role: "user",
-    verified: false,
-    createdAt: Date.now()
-  });
+    await set(ref(db, "users/" + uid), {
+      email,
+      username,
+      country,
+      language,
+      bio,
+      photoURL: photoBase64,
+      role: "user",
+      createdAt: Date.now()
+    });
 
-  await set(ref(db, "usernames/" + username), uid);
+    await set(ref(db, "usernames/" + username), uid);
 
-  location.href = "add-channel.html";
+    /* 🔥 Création de la chaîne si cochée */
+    if(createChannelBox.checked){
+      const channelName = channelNameInput.value.trim();
+      const channelDesc = channelDescInput.value.trim();
+      const avatarFile = channelAvatarInput.files[0];
+      const bannerFile = channelBannerInput.files[0];
+
+      if(!channelName || !avatarFile || !bannerFile){
+        return errorBox.textContent = "Infos de chaîne incomplètes";
+      }
+
+      const avatarBase64 = await toBase64(avatarFile);
+      const bannerBase64 = await toBase64(bannerFile);
+
+      const channelRef = push(ref(db, "channels"));
+      const channelId = channelRef.key;
+
+      await set(channelRef, {
+        id: channelId,
+        owner: uid,
+        name: channelName,
+        description: channelDesc,
+        avatar: avatarBase64,
+        banner: bannerBase64,
+        subscribers: 0,
+        monetization: false,
+        createdAt: Date.now()
+      });
+
+      await set(ref(db, "userChannels/" + uid), channelId);
+      await set(ref(db, "videosByChannel/" + channelId), {});
+      await set(ref(db, "subscriptions/" + channelId), {});
+      await set(ref(db, "notifications/" + channelId), {});
+      await set(ref(db, "analytics/" + channelId), {});
+
+      alert("🎉 Compte + Chaîne créés avec succès !");
+      location.href = "channel.html?id=" + channelId;
+    } else {
+      alert("🎉 Compte créé avec succès !");
+      location.href = "index.html";
+    }
+
+  } catch(err){
+    console.error(err);
+    errorBox.textContent = err.message;
+  }
 };
 </script>
 
@@ -93,9 +138,9 @@ input,select,textarea,button{
   width:100%;margin:8px 0;padding:12px;
   border-radius:10px;border:none;background:#1f1f1f;color:white
 }
-button{background:white;color:black;font-weight:600;cursor:pointer}
-label{font-size:14px}
+button{background:white;color:black;font-weight:600}
 .error{color:#ff5555;font-size:14px}
+.channel-box{background:#1b1b1b;padding:12px;border-radius:10px}
 </style>
 </head>
 
@@ -109,7 +154,6 @@ label{font-size:14px}
 <input id="confirmInput" type="password" placeholder="Confirmer mot de passe" required>
 
 <input id="usernameInput" placeholder="Nom d’utilisateur public" required>
-<input id="fullNameInput" placeholder="Nom complet (optionnel)">
 
 <select id="countryInput" required>
 <option value="">Pays</option>
@@ -124,14 +168,23 @@ label{font-size:14px}
 </select>
 
 <input id="photoInput" type="file" accept="image/*" required>
+<textarea id="bioInput" placeholder="Bio"></textarea>
 
-<textarea id="bioInput" maxlength="1000" placeholder="Bio (1000 caractères max)"></textarea>
+<label>
+  <input type="checkbox" id="createChannelBox">
+  Créer une chaîne maintenant
+</label>
 
-<label><input type="checkbox" id="termsInput"> J’accepte les conditions</label><br>
-<label><input type="checkbox" id="privacyInput"> J’accepte la politique de confidentialité</label>
+<div id="channelFields" class="channel-box" style="display:none;">
+  <input id="channelNameInput" placeholder="Nom de la chaîne">
+  <textarea id="channelDescInput" placeholder="Description de la chaîne"></textarea>
+  <label>Avatar chaîne</label>
+  <input type="file" id="channelAvatarInput" accept="image/*">
+  <label>Bannière chaîne</label>
+  <input type="file" id="channelBannerInput" accept="image/*">
+</div>
 
 <div class="error" id="error"></div>
-
 <button type="submit">Créer le compte</button>
 </form>
 </div>
