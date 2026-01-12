@@ -2,14 +2,15 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Créer un compte – Lumio</title>
+<title>Inscription – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -21,29 +22,31 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+/* Base64 photo */
 function toBase64(file){
   return new Promise((res, rej)=>{
     const r = new FileReader();
     r.onload = ()=>res(r.result);
-    r.onerror = err=>rej(err);
+    r.onerror = e=>rej(e);
     r.readAsDataURL(file);
   });
 }
 
-function isTempEmail(email){
-  return /(mailinator|tempmail|10minutemail|guerrillamail)/i.test(email);
+/* Calcul âge */
+function getAge(date){
+  const today = new Date();
+  const birth = new Date(date);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
 }
 
+/* Signup */
 const form = document.getElementById("signupForm");
 const errorBox = document.getElementById("error");
-const createChannelBox = document.getElementById("createChannelBox");
-const channelFields = document.getElementById("channelFields");
 
-createChannelBox.onchange = () => {
-  channelFields.style.display = createChannelBox.checked ? "block" : "none";
-};
-
-form.onsubmit = async e => {
+form.onsubmit = async (e)=>{
   e.preventDefault();
   errorBox.textContent = "";
 
@@ -51,30 +54,38 @@ form.onsubmit = async e => {
   const password = passwordInput.value;
   const confirm = confirmInput.value;
   const username = usernameInput.value.trim().toLowerCase();
+  const birthdate = birthInput.value;
   const country = countryInput.value;
   const language = languageInput.value;
-  const bio = bioInput.value;
   const photo = photoInput.files[0];
 
   if(password !== confirm) return errorBox.textContent = "Mots de passe différents";
   if(password.length < 8) return errorBox.textContent = "Mot de passe trop court";
-  if(isTempEmail(email)) return errorBox.textContent = "Email temporaire refusé";
+  if(!birthdate) return errorBox.textContent = "Date de naissance obligatoire";
   if(!photo) return errorBox.textContent = "Photo obligatoire";
 
-  const usernameSnap = await get(ref(db, "usernames/" + username));
-  if(usernameSnap.exists()) return errorBox.textContent = "Nom déjà utilisé";
+  const age = getAge(birthdate);
+  const isAdult = age >= 18;
 
-  try {
+  // Vérifier username unique
+  const snap = await get(ref(db, "usernames/" + username));
+  if(snap.exists()) return errorBox.textContent = "Nom d’utilisateur déjà pris";
+
+  try{
     const photoBase64 = await toBase64(photo);
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = cred.user.uid;
 
+    /* STRUCTURE UTILISATEUR */
     await set(ref(db, "users/" + uid), {
       email,
       username,
+      birthdate,
+      age,
+      adult: isAdult,
+      monetizationEligible: isAdult,   // <18 = false
       country,
       language,
-      bio,
       photoURL: photoBase64,
       role: "user",
       createdAt: Date.now()
@@ -82,49 +93,15 @@ form.onsubmit = async e => {
 
     await set(ref(db, "usernames/" + username), uid);
 
-    /* 🔥 Création de la chaîne si cochée */
-    if(createChannelBox.checked){
-      const channelName = channelNameInput.value.trim();
-      const channelDesc = channelDescInput.value.trim();
-      const avatarFile = channelAvatarInput.files[0];
-      const bannerFile = channelBannerInput.files[0];
+    alert(
+      isAdult 
+      ? "Compte créé. Vous pourrez monétiser plus tard." 
+      : "Compte créé. Vous pouvez publier mais pas gagner d’argent."
+    );
 
-      if(!channelName || !avatarFile || !bannerFile){
-        return errorBox.textContent = "Infos de chaîne incomplètes";
-      }
+    location.href = "index.html";
 
-      const avatarBase64 = await toBase64(avatarFile);
-      const bannerBase64 = await toBase64(bannerFile);
-
-      const channelRef = push(ref(db, "channels"));
-      const channelId = channelRef.key;
-
-      await set(channelRef, {
-        id: channelId,
-        owner: uid,
-        name: channelName,
-        description: channelDesc,
-        avatar: avatarBase64,
-        banner: bannerBase64,
-        subscribers: 0,
-        monetization: false,
-        createdAt: Date.now()
-      });
-
-      await set(ref(db, "userChannels/" + uid), channelId);
-      await set(ref(db, "videosByChannel/" + channelId), {});
-      await set(ref(db, "subscriptions/" + channelId), {});
-      await set(ref(db, "notifications/" + channelId), {});
-      await set(ref(db, "analytics/" + channelId), {});
-
-      alert("🎉 Compte + Chaîne créés avec succès !");
-      location.href = "channel.html?id=" + channelId;
-    } else {
-      alert("🎉 Compte créé avec succès !");
-      location.href = "index.html";
-    }
-
-  } catch(err){
+  }catch(err){
     console.error(err);
     errorBox.textContent = err.message;
   }
@@ -132,15 +109,36 @@ form.onsubmit = async e => {
 </script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#0f0f0f;color:white}
-.container{max-width:420px;margin:40px auto;padding:20px}
-input,select,textarea,button{
-  width:100%;margin:8px 0;padding:12px;
-  border-radius:10px;border:none;background:#1f1f1f;color:white
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#0f0f0f;
+  color:white;
 }
-button{background:white;color:black;font-weight:600}
-.error{color:#ff5555;font-size:14px}
-.channel-box{background:#1b1b1b;padding:12px;border-radius:10px}
+.container{
+  max-width:420px;
+  margin:40px auto;
+  padding:20px;
+}
+input,select,button{
+  width:100%;
+  margin:8px 0;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  background:#1f1f1f;
+  color:white;
+}
+button{
+  background:white;
+  color:black;
+  font-weight:700;
+}
+.error{
+  color:#ff5555;
+  text-align:center;
+  font-size:14px;
+}
 </style>
 </head>
 
@@ -149,42 +147,33 @@ button{background:white;color:black;font-weight:600}
 <h2>Créer un compte Lumio</h2>
 
 <form id="signupForm">
+
 <input id="emailInput" type="email" placeholder="Email" required>
 <input id="passwordInput" type="password" placeholder="Mot de passe" required>
 <input id="confirmInput" type="password" placeholder="Confirmer mot de passe" required>
 
 <input id="usernameInput" placeholder="Nom d’utilisateur public" required>
 
+<label>Date de naissance</label>
+<input id="birthInput" type="date" required>
+
 <select id="countryInput" required>
-<option value="">Pays</option>
-<option value="HT">Haïti</option>
-<option value="FR">France</option>
-<option value="CA">Canada</option>
+  <option value="">Pays</option>
+  <option value="HT">Haïti</option>
+  <option value="FR">France</option>
+  <option value="CA">Canada</option>
 </select>
 
 <select id="languageInput">
-<option value="fr">Français</option>
-<option value="en">English</option>
+  <option value="fr">Français</option>
+  <option value="en">English</option>
 </select>
 
+<label>Photo de profil</label>
 <input id="photoInput" type="file" accept="image/*" required>
-<textarea id="bioInput" placeholder="Bio"></textarea>
-
-<label>
-  <input type="checkbox" id="createChannelBox">
-  Créer une chaîne maintenant
-</label>
-
-<div id="channelFields" class="channel-box" style="display:none;">
-  <input id="channelNameInput" placeholder="Nom de la chaîne">
-  <textarea id="channelDescInput" placeholder="Description de la chaîne"></textarea>
-  <label>Avatar chaîne</label>
-  <input type="file" id="channelAvatarInput" accept="image/*">
-  <label>Bannière chaîne</label>
-  <input type="file" id="channelBannerInput" accept="image/*">
-</div>
 
 <div class="error" id="error"></div>
+
 <button type="submit">Créer le compte</button>
 </form>
 </div>
