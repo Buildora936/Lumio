@@ -2,14 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Lecture</title>
+<title>Lecture – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, set, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, get, update, push, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -19,158 +18,142 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getDatabase(app);
+const auth = getAuth(app);
+
+const params = new URLSearchParams(location.search);
+const videoId = params.get("id");
+
+if(!videoId){
+  alert("Vidéo introuvable");
+  location.href = "index.html";
+}
 
 let currentUser = null;
-let videoId = new URLSearchParams(window.location.search).get("id");
 
 onAuthStateChanged(auth, user=>{
   currentUser = user;
 });
 
-// 🔹 Charger la vidéo
-const videoPlayer = document.getElementById("videoPlayer");
-const titleEl = document.getElementById("videoTitle");
-const descEl = document.getElementById("videoDesc");
-const channelNameEl = document.getElementById("channelName");
-const subsCountEl = document.getElementById("subsCount");
-const subscribeBtn = document.getElementById("subscribeBtn");
-const likeBtn = document.getElementById("likeBtn");
-const dislikeBtn = document.getElementById("dislikeBtn");
-const saveBtn = document.getElementById("saveBtn");
-const recommendationsGrid = document.getElementById("recommendations");
-
-async function loadVideo() {
-  if(!videoId) return alert("Vidéo introuvable");
-
-  const snap = await get(ref(db,"videos/"+videoId));
-  if(!snap.exists()) return alert("Vidéo introuvable");
-  const v = snap.val();
-
-  videoPlayer.src = v.videoBase64;
-  titleEl.textContent = v.title;
-  descEl.textContent = v.description || "";
-  channelNameEl.textContent = v.channelName;
-
-  // Vue automatique
-  const views = (v.views || 0) + 1;
-  update(ref(db,"videos/"+videoId), {views});
-
-  // Charger abonnés
-  const subsSnap = await get(ref(db,"channels/"+v.channelId+"/subscribers"));
-  subsCountEl.textContent = (subsSnap.exists()? Object.keys(subsSnap.val()).length : 0) + " abonnés";
-
-  // Détecter si l'utilisateur est abonné
-  if(currentUser && subsSnap.exists() && subsSnap.val()[currentUser.uid]) {
-    subscribeBtn.textContent = "Abonné";
-    subscribeBtn.disabled = true;
+async function loadVideo(){
+  const snap = await get(ref(db, "videos/" + videoId));
+  if(!snap.exists()){
+    alert("Vidéo supprimée");
+    location.href = "index.html";
+    return;
   }
 
-  // Charger recommandations (MV et autres)
-  onValue(ref(db,"videos"), recSnap=>{
-    recommendationsGrid.innerHTML="";
-    if(!recSnap.exists()) return;
-    Object.entries(recSnap.val())
-      .filter(([id])=>id!==videoId)
-      .slice(0,8)
-      .forEach(([id,v])=>{
-        const card = document.createElement("div");
-        card.className="recCard";
-        card.onclick = ()=> location.href="player.html?id="+id;
-        card.innerHTML=`
-          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-          <div class="title">${v.title}</div>
-        `;
-        recommendationsGrid.appendChild(card);
-      });
+  const v = snap.val();
+
+  videoPlayer.src = v.videoURL;
+  videoTitle.textContent = v.title;
+  videoDesc.textContent = v.description || "";
+  videoViews.textContent = (v.views || 0) + " vues";
+
+  // Incrémenter vues
+  await update(ref(db, "videos/" + videoId), {
+    views: (v.views || 0) + 1
   });
+
+  // Charger infos chaîne
+  const chSnap = await get(ref(db, "channels/" + v.channelId));
+  if(chSnap.exists()){
+    const ch = chSnap.val();
+    channelName.textContent = ch.name;
+    channelAvatar.src = ch.avatar;
+    channelLink.href = "channel.html?id=" + v.channelId;
+  }
+
+  loadComments();
 }
 
+async function loadComments(){
+  comments.innerHTML = "";
+  const snap = await get(ref(db, "comments/" + videoId));
+  if(!snap.exists()) return;
+
+  for(const id in snap.val()){
+    const c = snap.val()[id];
+    const div = document.createElement("div");
+    div.className = "comment";
+    div.innerHTML = `
+      <b>${c.username}</b>
+      <p>${c.text}</p>
+    `;
+    comments.appendChild(div);
+  }
+}
+
+commentForm.onsubmit = async e=>{
+  e.preventDefault();
+  if(!currentUser){
+    alert("Connecte-toi pour commenter");
+    return;
+  }
+
+  const text = commentInput.value.trim();
+  if(!text) return;
+
+  const userSnap = await get(ref(db, "users/" + currentUser.uid));
+  const user = userSnap.val();
+
+  const cRef = push(ref(db, "comments/" + videoId));
+  await set(cRef, {
+    uid: currentUser.uid,
+    username: user.username,
+    text,
+    createdAt: Date.now()
+  });
+
+  commentInput.value = "";
+  loadComments();
+};
+
 loadVideo();
-
-// 🔹 Actions
-subscribeBtn.onclick = async ()=>{
-  if(!currentUser) return alert("Connectez-vous pour vous abonner");
-  await set(ref(db,"channels/"+channelNameEl.textContent+"/subscribers/"+currentUser.uid),true);
-  subscribeBtn.textContent="Abonné";
-  subscribeBtn.disabled=true;
-};
-
-likeBtn.onclick = async ()=>{
-  if(!currentUser) return alert("Connectez-vous pour liker");
-  const snap = await get(ref(db,"videos/"+videoId+"/likes"));
-  const likes = snap.exists()? snap.val()+1 : 1;
-  set(ref(db,"videos/"+videoId+"/likes"), likes);
-  alert("Vous aimez cette vidéo !");
-};
-
-dislikeBtn.onclick = async ()=>{
-  if(!currentUser) return alert("Connectez-vous pour ne pas aimer");
-  const snap = await get(ref(db,"videos/"+videoId+"/dislikes"));
-  const dislikes = snap.exists()? snap.val()+1 : 1;
-  set(ref(db,"videos/"+videoId+"/dislikes"), dislikes);
-  alert("Vous n'aimez pas cette vidéo !");
-};
-
-saveBtn.onclick = async ()=>{
-  if(!currentUser) return alert("Connectez-vous pour enregistrer");
-  await set(ref(db,"users/"+currentUser.uid+"/savedVideos/"+videoId), true);
-  alert("Vidéo enregistrée sur Lumio !");
-};
-
 </script>
 
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui;background:#181818;color:white;}
-header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10}
-.left,.center,.right{display:flex;align-items:center;gap:14px}
-button{background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer}
-.content{margin-top:64px;padding:16px;max-width:960px;margin-left:auto;margin-right:auto}
-.videoContainer{width:100%;max-height:480px;overflow:hidden;background:#000;border-radius:12px;margin-bottom:16px}
-video{width:100%;border-radius:12px}
-.actions{display:flex;gap:12px;margin:8px 0}
-.channelInfo{display:flex;align-items:center;gap:12px;margin:12px 0}
-.recGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:24px}
-.recCard{cursor:pointer;background:#202020;border-radius:10px;overflow:hidden}
-.recCard .thumb{height:100px;background-size:cover;background-position:center}
-.recCard .title{padding:6px;font-size:12px}
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
+.container{max-width:900px;margin:auto;padding:10px}
+video{width:100%;border-radius:12px;background:black}
+.channel{display:flex;align-items:center;gap:10px;margin:10px 0}
+.channel img{width:40px;height:40px;border-radius:50%}
+.comments{margin-top:20px}
+.comment{background:#1f1f1f;padding:8px;border-radius:8px;margin:6px 0}
+input,button{
+  width:100%;padding:10px;margin-top:6px;
+  border:none;border-radius:10px;
+  background:#1f1f1f;color:white;
+}
+button{background:white;color:black;font-weight:600}
 </style>
 </head>
 
 <body>
 
-<header>
-  <div class="left"><h2>Lumio</h2></div>
-  <div class="center">
-    <input id="searchInput" placeholder="Rechercher sur Lumio">
-  </div>
-  <div class="right">
-    <button onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i></button>
-    <button onclick="location.href='channel.html'"><i class="fa-solid fa-user"></i></button>
-  </div>
-</header>
+<div class="container">
+  <video id="videoPlayer" controls></video>
 
-<div class="content">
-  <div class="videoContainer">
-    <video id="videoPlayer" controls></video>
-  </div>
   <h2 id="videoTitle"></h2>
-  <div class="channelInfo">
-    <span id="channelName"></span> | <span id="subsCount"></span>
+  <div id="videoViews"></div>
+
+  <div class="channel">
+    <img id="channelAvatar">
+    <a id="channelLink" style="color:white;text-decoration:none">
+      <span id="channelName"></span>
+    </a>
   </div>
+
   <p id="videoDesc"></p>
 
-  <div class="actions">
-    <button id="likeBtn"><i class="fa-regular fa-thumbs-up"></i> Like</button>
-    <button id="dislikeBtn"><i class="fa-regular fa-thumbs-down"></i> Je n'aime pas</button>
-    <button id="subscribeBtn">S'abonner</button>
-    <button id="saveBtn"><i class="fa-solid fa-bookmark"></i> Enregistrer</button>
+  <div class="comments">
+    <h3>Commentaires</h3>
+    <form id="commentForm">
+      <input id="commentInput" placeholder="Écrire un commentaire...">
+      <button>Publier</button>
+    </form>
+    <div id="comments"></div>
   </div>
-
-  <h3>Recommandations</h3>
-  <div id="recommendations" class="recGrid"></div>
 </div>
 
 </body>
