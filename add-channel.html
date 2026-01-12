@@ -10,7 +10,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-/* 🔥 CONFIG FIREBASE */
+/* 🔥 Firebase Config */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -24,114 +24,103 @@ const db = getDatabase(app);
 
 let currentUser = null;
 
-/* 🔐 Vérification utilisateur connecté */
-onAuthStateChanged(auth, async (user) => {
+/* 🔐 Vérifier connexion */
+onAuthStateChanged(auth, async user => {
   if (!user) {
     alert("Vous devez être connecté pour créer une chaîne.");
     location.href = "login.html";
     return;
   }
-
   currentUser = user;
 
-  // Vérifier s’il possède déjà une chaîne
+  // L’utilisateur peut avoir MAX 2 chaînes
   const snap = await get(ref(db, "userChannels/" + user.uid));
   if (snap.exists()) {
-    location.href = "channel.html?id=" + snap.val();
+    const channels = snap.val();
+    const count = Object.keys(channels).length;
+    if (count >= 2) {
+      alert("Vous avez déjà créé le nombre maximum de chaînes (2).");
+      location.href = "profile.html";
+    }
   }
 });
 
-/* 📁 Convertir image en Base64 */
+/* 📁 Base64 */
 function toBase64(file){
-  return new Promise((resolve, reject) => {
+  return new Promise((res, rej)=>{
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = err => reject(err);
+    reader.onload = () => res(reader.result);
+    reader.onerror = e => rej(e);
     reader.readAsDataURL(file);
   });
 }
 
-/* 🚀 Création réelle de la chaîne */
+/* 🚀 Création de la chaîne */
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("channelForm");
-  const errorBox = document.getElementById("error");
 
-  form.addEventListener("submit", async (e) => {
+  form.onsubmit = async e => {
     e.preventDefault();
-    errorBox.textContent = "";
-
-    if (!currentUser) {
-      errorBox.textContent = "Utilisateur non connecté.";
-      return;
-    }
 
     const name = channelName.value.trim();
     const description = channelDesc.value.trim();
-    const country = channelCountry.value.trim();
     const language = channelLanguage.value;
     const email = channelEmail.value.trim();
-    const phone = channelPhone.value.trim();
     const category = channelCategory.value;
     const avatarFile = avatar.files[0];
-    const bannerFile = banner.files[0];
+    const bannerFile = banner.files[0] || null;
 
-    if (!name || !language || !email || !avatarFile || !bannerFile) {
-      errorBox.textContent = "Veuillez remplir tous les champs obligatoires (*)";
+    if (!name || !language || !email || !avatarFile || !category) {
+      alert("Veuillez remplir tous les champs obligatoires.");
       return;
     }
 
     try {
       const avatarBase64 = await toBase64(avatarFile);
-      const bannerBase64 = await toBase64(bannerFile);
+      let bannerBase64 = "";
+      if (bannerFile) bannerBase64 = await toBase64(bannerFile);
 
       const channelRef = push(ref(db, "channels"));
       const channelId = channelRef.key;
 
-      /* 🧱 STRUCTURE FINALE DE LA CHAÎNE */
+      /* 🧱 Structure complète automatique */
       await set(channelRef, {
         id: channelId,
         owner: currentUser.uid,
         name,
         description,
-        country,
         language,
-        email,
-        phone,
+        contactEmail: email,
         category,
         avatar: avatarBase64,
         banner: bannerBase64,
         subscribers: 0,
-        verified: false,
         monetizationEnabled: false,
+        verified: false,
         createdAt: Date.now()
       });
 
-      /* 🔗 Liaisons automatiques */
-      await set(ref(db, "userChannels/" + currentUser.uid), channelId);
+      // L’utilisateur peut avoir 2 chaînes → on stocke en objet
+      const userChannelsRef = ref(db, "userChannels/" + currentUser.uid);
+      const snap = await get(userChannelsRef);
+      let data = snap.exists() ? snap.val() : {};
+      data[channelId] = true;
+      await set(userChannelsRef, data);
+
       await set(ref(db, "videosByChannel/" + channelId), {});
       await set(ref(db, "subscriptions/" + channelId), {});
       await set(ref(db, "notifications/" + channelId), {});
-      await set(ref(db, "analytics/" + channelId), {
-        views: 0,
-        watchTime: 0,
-        likes: 0,
-        subscribers: 0
-      });
-      await set(ref(db, "monetization/" + channelId), {
-        balance: 0,
-        history: {},
-        adsEnabled: false,
-        donationsEnabled: false
-      });
+      await set(ref(db, "analytics/" + channelId), {});
+      await set(ref(db, "monetization/" + channelId), { balance: 0, history: {} });
 
       alert("🎉 Chaîne créée avec succès !");
       location.href = "channel.html?id=" + channelId;
 
     } catch (err) {
       console.error(err);
-      errorBox.textContent = "Erreur : " + err.message;
+      alert("Erreur : " + err.message);
     }
-  });
+  };
 });
 </script>
 
@@ -143,41 +132,32 @@ body{
   color:white;
 }
 main{
-  max-width:620px;
+  max-width:600px;
   margin:40px auto;
-  background:#1a1a1a;
-  padding:24px;
+  background:#1c1c1c;
+  padding:20px;
   border-radius:14px;
 }
 h2{text-align:center;margin-bottom:20px}
-
 input,textarea,select{
   width:100%;
-  padding:12px;
+  padding:10px;
   margin-bottom:12px;
   border:none;
-  border-radius:10px;
+  border-radius:8px;
   background:#262626;
   color:white;
 }
-
-label{font-size:14px;color:#aaa}
-
+label{font-size:14px;color:#ccc}
 button{
   width:100%;
-  padding:14px;
+  padding:12px;
   border:none;
-  border-radius:30px;
+  border-radius:20px;
   background:#ff7a00;
   color:black;
   font-weight:700;
   cursor:pointer;
-}
-
-.error{
-  color:#ff5555;
-  margin-bottom:10px;
-  text-align:center;
 }
 </style>
 </head>
@@ -185,43 +165,39 @@ button{
 <body>
 
 <main>
-  <h2>Créer votre chaîne Lumio</h2>
+<h2>Créer une chaîne Lumio</h2>
 
-  <form id="channelForm">
-    <input id="channelName" placeholder="Nom de la chaîne *" required>
-    <textarea id="channelDesc" placeholder="Description de la chaîne"></textarea>
+<form id="channelForm">
 
-    <input id="channelCountry" placeholder="Pays">
+<input id="channelName" placeholder="Nom de la chaîne *" required>
+<textarea id="channelDesc" placeholder="Description de la chaîne"></textarea>
 
-    <select id="channelLanguage" required>
-      <option value="">Langue principale *</option>
-      <option value="fr">Français</option>
-      <option value="en">English</option>
-      <option value="es">Español</option>
-    </select>
+<select id="channelLanguage" required>
+  <option value="">Langue principale *</option>
+  <option value="fr">Français</option>
+  <option value="en">English</option>
+</select>
 
-    <input id="channelEmail" type="email" placeholder="Email de contact *" required>
-    <input id="channelPhone" placeholder="Téléphone (optionnel)">
+<input id="channelEmail" type="email" placeholder="Email de contact *" required>
 
-    <select id="channelCategory">
-      <option value="general">Général</option>
-      <option value="education">Éducation</option>
-      <option value="music">Musique</option>
-      <option value="movies">Films</option>
-      <option value="gaming">Gaming</option>
-      <option value="technology">Technologie</option>
-    </select>
+<select id="channelCategory" required>
+  <option value="">Catégorie *</option>
+  <option value="general">Général</option>
+  <option value="education">Éducation</option>
+  <option value="music">Musique</option>
+  <option value="gaming">Gaming</option>
+  <option value="movies">Films</option>
+</select>
 
-    <label>Avatar de la chaîne *</label>
-    <input type="file" id="avatar" accept="image/*" required>
+<label>Avatar de la chaîne (obligatoire)</label>
+<input type="file" id="avatar" accept="image/*" required>
 
-    <label>Bannière de la chaîne *</label>
-    <input type="file" id="banner" accept="image/*" required>
+<label>Bannière (optionnelle)</label>
+<input type="file" id="banner" accept="image/*">
 
-    <div class="error" id="error"></div>
+<button type="submit">Créer la chaîne</button>
 
-    <button type="submit">Créer la chaîne</button>
-  </form>
+</form>
 </main>
 
 </body>
