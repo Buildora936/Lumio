@@ -8,8 +8,9 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, get, push, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+/* 🔥 Firebase Config */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -21,103 +22,225 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUID = null;
+let currentUser = null;
 let channelId = null;
+let channelName = "";
 
-onAuthStateChanged(auth, async user => {
+/* 🔐 Vérification Auth + récupération chaîne */
+onAuthStateChanged(auth, async (user)=>{
   if(!user){
-    alert("Connecte-toi");
+    alert("Connexion requise");
     location.href = "login.html";
     return;
   }
 
-  currentUID = user.uid;
+  currentUser = user;
 
-  const snap = await get(ref(db, "userChannels/" + currentUID));
-  if(!snap.exists()){
-    alert("Aucune chaîne trouvée");
-    location.href = "index.html";
+  const channelSnap = await get(ref(db, "userChannels/" + user.uid));
+  if(!channelSnap.exists()){
+    alert("Vous devez créer une chaîne avant de publier.");
+    location.href = "channel.html";
     return;
   }
 
-  channelId = snap.val();
-  document.getElementById("status").textContent = "Chaîne connectée : " + channelId;
+  channelId = channelSnap.val();
+  const channelData = await get(ref(db, "channels/" + channelId));
+  channelName = channelData.val().name;
+
+  document.getElementById("channelNameBox").textContent = channelName;
 });
 
-function toBase64(file){
-  return new Promise((res, rej)=>{
-    const r = new FileReader();
-    r.onload = ()=>res(r.result);
-    r.onerror = err=>rej(err);
-    r.readAsDataURL(file);
+/* 📁 Convertir fichier en Base64 avec progression */
+function toBase64(file, progressCallback){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = err => reject(err);
+    reader.onprogress = e => {
+      if(e.lengthComputable){
+        const percent = Math.round((e.loaded / e.total) * 100);
+        progressCallback(percent);
+      }
+    };
+    reader.readAsDataURL(file);
   });
 }
 
-document.getElementById("uploadForm").onsubmit = async e => {
-  e.preventDefault();
+/* 🚀 Publication vidéo */
+document.addEventListener("DOMContentLoaded", ()=>{
+  const form = document.getElementById("uploadForm");
+  const progress = document.getElementById("progress");
+  const progressBar = document.getElementById("progressBar");
 
-  const title = titleInput.value.trim();
-  const desc = descInput.value.trim();
-  const videoFile = videoInput.files[0];
-  const thumbFile = thumbInput.files[0];
+  form.onsubmit = async (e)=>{
+    e.preventDefault();
 
-  if(!title || !videoFile || !thumbFile){
-    alert("Champs manquants");
-    return;
+    const title = titleInput.value.trim();
+    const description = descInput.value.trim();
+    const category = categoryInput.value;
+    const language = languageInput.value;
+    const tags = tagsInput.value.split(",").map(t=>t.trim()).filter(t=>t);
+    const visibility = visibilityInput.value;
+
+    const allowComments = commentsInput.checked;
+    const allowLikes = likesInput.checked;
+    const allowShare = shareInput.checked;
+    const monetizable = monetInput.checked;
+    const allowDonations = donationInput.checked;
+
+    const videoFile = videoInput.files[0];
+    const thumbFile = thumbInput.files[0];
+
+    if(!title || !category || !videoFile || !thumbFile){
+      alert("Champs obligatoires manquants.");
+      return;
+    }
+
+    progress.style.display = "block";
+
+    try{
+      progressBar.style.width = "10%";
+      const thumbBase64 = await toBase64(thumbFile, p=>{
+        progressBar.style.width = (10 + p*0.3) + "%";
+      });
+
+      progressBar.style.width = "40%";
+      const videoBase64 = await toBase64(videoFile, p=>{
+        progressBar.style.width = (40 + p*0.4) + "%";
+      });
+
+      progressBar.style.width = "85%";
+
+      const videoRef = push(ref(db, "videos"));
+      const videoId = videoRef.key;
+
+      const videoData = {
+        id: videoId,
+        title,
+        description,
+        category,
+        language,
+        tags,
+        visibility,
+        thumbnail: thumbBase64,
+        video: videoBase64,
+
+        creatorId: currentUser.uid,
+        channelId,
+        channelName,
+
+        createdAt: Date.now(),
+
+        views: 0,
+        likes: 0,
+        dislikes: 0,
+        commentsCount: 0,
+
+        allowComments,
+        allowLikes,
+        allowShare,
+
+        monetizable,
+        allowDonations,
+
+        editHistory: []
+      };
+
+      /* 🧱 STRUCTURE AUTOMATIQUE */
+      await set(videoRef, videoData);
+      await set(ref(db, "videosByChannel/" + channelId + "/" + videoId), true);
+
+      progressBar.style.width = "100%";
+
+      alert("🎉 Vidéo publiée avec succès !");
+      location.href = "player.html?id=" + videoId;
+
+    }catch(err){
+      console.error(err);
+      alert("Erreur upload : " + err.message);
+    }
   }
-
-  const videoBase64 = await toBase64(videoFile);
-  const thumbBase64 = await toBase64(thumbFile);
-
-  const videoRef = push(ref(db, "videos"));
-  const videoId = videoRef.key;
-
-  const data = {
-    id: videoId,
-    title,
-    description: desc,
-    videoURL: videoBase64,
-    thumbnail: thumbBase64,
-    channelId,
-    views: 0,
-    likes: 0,
-    createdAt: Date.now()
-  };
-
-  await set(videoRef, data);
-  await set(ref(db, "videosByChannel/" + channelId + "/" + videoId), true);
-
-  alert("Vidéo publiée !");
-  location.href = "channel.html?id=" + channelId;
-};
+});
 </script>
 
 <style>
-body{background:#0f0f0f;color:white;font-family:system-ui}
-.container{max-width:500px;margin:40px auto}
-input,textarea,button{
-  width:100%;padding:12px;margin:8px 0;
-  border:none;border-radius:10px;
-  background:#1f1f1f;color:white;
+body{margin:0;font-family:system-ui;background:#0f0f0f;color:white}
+main{max-width:700px;margin:30px auto;padding:20px;background:#1a1a1a;border-radius:14px}
+h2{text-align:center}
+.channel-info{background:#222;padding:10px;border-radius:8px;margin-bottom:15px}
+input,select,textarea{
+  width:100%;margin-bottom:10px;padding:10px;border:none;
+  border-radius:8px;background:#2a2a2a;color:white;
 }
-button{background:white;color:black;font-weight:600}
+button{
+  width:100%;padding:12px;border:none;border-radius:20px;
+  background:#ff7a00;font-weight:bold;
+}
+.progress{background:#333;border-radius:10px;height:12px;overflow:hidden;display:none;margin-top:10px}
+.bar{background:#00ff88;height:100%;width:0%}
+.options label{display:block;margin:6px 0}
 </style>
 </head>
 
 <body>
-<div class="container">
+<main>
+
 <h2>Publier une vidéo</h2>
-<div id="status"></div>
+
+<div class="channel-info">
+Chaîne active : <b id="channelNameBox">...</b>
+</div>
 
 <form id="uploadForm">
-<input id="titleInput" placeholder="Titre" required>
-<textarea id="descInput" placeholder="Description"></textarea>
-<label>Vidéo</label>
-<input type="file" id="videoInput" accept="video/*" required>
-<label>Miniature</label>
-<input type="file" id="thumbInput" accept="image/*" required>
-<button>Publier</button>
-</form>
+
+<input id="titleInput" placeholder="Titre de la vidéo *">
+
+<textarea id="descInput" placeholder="Description (optionnel)"></textarea>
+
+<select id="categoryInput">
+  <option value="">Catégorie *</option>
+  <option value="education">Éducation</option>
+  <option value="music">Musique</option>
+  <option value="movies">Films</option>
+  <option value="gaming">Gaming</option>
+  <option value="general">Général</option>
+</select>
+
+<select id="languageInput">
+  <option value="fr">Français</option>
+  <option value="en">English</option>
+</select>
+
+<input id="tagsInput" placeholder="Tags (séparés par des virgules)">
+
+<select id="visibilityInput">
+  <option value="public">Publique</option>
+  <option value="unlisted">Non répertoriée</option>
+  <option value="private">Privée</option>
+</select>
+
+<label>Thumbnail *</label>
+<input type="file" id="thumbInput" accept="image/*">
+
+<label>Vidéo *</label>
+<input type="file" id="videoInput" accept="video/*">
+
+<div class="options">
+  <label><input type="checkbox" id="commentsInput" checked> Autoriser commentaires</label>
+  <label><input type="checkbox" id="likesInput" checked> Autoriser likes/dislikes</label>
+  <label><input type="checkbox" id="shareInput" checked> Autoriser partage</label>
+  <label><input type="checkbox" id="monetInput" checked> Vidéo monétisable</label>
+  <label><input type="checkbox" id="donationInput" checked> Autoriser dons</label>
 </div>
+
+<button type="submit">Publier la vidéo</button>
+
+<div class="progress" id="progress">
+  <div class="bar" id="progressBar"></div>
+</div>
+
+</form>
+
+</main>
 </body>
 </html>
