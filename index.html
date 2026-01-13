@@ -71,7 +71,7 @@ button{
 }
 
 .sidebar a, .sidebar button{
-  width:80px;               /* FIX ICI */
+  width:80px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -96,7 +96,7 @@ button{
   position:absolute;
   left:80px;
   top:0;
-  width:100px;
+  width:180px;
   background:#111;
   height:100%;
   padding-top:10px;
@@ -125,42 +125,6 @@ button{
   padding:16px;
 }
 
-.ad-card{
-  background:#202020;
-  border-radius:14px;
-  overflow:hidden;
-  border:1px solid #333;
-}
-
-.ad-thumb{
-  height:140px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#111;
-}
-
-.ad-label{
-  font-size:11px;
-  color:#ff9800;
-  text-transform:uppercase;
-  font-weight:600;
-}
-
-.ad-body{
-  padding:10px;
-}
-
-.ad-title{
-  font-weight:600;
-  font-size:14px;
-}
-
-.ad-meta{
-  font-size:12px;
-  color:#aaa;
-}
-
 /* GRID */
 .grid{
   display:grid;
@@ -183,6 +147,37 @@ button{
 .card-body{padding:10px}
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
+
+/* AD CARD */
+.ad-card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid #333;
+  cursor:default;
+}
+.ad-thumb{
+  height:140px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#111;
+}
+.ad-label{
+  font-size:11px;
+  color:#ff9800;
+  text-transform:uppercase;
+  font-weight:600;
+}
+.ad-body{padding:10px}
+.ad-title{
+  font-weight:600;
+  font-size:14px;
+}
+.ad-meta{
+  font-size:12px;
+  color:#aaa;
+}
 </style>
 </head>
 
@@ -242,36 +237,11 @@ button{
   </nav>
 
   <main class="content">
- <div class="card ad-card">
-  <div class="ad-thumb">
-    <!-- Script Adsterra -->
-    <script>
-      atOptions = {
-        'key' : '34ced6a9c342f10844eedf343e137cfb',
-        'format' : 'iframe',
-        'height' : 250,
-        'width' : 300,
-        'params' : {}
-      };
-    </script>
-    <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
-  </div>
-
-  <div class="ad-body">
-    <div class="ad-label">Publicité</div>
-    <div class="ad-title">Sponsorisé</div>
-    <div class="ad-meta">Annonce Lumio</div>
-  </div>
-</div>
-   
-      <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
-    </div>
     <div class="grid" id="grid"></div>
   </main>
 
 </div>
 
-<!-- SCRIPT A LA FIN POUR EVITER LES BUGS DOM -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -317,13 +287,15 @@ onValue(ref(db, "videos"), snap => {
   grid.innerHTML = "";
   if (!snap.exists()) return;
 
+  let count = 0;
+
   Object.entries(snap.val())
     .sort((a,b) => b[1].createdAt - a[1].createdAt)
     .forEach(([id, v]) => {
+
       const card = document.createElement("div");
       card.className = "card";
       card.onclick = () => location.href = `player.html?id=${id}`;
-
       card.innerHTML = `
         <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
         <div class="card-body">
@@ -335,6 +307,34 @@ onValue(ref(db, "videos"), snap => {
         </div>
       `;
       grid.appendChild(card);
+
+      count++;
+
+      /* PUB TOUTES LES 6 VIDEOS */
+      if(count % 6 === 0){
+        const ad = document.createElement("div");
+        ad.className = "ad-card";
+        ad.innerHTML = `
+          <div class="ad-thumb">
+            <script>
+              atOptions = {
+                'key' : '34ced6a9c342f10844eedf343e137cfb',
+                'format' : 'iframe',
+                'height' : 250,
+                'width' : 300,
+                'params' : {}
+              };
+            </script>
+            <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
+          </div>
+          <div class="ad-body">
+            <div class="ad-label">Publicité</div>
+            <div class="ad-title">Sponsorisé</div>
+            <div class="ad-meta">Annonce Lumio</div>
+          </div>
+        `;
+        grid.appendChild(ad);
+      }
     });
 });
 
