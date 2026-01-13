@@ -125,11 +125,40 @@ button{
   padding:16px;
 }
 
-/* PUB */
-.ad-banner{
+.ad-card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid #333;
+}
+
+.ad-thumb{
+  height:140px;
   display:flex;
+  align-items:center;
   justify-content:center;
-  margin:16px 0;
+  background:#111;
+}
+
+.ad-label{
+  font-size:11px;
+  color:#ff9800;
+  text-transform:uppercase;
+  font-weight:600;
+}
+
+.ad-body{
+  padding:10px;
+}
+
+.ad-title{
+  font-weight:600;
+  font-size:14px;
+}
+
+.ad-meta{
+  font-size:12px;
+  color:#aaa;
 }
 
 /* GRID */
@@ -213,30 +242,28 @@ button{
   </nav>
 
   <main class="content">
+ <div class="card ad-card">
+  <div class="ad-thumb">
+    <!-- Script Adsterra -->
+    <script>
+      atOptions = {
+        'key' : '34ced6a9c342f10844eedf343e137cfb',
+        'format' : 'iframe',
+        'height' : 250,
+        'width' : 300,
+        'params' : {}
+      };
+    </script>
+    <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
+  </div>
 
-    <!-- PUB ADSTERRA 300x250 -->
-    <div class="ad-banner">
-      <script>
-        atOptions = {
-          'key' : '34ced6a9c342f10844eedf343e137cfb',
-          'format' : 'iframe',
-          'height' : 250,
-          'width' : 300,
-          'params' : {}
-        };
-      </script>
-      <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
-    </div>
- <div class="ad-banner">
-      <script>
-        atOptions = {
-          'key' : '34ced6a9c342f10844eedf343e137cfb',
-          'format' : 'iframe',
-          'height' : 250,
-          'width' : 300,
-          'params' : {}
-        };
-      </script>
+  <div class="ad-body">
+    <div class="ad-label">Publicité</div>
+    <div class="ad-title">Sponsorisé</div>
+    <div class="ad-meta">Annonce Lumio</div>
+  </div>
+</div>
+   
       <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
     </div>
     <div class="grid" id="grid"></div>
