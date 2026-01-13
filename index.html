@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <title>Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="google-site-verification" content="em2dfNvqk0T6RU-Pq7e8b4Jwv1Dutfqnpnt0uSzHsuc" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -28,14 +29,8 @@ const grid = document.getElementById("grid");
 const startBtn = document.getElementById("startBtn");
 const profileBtn = document.getElementById("profileBtn");
 const uploadBtn = document.getElementById("uploadBtn");
+
 const searchInput = document.getElementById("searchInput");
-
-// Menu burger
-const burgerMenu = document.getElementById("burgerMenu");
-function openMenu(){ burgerMenu.style.left = "0"; }
-function closeMenu(){ burgerMenu.style.left = "-250px"; }
-
-// Recherche
 searchInput.addEventListener("keypress", e => {
   if(e.key === "Enter"){
     const query = encodeURIComponent(searchInput.value.trim());
@@ -43,7 +38,7 @@ searchInput.addEventListener("keypress", e => {
   }
 });
 
-// Auth state
+// Auth
 onAuthStateChanged(auth, user => {
   if (user) {
     startBtn.style.display = "none";
@@ -81,122 +76,214 @@ onValue(ref(db, "videos"), snap => {
       grid.appendChild(card);
     });
 });
+
+// Toggle menu "+"
+window.toggleMoreMenu = function(){
+  document.getElementById("moreMenu").classList.toggle("open");
+};
 </script>
 
 <style>
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui;background:#181818;color:white}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+}
 
 /* HEADER */
 header{
-  position:fixed;top:0;left:0;right:0;height:56px;
-  background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;z-index:10
+  position:fixed;
+  top:0;left:0;right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  z-index:10;
 }
-.left,.center,.right{display:flex;align-items:center;gap:14px}
+
+.left,.center,.right{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
 .search input{
-  width:420px;max-width:60vw;padding:8px 16px;border-radius:20px;border:none;outline:none;
-  background:#202020;color:white
+  width:420px;
+  max-width:60vw;
+  padding:8px 16px;
+  border-radius:20px;
+  border:none;
+  outline:none;
+  background:#202020;
+  color:white;
 }
+
 button{
-  background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer
+  background:#202020;
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:20px;
+  cursor:pointer;
 }
 
 /* LAYOUT */
-.layout{display:flex;margin-top:56px}
+.layout{
+  display:flex;
+  margin-top:56px;
+}
 
 /* SIDEBAR */
 .sidebar{
-  width:80px;background:#0f0f0f;
+  width:80px;
+  background:#0f0f0f;
+  position:relative;
 }
-.sidebar a{
-  display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;
-  font-size:11px;color:#aaa;text-decoration:none
+
+.sidebar a, .sidebar button{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  padding:14px 0;
+  font-size:11px;
+  color:#aaa;
+  background:none;
+  border:none;
+  text-decoration:none;
 }
+
 .sidebar i{font-size:20px}
-.sidebar a:hover{background:#1f1f1f;color:white}
+.sidebar a:hover, .sidebar button:hover{
+  background:#1f1f1f;
+  color:white;
+}
+
+/* MORE MENU */
+.more-menu{
+  position:absolute;
+  left:80px;
+  top:0;
+  width:180px;
+  background:#111;
+  height:100%;
+  padding-top:10px;
+  transform:translateX(-200px);
+  transition:0.3s;
+}
+.more-menu.open{
+  transform:translateX(0);
+}
+.more-menu a{
+  display:block;
+  padding:12px;
+  color:#aaa;
+  text-decoration:none;
+  font-size:14px;
+}
+.more-menu a:hover{
+  background:#222;
+  color:white;
+}
+
+/* CONTENT */
+.content{
+  flex:1;
+  padding:16px;
+}
 
 /* GRID */
-.content{flex:1;padding:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer}
-.thumb{height:140px;background-size:cover;background-position:center}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px;
+}
+
+/* CARD */
+.card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+  cursor:pointer;
+}
+.thumb{
+  height:140px;
+  background-size:cover;
+  background-position:center;
+}
 .card-body{padding:10px}
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
-
-/* BURGER MENU */
-#burgerMenu{
-  position:fixed;top:0;left:-250px;width:250px;height:100%;
-  background:#111;color:white;transition:0.3s;padding:20px;z-index:100;
-  display:flex;flex-direction:column;
-}
-#burgerMenu button{margin-bottom:20px;font-size:20px;background:none;color:white;border:none;cursor:pointer;text-align:left}
-#burgerMenu nav a{
-  padding:10px 0;color:white;text-decoration:none;font-weight:500;
-}
-#burgerMenu nav a:hover{color:#ff6a00}
-#openBtn{
-  position:fixed;top:12px;left:12px;font-size:24px;background:none;color:white;border:none;cursor:pointer;z-index:101;
-}
 </style>
 </head>
 
 <body>
-<!-- Menu burger -->
-<div id="burgerMenu">
-  <button onclick="closeMenu()">&times; Fermer</button>
-  <nav>
-    <a href="index.html">Accueil</a>
-    <a href="trending.html">Tendances</a>
-    <a href="shorts.html">MV</a>
-    <a href="subscriptions.html">Abonnements</a>
-    <a href="library.html">Historique / Likes</a>
-    <a href="downloads.html">Téléchargements</a>
-    <a href="live.html">Lives</a>
-    <a href="playlist.html">Playlists</a>
-    <a href="books.html">Livres</a>
-    <a href="profile.html">Profil</a>
-    <a href="settings.html">Paramètres</a>
-    <a href="help.html">Aide</a>
-    <a href="privacy.html">Confidentialité</a>
-    <a href="security.html">Sécurité</a>
-    <a href="auth.html">Se connecter / S’inscrire</a>
-  </nav>
-</div>
-
-<!-- Bouton burger -->
-<button id="openBtn" onclick="openMenu()">☰</button>
 
 <header>
-  <div class="left"><h2>Lumio</h2></div>
-  <div class="search"><input id="searchInput" placeholder="Rechercher sur Lumio"></div>
+  <div class="left">
+    <h2>Lumio</h2>
+  </div>
+
+  <div class="search">
+    <input id="searchInput" placeholder="Rechercher sur Lumio">
+  </div>
+
   <div class="right">
-    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
+    <button id="uploadBtn" style="display:none"
+     onclick="location.href='upload.html'">
       <i class="fa-solid fa-plus"></i>
     </button>
-    <button id="uploadBtn" style="display:none" onclick="location.href='notifications.html'">
-      <i class="fa-solid fa-clock"></i>
+
+    <button id="startBtn" onclick="location.href='signup.html'">
+      Commencer
     </button>
-    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
-    <button id="profileBtn" style="display:none" onclick="location.href='channel.html'">
+
+    <button id="profileBtn" style="display:none"
+     onclick="location.href='profile.html'">
       <i class="fa-solid fa-user"></i>
     </button>
   </div>
 </header>
 
 <div class="layout">
+
   <nav class="sidebar">
     <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
+    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
     <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
     <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
     <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
+
+    <!-- Bouton PLUS -->
+    <button onclick="toggleMoreMenu()">
+      <i class="fa-solid fa-ellipsis-vertical"></i>
+      <span>Plus</span>
+    </button>
+
+    <!-- Menu caché -->
+    <div class="more-menu" id="moreMenu">
+      <a href="notifications.html">🔔 Notifications</a>
+      <a href="profile.html">👤 Profil</a>
+      <a href="studio.html">🎬 Studio</a>
+      <a href="analytics.html">📊 Analytics</a>
+      <a href="monetization.html">💰 Monétisation</a>
+      <a href="settings.html">⚙️ Paramètres</a>
+      <a href="privacy.html">🔐 Confidentialité</a>
+      <a href="security.html">🛡️ Sécurité</a>
+      <a href="copyright.html">© Copyright</a>
+    </div>
   </nav>
 
   <main class="content">
     <div class="grid" id="grid"></div>
   </main>
+
 </div>
+
 </body>
 </html>
