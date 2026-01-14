@@ -6,7 +6,81 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet"
- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+}
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+  gap:14px;
+}
+header i{
+  cursor:pointer;
+}
+main{
+  max-width:800px;
+  margin:70px auto 40px auto;
+  padding:16px;
+}
+.notification{
+  background:#202020;
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:12px;
+  display:flex;
+  gap:12px;
+  cursor:pointer;
+  border-left:4px solid transparent;
+}
+.notification.unread{
+  border-left:4px solid #ff9800;
+  background:#242424;
+}
+.notification i{
+  font-size:20px;
+  color:#ff9800;
+}
+.notification .content{
+  flex:1;
+}
+.notification .title{
+  font-weight:600;
+}
+.notification .message{
+  font-size:14px;
+  color:#ccc;
+}
+.notification .time{
+  font-size:11px;
+  color:#888;
+  margin-top:4px;
+}
+.empty{
+  text-align:center;
+  color:#777;
+  margin-top:30px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <i class="fa-solid fa-arrow-left" onclick="history.back()"></i>
+  <h3>Notifications</h3>
+</header>
+
+<main id="notifContainer">
+  <p class="empty">Chargement...</p>
+</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -24,125 +98,59 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const list = document.getElementById("list");
+const container = document.getElementById("notifContainer");
 
-onAuthStateChanged(auth, user => {
-  if (!user) location.href = "auth.html";
+onAuthStateChanged(auth, user=>{
+  if(!user){
+    location.href="signup.html";
+    return;
+  }
 
   const notifRef = ref(db, `notifications/${user.uid}`);
 
-  onValue(notifRef, snap => {
-    list.innerHTML = "";
+  onValue(notifRef, snap=>{
+    container.innerHTML = "";
 
-    if (!snap.exists()) {
-      list.innerHTML = "<p class='empty'>Aucune notification</p>";
+    if(!snap.exists()){
+      container.innerHTML = `<p class="empty">Aucune notification</p>`;
       return;
     }
 
     Object.entries(snap.val())
       .sort((a,b)=>b[1].createdAt - a[1].createdAt)
-      .forEach(([id,n]) => {
+      .forEach(([id, n])=>{
         const div = document.createElement("div");
-        div.className = "notif" + (n.read ? "" : " unread");
+        div.className = "notification " + (!n.read ? "unread" : "");
 
-        div.onclick = async () => {
-          if (!n.read) {
-            await update(ref(db, `notifications/${user.uid}/${id}`), {
-              read:true
-            });
-          }
-
-          if (n.videoId) {
-            location.href = `player.html?id=${n.videoId}`;
-          }
-        };
+        let icon = "fa-bell";
+        if(n.type === "comment") icon = "fa-comment";
+        if(n.type === "like") icon = "fa-heart";
+        if(n.type === "subscriber") icon = "fa-user-plus";
 
         div.innerHTML = `
-          <i class="fa-solid ${icon(n.type)}"></i>
+          <i class="fa-solid ${icon}"></i>
           <div class="content">
-            <p>${n.message}</p>
-            <span>${new Date(n.createdAt).toLocaleString()}</span>
+            <div class="title">${n.title}</div>
+            <div class="message">${n.message}</div>
+            <div class="time">${new Date(n.createdAt).toLocaleString()}</div>
           </div>
         `;
 
-        list.appendChild(div);
+        div.onclick = async ()=>{
+          // marquer comme lu
+          await update(ref(db, `notifications/${user.uid}/${id}`), {
+            read:true
+          });
+          if(n.link){
+            location.href = n.link;
+          }
+        };
+
+        container.appendChild(div);
       });
   });
 });
-
-function icon(type){
-  if(type==="comment") return "fa-comment";
-  if(type==="like") return "fa-thumbs-up";
-  if(type==="subscribe") return "fa-user-plus";
-  return "fa-bell";
-}
 </script>
-
-<style>
-body{
-  margin:0;
-  background:#181818;
-  color:white;
-  font-family:system-ui;
-}
-header{
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  padding:0 16px;
-}
-header i{cursor:pointer}
-
-main{
-  max-width:720px;
-  margin:16px auto;
-  padding:16px;
-}
-
-.notif{
-  display:flex;
-  gap:14px;
-  background:#202020;
-  padding:14px;
-  border-radius:14px;
-  margin-bottom:12px;
-  cursor:pointer;
-}
-.notif.unread{
-  background:#2a2a2a;
-  border-left:4px solid #ff7a00;
-}
-.notif i{
-  font-size:20px;
-  margin-top:4px;
-}
-.content p{
-  margin:0;
-  font-weight:500;
-}
-.content span{
-  font-size:12px;
-  color:#aaa;
-}
-.empty{
-  text-align:center;
-  color:#aaa;
-}
-</style>
-</head>
-
-<body>
-
-<header>
-  <i class="fa-solid fa-arrow-left"
-     onclick="history.back()"></i>
-  <h3 style="margin-left:12px">Notifications</h3>
-</header>
-
-<main>
-  <div id="list"></div>
-</main>
 
 </body>
 </html>
