@@ -39,7 +39,7 @@ onAuthStateChanged(auth, async (user)=>{
   const channelSnap = await get(ref(db, "userChannels/" + user.uid));
   if(!channelSnap.exists()){
     alert("Vous devez créer une chaîne avant de publier.");
-    location.href = "channel.html";
+    location.href = "add-channel.html";
     return;
   }
 
