@@ -6,9 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 /* Firebase */
 const firebaseConfig = {
@@ -45,6 +45,12 @@ function getAge(date){
 /* Signup */
 const form = document.getElementById("signupForm");
 const errorBox = document.getElementById("error");
+const channelCheckbox = document.getElementById("createChannelCheckbox");
+const channelForm = document.getElementById("channelForm");
+
+channelCheckbox.addEventListener("change", ()=>{
+  channelForm.style.display = channelCheckbox.checked ? "block" : "none";
+});
 
 form.onsubmit = async (e)=>{
   e.preventDefault();
@@ -67,23 +73,23 @@ form.onsubmit = async (e)=>{
   const age = getAge(birthdate);
   const isAdult = age >= 18;
 
-  // Vérifier username unique
-  const snap = await get(ref(db, "usernames/" + username));
-  if(snap.exists()) return errorBox.textContent = "Nom d’utilisateur déjà pris";
-
   try{
+    // Vérifier username unique
+    const snap = await get(ref(db, "usernames/" + username));
+    if(snap.exists()) return errorBox.textContent = "Nom d’utilisateur déjà pris";
+
     const photoBase64 = await toBase64(photo);
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = cred.user.uid;
 
-    /* STRUCTURE UTILISATEUR */
+    // Création structure utilisateur
     await set(ref(db, "users/" + uid), {
       email,
       username,
       birthdate,
       age,
       adult: isAdult,
-      monetizationEligible: isAdult,   // <18 = false
+      monetizationEligible: isAdult,
       country,
       language,
       photoURL: photoBase64,
@@ -93,12 +99,39 @@ form.onsubmit = async (e)=>{
 
     await set(ref(db, "usernames/" + username), uid);
 
+    // Si la case "Créer une chaîne" est cochée
+    if(channelCheckbox.checked){
+      const channelName = channelNameInput.value.trim();
+      const channelDesc = channelDescInput.value.trim() || "";
+      if(!channelName) return errorBox.textContent = "Nom de la chaîne obligatoire";
+
+      // Création ID unique pour la chaîne
+      const newChannelRef = push(ref(db, "channels"));
+      await set(newChannelRef, {
+        ownerId: uid,
+        name: channelName,
+        description: channelDesc,
+        thumbnail: "", // Par défaut
+        banner: "",
+        language,
+        subscribers: 0,
+        videos: {},
+        createdAt: Date.now()
+      });
+
+      const channelId = newChannelRef.key;
+
+      // Redirection vers la chaîne
+      location.href = `channel.html?id=${channelId}`;
+      return;
+    }
+
+    // Sinon redirection normale
     alert(
       isAdult 
       ? "Compte créé. Vous pourrez monétiser plus tard." 
       : "Compte créé. Vous pouvez publier mais pas gagner d’argent."
     );
-
     location.href = "index.html";
 
   }catch(err){
@@ -120,7 +153,7 @@ body{
   margin:40px auto;
   padding:20px;
 }
-input,select,button{
+input,select,button,textarea{
   width:100%;
   margin:8px 0;
   padding:12px;
@@ -133,11 +166,18 @@ button{
   background:white;
   color:black;
   font-weight:700;
+  cursor:pointer;
 }
 .error{
   color:#ff5555;
   text-align:center;
   font-size:14px;
+}
+#channelForm{
+  display:none;
+  margin-top:16px;
+  border-top:1px solid #333;
+  padding-top:16px;
 }
 </style>
 </head>
@@ -171,6 +211,17 @@ button{
 
 <label>Photo de profil</label>
 <input id="photoInput" type="file" accept="image/*" required>
+
+<label>
+  <input type="checkbox" id="createChannelCheckbox">
+  Je veux créer une chaîne
+</label>
+
+<!-- Formulaire chaîne -->
+<div id="channelForm">
+  <input id="channelNameInput" placeholder="Nom de la chaîne" required>
+  <textarea id="channelDescInput" placeholder="Description de la chaîne (optionnelle)"></textarea>
+</div>
 
 <div class="error" id="error"></div>
 
