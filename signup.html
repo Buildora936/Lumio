@@ -4,13 +4,67 @@
 <meta charset="UTF-8">
 <title>Inscription – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
+}
+.container{
+  max-width:480px;
+  margin:40px auto;
+  padding:20px;
+  background:#0f0f0f;
+  border-radius:14px;
+  box-shadow:0 0 20px #000;
+}
+h2{text-align:center; margin-bottom:20px;}
+input, select, button, textarea{
+  width:100%;
+  margin:8px 0;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  background:#1f1f1f;
+  color:white;
+}
+textarea{resize:none;}
+button{
+  background:#ff9800;
+  color:black;
+  font-weight:700;
+  cursor:pointer;
+  transition:0.3s;
+}
+button:hover{background:#e68a00;}
+label{font-size:14px; margin-top:8px; display:block;}
+.error{color:#ff5555; text-align:center; font-size:14px; margin-top:8px;}
+.progress-container{
+  margin:20px 0;
+  background:#202020;
+  border-radius:10px;
+  overflow:hidden;
+  height:20px;
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:#ff9800;
+  transition:width 0.5s ease;
+}
+.channel-section{display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;}
+</style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* Firebase Config */
+/* Firebase config */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -22,16 +76,17 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-/* Utils */
+/* Base64 photo */
 function toBase64(file){
   return new Promise((res, rej)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>res(reader.result);
-    reader.onerror = e=>rej(e);
-    reader.readAsDataURL(file);
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = e=>rej(e);
+    r.readAsDataURL(file);
   });
 }
 
+/* Calcul âge */
 function getAge(date){
   const today = new Date();
   const birth = new Date(date);
@@ -41,149 +96,129 @@ function getAge(date){
   return age;
 }
 
-/* DOM */
-const form = document.getElementById("signupForm");
-const errorBox = document.getElementById("error");
-const createChannelCheckbox = document.getElementById("createChannel");
-const channelFields = document.getElementById("channelFields");
-const progressBar = document.getElementById("progressBar");
+/* Progression */
+function updateProgress(percent){
+  document.getElementById("progressBar").style.width = percent+"%";
+}
 
-/* Toggle channel fields */
-createChannelCheckbox.addEventListener("change", ()=>{
-  channelFields.style.display = createChannelCheckbox.checked ? "block" : "none";
-});
+/* Formulaire */
+window.onload = ()=>{
+  const form = document.getElementById("signupForm");
+  const errorBox = document.getElementById("error");
+  const channelCheckbox = document.getElementById("createChannel");
+  const channelSection = document.getElementById("channelSection");
 
-/* Submit */
-form.onsubmit = async (e)=>{
-  e.preventDefault();
-  errorBox.textContent = "";
+  channelCheckbox.addEventListener("change", ()=>{
+    channelSection.style.display = channelCheckbox.checked ? "block" : "none";
+  });
 
-  // Compte
-  const email = emailInput.value.trim();
-  const password = passwordInput.value;
-  const confirm = confirmInput.value;
-  const username = usernameInput.value.trim().toLowerCase();
-  const birthdate = birthInput.value;
-  const country = countryInput.value;
-  const language = languageInput.value;
-  const photo = photoInput.files[0];
+  form.onsubmit = async (e)=>{
+    e.preventDefault();
+    errorBox.textContent = "";
+    updateProgress(0);
 
-  if(password !== confirm) return errorBox.textContent = "Mots de passe différents";
-  if(password.length < 8) return errorBox.textContent = "Mot de passe trop court";
-  if(!birthdate) return errorBox.textContent = "Date de naissance obligatoire";
-  if(!photo) return errorBox.textContent = "Photo obligatoire";
+    const email = document.getElementById("emailInput").value.trim();
+    const password = document.getElementById("passwordInput").value;
+    const confirm = document.getElementById("confirmInput").value;
+    const username = document.getElementById("usernameInput").value.trim().toLowerCase();
+    const birthdate = document.getElementById("birthInput").value;
+    const country = document.getElementById("countryInput").value;
+    const language = document.getElementById("languageInput").value;
+    const photo = document.getElementById("photoInput").files[0];
 
-  const age = getAge(birthdate);
-  const isAdult = age >= 18;
+    /* Validation basique */
+    if(password !== confirm) return errorBox.textContent = "Mots de passe différents";
+    if(password.length<8) return errorBox.textContent = "Mot de passe trop court";
+    if(!birthdate) return errorBox.textContent = "Date de naissance obligatoire";
+    if(!photo) return errorBox.textContent = "Photo obligatoire";
 
-  try{
-    // Vérifier username unique
-    const snap = await get(ref(db, "usernames/" + username));
-    if(snap.exists()) return errorBox.textContent = "Nom d’utilisateur déjà pris";
+    const age = getAge(birthdate);
+    const isAdult = age>=18;
+    updateProgress(20);
 
-    // Photo Base64
-    const photoBase64 = await toBase64(photo);
+    try{
+      /* Vérifier username unique */
+      const snap = await get(ref(db,"usernames/"+username));
+      if(snap.exists()) return errorBox.textContent="Nom d’utilisateur déjà pris";
 
-    // Création utilisateur
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    const uid = cred.user.uid;
+      const photoBase64 = await toBase64(photo);
+      updateProgress(40);
 
-    // Mise en base utilisateur
-    await set(ref(db, "users/" + uid), {
-      email,
-      username,
-      birthdate,
-      age,
-      adult: isAdult,
-      monetizationEligible: isAdult,
-      country,
-      language,
-      photoURL: photoBase64,
-      role: "user",
-      createdAt: Date.now()
-    });
+      /* Création du compte Firebase */
+      const cred = await createUserWithEmailAndPassword(auth,email,password);
+      const uid = cred.user.uid;
 
-    await set(ref(db, "usernames/" + username), uid);
-
-    // Progression étape 1 : compte créé
-    progressBar.style.width = "33%";
-
-    // Si création chaîne
-    if(createChannelCheckbox.checked){
-      const channelName = channelNameInput.value.trim();
-      const channelDesc = channelDescInput.value.trim();
-      const channelPhoto = channelPhotoInput.files[0];
-      const channelBanner = channelBannerInput.files[0];
-
-      if(!channelName || !channelDesc || !channelPhoto) 
-        return errorBox.textContent = "Nom, description et photo de chaîne obligatoires";
-
-      const channelPhotoBase64 = await toBase64(channelPhoto);
-      const channelBannerBase64 = channelBanner ? await toBase64(channelBanner) : "";
-
-      // Création channelId automatique
-      const newChannelRef = push(ref(db, "channels/"));
-      const channelId = newChannelRef.key;
-
-      await set(newChannelRef, {
-        name: channelName,
-        description: channelDesc,
-        owner: uid,
-        photoURL: channelPhotoBase64,
-        bannerURL: channelBannerBase64 || "",
+      await set(ref(db,"users/"+uid),{
+        email,
+        username,
+        birthdate,
+        age,
+        adult: isAdult,
+        monetizationEligible: isAdult,
+        country,
         language,
-        category: categoryInput.value || "Divers",
-        visibility: "public",
-        monetization: isAdult,
-        commentsEnabled: true,
-        mvEnabled: true,
+        photoURL: photoBase64,
+        role:"user",
         createdAt: Date.now()
       });
 
-      // Progression étape 2 : chaîne créée
-      progressBar.style.width = "66%";
+      await set(ref(db,"usernames/"+username),uid);
+      updateProgress(60);
 
-      // Ajouter channelId à l’utilisateur
-      await set(ref(db, `users/${uid}/channelId`), channelId);
+      /* Création chaîne si coché */
+      if(channelCheckbox.checked){
+        const channelName = document.getElementById("channelName").value.trim();
+        const channelDesc = document.getElementById("channelDesc").value.trim();
+        const channelPhoto = document.getElementById("channelPhoto").files[0];
+        const channelBanner = document.getElementById("channelBanner").files[0];
 
-      // Progression finale
-      progressBar.style.width = "100%";
+        if(!channelName) return errorBox.textContent="Nom de chaîne obligatoire";
+        if(!channelDesc) return errorBox.textContent="Description obligatoire";
+        if(!channelPhoto) return errorBox.textContent="Photo de chaîne obligatoire";
 
-      // Redirection vers la chaîne
-      location.href = `channel.html?id=${channelId}`;
-    } else {
-      // Pas de chaîne
-      progressBar.style.width = "100%";
-      location.href = "index.html";
+        const photoC = await toBase64(channelPhoto);
+        const bannerC = channelBanner ? await toBase64(channelBanner) : "";
+
+        const channelRef = push(ref(db,"channels"));
+        const channelId = channelRef.key;
+
+        await set(channelRef,{
+          name: channelName,
+          description: channelDesc,
+          owner: uid,
+          photoURL: photoC,
+          bannerURL: bannerC || "default_banner_base64",
+          language: language,
+          category: document.getElementById("channelCategory").value,
+          visibility: "public",
+          monetization: isAdult,
+          commentsEnabled: true,
+          mvEnabled: true,
+          createdAt: Date.now()
+        });
+        updateProgress(100);
+
+        alert("Compte et chaîne créés avec succès !");
+        location.href = `channel.html?id=${channelId}`;
+        return;
+      }
+
+      updateProgress(100);
+      alert(isAdult ? "Compte créé avec succès. Vous pourrez monétiser plus tard." : "Compte créé. Vous pouvez publier mais pas gagner d’argent.");
+      location.href="index.html";
+
+    }catch(err){
+      console.error(err);
+      errorBox.textContent = err.message;
     }
-
-  } catch(err){
-    console.error(err);
-    errorBox.textContent = err.message;
-  }
+  };
 };
 </script>
-
-<style>
-body{margin:0;font-family:system-ui;background:#0f0f0f;color:white;}
-.container{max-width:420px;margin:40px auto;padding:20px;}
-input,select,button{width:100%;margin:8px 0;padding:12px;border-radius:10px;border:none;background:#1f1f1f;color:white;}
-button{background:white;color:black;font-weight:700;cursor:pointer;}
-.error{color:#ff5555;text-align:center;font-size:14px;}
-label{display:block;margin-top:10px;font-weight:600;}
-#channelFields{display:none;}
-.progress-container{width:100%;height:6px;background:#333;border-radius:3px;margin-bottom:20px;}
-.progress-bar{width:0%;height:100%;background:#4caf50;border-radius:3px;transition:0.3s;}
-</style>
 </head>
 
 <body>
 <div class="container">
 <h2>Créer un compte Lumio</h2>
-
-<div class="progress-container">
-  <div id="progressBar" class="progress-bar"></div>
-</div>
 
 <form id="signupForm">
 
@@ -210,25 +245,29 @@ label{display:block;margin-top:10px;font-weight:600;}
 <label>Photo de profil</label>
 <input id="photoInput" type="file" accept="image/*" required>
 
-<label><input type="checkbox" id="createChannel"> Créer une chaîne maintenant</label>
+<label><input type="checkbox" id="createChannel"> Créer une chaîne en même temps</label>
 
-<div id="channelFields">
-  <input id="channelNameInput" placeholder="Nom de la chaîne" required>
-  <textarea id="channelDescInput" placeholder="Description de la chaîne" required style="height:60px;"></textarea>
-  <label>Photo de profil de la chaîne</label>
-  <input id="channelPhotoInput" type="file" accept="image/*" required>
-  <label>Bannière de la chaîne (optionnelle)</label>
-  <input id="channelBannerInput" type="file" accept="image/*">
-  <select id="categoryInput">
+<div id="channelSection" class="channel-section">
+  <input id="channelName" placeholder="Nom de la chaîne">
+  <textarea id="channelDesc" placeholder="Description de la chaîne"></textarea>
+  <label>Photo de la chaîne</label>
+  <input id="channelPhoto" type="file" accept="image/*">
+  <label>Bannière de la chaîne (optionnel)</label>
+  <input id="channelBanner" type="file" accept="image/*">
+  <label>Catégorie</label>
+  <select id="channelCategory">
+    <option value="Divers">Divers</option>
     <option value="Musique">Musique</option>
     <option value="Gaming">Gaming</option>
     <option value="Éducation">Éducation</option>
-    <option value="Divers">Divers</option>
   </select>
 </div>
 
-<div class="error" id="error"></div>
+<div class="progress-container">
+  <div id="progressBar" class="progress-bar"></div>
+</div>
 
+<div class="error" id="error"></div>
 <button type="submit">Créer le compte</button>
 </form>
 </div>
