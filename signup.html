@@ -10,7 +10,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebas
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* Firebase */
+/* Firebase Config */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -22,40 +22,43 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-/* Base64 photo */
+/* Utils */
 function toBase64(file){
   return new Promise((res, rej)=>{
-    const r = new FileReader();
-    r.onload = ()=>res(r.result);
-    r.onerror = e=>rej(e);
-    r.readAsDataURL(file);
+    const reader = new FileReader();
+    reader.onload = ()=>res(reader.result);
+    reader.onerror = e=>rej(e);
+    reader.readAsDataURL(file);
   });
 }
 
-/* Calcul âge */
 function getAge(date){
   const today = new Date();
   const birth = new Date(date);
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  if(m<0 || (m===0 && today.getDate()<birth.getDate())) age--;
   return age;
 }
 
-/* Signup */
+/* DOM */
 const form = document.getElementById("signupForm");
 const errorBox = document.getElementById("error");
-const channelCheckbox = document.getElementById("createChannelCheckbox");
-const channelForm = document.getElementById("channelForm");
+const createChannelCheckbox = document.getElementById("createChannel");
+const channelFields = document.getElementById("channelFields");
+const progressBar = document.getElementById("progressBar");
 
-channelCheckbox.addEventListener("change", ()=>{
-  channelForm.style.display = channelCheckbox.checked ? "block" : "none";
+/* Toggle channel fields */
+createChannelCheckbox.addEventListener("change", ()=>{
+  channelFields.style.display = createChannelCheckbox.checked ? "block" : "none";
 });
 
+/* Submit */
 form.onsubmit = async (e)=>{
   e.preventDefault();
   errorBox.textContent = "";
 
+  // Compte
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   const confirm = confirmInput.value;
@@ -78,11 +81,14 @@ form.onsubmit = async (e)=>{
     const snap = await get(ref(db, "usernames/" + username));
     if(snap.exists()) return errorBox.textContent = "Nom d’utilisateur déjà pris";
 
+    // Photo Base64
     const photoBase64 = await toBase64(photo);
+
+    // Création utilisateur
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = cred.user.uid;
 
-    // Création structure utilisateur
+    // Mise en base utilisateur
     await set(ref(db, "users/" + uid), {
       email,
       username,
@@ -99,42 +105,59 @@ form.onsubmit = async (e)=>{
 
     await set(ref(db, "usernames/" + username), uid);
 
-    // Si la case "Créer une chaîne" est cochée
-    if(channelCheckbox.checked){
-      const channelName = channelNameInput.value.trim();
-      const channelDesc = channelDescInput.value.trim() || "";
-      if(!channelName) return errorBox.textContent = "Nom de la chaîne obligatoire";
+    // Progression étape 1 : compte créé
+    progressBar.style.width = "33%";
 
-      // Création ID unique pour la chaîne
-      const newChannelRef = push(ref(db, "channels"));
+    // Si création chaîne
+    if(createChannelCheckbox.checked){
+      const channelName = channelNameInput.value.trim();
+      const channelDesc = channelDescInput.value.trim();
+      const channelPhoto = channelPhotoInput.files[0];
+      const channelBanner = channelBannerInput.files[0];
+
+      if(!channelName || !channelDesc || !channelPhoto) 
+        return errorBox.textContent = "Nom, description et photo de chaîne obligatoires";
+
+      const channelPhotoBase64 = await toBase64(channelPhoto);
+      const channelBannerBase64 = channelBanner ? await toBase64(channelBanner) : "";
+
+      // Création channelId automatique
+      const newChannelRef = push(ref(db, "channels/"));
+      const channelId = newChannelRef.key;
+
       await set(newChannelRef, {
-        ownerId: uid,
         name: channelName,
         description: channelDesc,
-        thumbnail: "", // Par défaut
-        banner: "",
+        owner: uid,
+        photoURL: channelPhotoBase64,
+        bannerURL: channelBannerBase64 || "",
         language,
-        subscribers: 0,
-        videos: {},
+        category: categoryInput.value || "Divers",
+        visibility: "public",
+        monetization: isAdult,
+        commentsEnabled: true,
+        mvEnabled: true,
         createdAt: Date.now()
       });
 
-      const channelId = newChannelRef.key;
+      // Progression étape 2 : chaîne créée
+      progressBar.style.width = "66%";
+
+      // Ajouter channelId à l’utilisateur
+      await set(ref(db, `users/${uid}/channelId`), channelId);
+
+      // Progression finale
+      progressBar.style.width = "100%";
 
       // Redirection vers la chaîne
       location.href = `channel.html?id=${channelId}`;
-      return;
+    } else {
+      // Pas de chaîne
+      progressBar.style.width = "100%";
+      location.href = "index.html";
     }
 
-    // Sinon redirection normale
-    alert(
-      isAdult 
-      ? "Compte créé. Vous pourrez monétiser plus tard." 
-      : "Compte créé. Vous pouvez publier mais pas gagner d’argent."
-    );
-    location.href = "index.html";
-
-  }catch(err){
+  } catch(err){
     console.error(err);
     errorBox.textContent = err.message;
   }
@@ -142,43 +165,15 @@ form.onsubmit = async (e)=>{
 </script>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#0f0f0f;
-  color:white;
-}
-.container{
-  max-width:420px;
-  margin:40px auto;
-  padding:20px;
-}
-input,select,button,textarea{
-  width:100%;
-  margin:8px 0;
-  padding:12px;
-  border-radius:10px;
-  border:none;
-  background:#1f1f1f;
-  color:white;
-}
-button{
-  background:white;
-  color:black;
-  font-weight:700;
-  cursor:pointer;
-}
-.error{
-  color:#ff5555;
-  text-align:center;
-  font-size:14px;
-}
-#channelForm{
-  display:none;
-  margin-top:16px;
-  border-top:1px solid #333;
-  padding-top:16px;
-}
+body{margin:0;font-family:system-ui;background:#0f0f0f;color:white;}
+.container{max-width:420px;margin:40px auto;padding:20px;}
+input,select,button{width:100%;margin:8px 0;padding:12px;border-radius:10px;border:none;background:#1f1f1f;color:white;}
+button{background:white;color:black;font-weight:700;cursor:pointer;}
+.error{color:#ff5555;text-align:center;font-size:14px;}
+label{display:block;margin-top:10px;font-weight:600;}
+#channelFields{display:none;}
+.progress-container{width:100%;height:6px;background:#333;border-radius:3px;margin-bottom:20px;}
+.progress-bar{width:0%;height:100%;background:#4caf50;border-radius:3px;transition:0.3s;}
 </style>
 </head>
 
@@ -186,12 +181,15 @@ button{
 <div class="container">
 <h2>Créer un compte Lumio</h2>
 
+<div class="progress-container">
+  <div id="progressBar" class="progress-bar"></div>
+</div>
+
 <form id="signupForm">
 
 <input id="emailInput" type="email" placeholder="Email" required>
 <input id="passwordInput" type="password" placeholder="Mot de passe" required>
 <input id="confirmInput" type="password" placeholder="Confirmer mot de passe" required>
-
 <input id="usernameInput" placeholder="Nom d’utilisateur public" required>
 
 <label>Date de naissance</label>
@@ -212,15 +210,21 @@ button{
 <label>Photo de profil</label>
 <input id="photoInput" type="file" accept="image/*" required>
 
-<label>
-  <input type="checkbox" id="createChannelCheckbox">
-  Je veux créer une chaîne
-</label>
+<label><input type="checkbox" id="createChannel"> Créer une chaîne maintenant</label>
 
-<!-- Formulaire chaîne -->
-<div id="channelForm">
+<div id="channelFields">
   <input id="channelNameInput" placeholder="Nom de la chaîne" required>
-  <textarea id="channelDescInput" placeholder="Description de la chaîne (optionnelle)"></textarea>
+  <textarea id="channelDescInput" placeholder="Description de la chaîne" required style="height:60px;"></textarea>
+  <label>Photo de profil de la chaîne</label>
+  <input id="channelPhotoInput" type="file" accept="image/*" required>
+  <label>Bannière de la chaîne (optionnelle)</label>
+  <input id="channelBannerInput" type="file" accept="image/*">
+  <select id="categoryInput">
+    <option value="Musique">Musique</option>
+    <option value="Gaming">Gaming</option>
+    <option value="Éducation">Éducation</option>
+    <option value="Divers">Divers</option>
+  </select>
 </div>
 
 <div class="error" id="error"></div>
