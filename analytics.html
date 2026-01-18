@@ -5,9 +5,6 @@
 <title>Analytics – Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet"
- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -24,150 +21,187 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const stats = {
-  views: document.getElementById("views"),
-  likes: document.getElementById("likes"),
-  subs: document.getElementById("subs"),
-  revenue: document.getElementById("revenue"),
-  list: document.getElementById("videos")
-};
-
 onAuthStateChanged(auth, async user => {
-  if (!user) location.href = "auth.html";
-
-  // récupérer channelId
-  const chSnap = await get(ref(db, "userChannels/" + user.uid));
-  if (!chSnap.exists()) {
-    alert("Aucune chaîne");
-    return location.href = "add-channel.html";
+  if(!user){
+    location.href = "login.html";
+    return;
   }
-  const channelId = chSnap.val();
+
+  const uid = user.uid;
+
+  const videosSnap = await get(ref(db, "videos"));
+  const commentsSnap = await get(ref(db, "comments"));
+  const likesSnap = await get(ref(db, "likes"));
+  const subsSnap = await get(ref(db, "subscriptions"));
+  const donationsSnap = await get(ref(db, "donations"));
+  const booksSnap = await get(ref(db, "booksSales"));
 
   let totalViews = 0;
+  let totalVideos = 0;
   let totalLikes = 0;
-  let totalRevenue = 0;
+  let totalComments = 0;
+  let totalSubs = 0;
 
-  const vSnap = await get(ref(db, "videos"));
-  if (vSnap.exists()) {
-    Object.entries(vSnap.val()).forEach(([id,v])=>{
-      if (v.channelId === channelId) {
+  let pubRevenue = 0;
+  let donationRevenue = 0;
+  let booksRevenue = 0;
+
+  const videoTable = document.getElementById("videoTable");
+
+  if(videosSnap.exists()){
+    Object.entries(videosSnap.val()).forEach(([id,v])=>{
+      if(v.channelId === uid){
+        totalVideos++;
         totalViews += v.views || 0;
-        totalLikes += v.likes || 0;
-        totalRevenue += v.revenue || 0;
 
-        const row = document.createElement("div");
-        row.className = "row";
+        const likes = likesSnap.exists() && likesSnap.val()[id] ? Object.keys(likesSnap.val()[id]).length : 0;
+        const comments = commentsSnap.exists() && commentsSnap.val()[id] ? Object.keys(commentsSnap.val()[id]).length : 0;
+
+        totalLikes += likes;
+        totalComments += comments;
+
+        // PUB: 60% créateur
+        const pub = (v.views || 0) * 0.002 * 0.6;
+        pubRevenue += pub;
+
+        const row = document.createElement("tr");
         row.innerHTML = `
-          <span>${v.title}</span>
-          <span>${v.views||0}</span>
-          <span>${v.likes||0}</span>
-          <span>${(v.revenue||0).toFixed(2)} $</span>
+          <td>${v.title}</td>
+          <td>${v.views || 0}</td>
+          <td>${likes}</td>
+          <td>${comments}</td>
+          <td>$${pub.toFixed(2)}</td>
         `;
-        stats.list.appendChild(row);
+        videoTable.appendChild(row);
       }
     });
   }
 
-  const subSnap = await get(ref(db, "subscriptions/" + channelId));
-  const subsCount = subSnap.exists()
-    ? Object.keys(subSnap.val()).length
-    : 0;
+  if(subsSnap.exists() && subsSnap.val()[uid]){
+    totalSubs = Object.keys(subsSnap.val()[uid]).length;
+  }
 
-  stats.views.textContent = totalViews;
-  stats.likes.textContent = totalLikes;
-  stats.subs.textContent = subsCount;
-  stats.revenue.textContent = totalRevenue.toFixed(2) + " $";
+  if(donationsSnap.exists()){
+    Object.values(donationsSnap.val()).forEach(d=>{
+      if(d.channelId === uid){
+        donationRevenue += d.amount * 0.9;
+      }
+    });
+  }
+
+  if(booksSnap.exists()){
+    Object.values(booksSnap.val()).forEach(b=>{
+      if(b.channelId === uid){
+        booksRevenue += 0.99;
+      }
+    });
+  }
+
+  const totalRevenue = pubRevenue + donationRevenue + booksRevenue;
+
+  document.getElementById("views").innerText = totalViews;
+  document.getElementById("videos").innerText = totalVideos;
+  document.getElementById("subs").innerText = totalSubs;
+  document.getElementById("likes").innerText = totalLikes;
+  document.getElementById("comments").innerText = totalComments;
+  document.getElementById("revenue").innerText = "$" + totalRevenue.toFixed(2);
+
+  document.getElementById("revPub").innerText = "$" + pubRevenue.toFixed(2);
+  document.getElementById("revDon").innerText = "$" + donationRevenue.toFixed(2);
+  document.getElementById("revBooks").innerText = "$" + booksRevenue.toFixed(2);
 });
 </script>
 
 <style>
 body{
   margin:0;
-  background:#181818;
+  background:#0f0f0f;
   color:white;
   font-family:system-ui;
 }
 header{
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  padding:0 16px;
-}
-main{
-  max-width:1000px;
-  margin:20px auto;
-  padding:16px;
-}
-.cards{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:16px;
-}
-.card{
-  background:#202020;
-  padding:16px;
-  border-radius:14px;
-}
-.card h3{
-  margin:0;
-  font-size:14px;
-  color:#aaa;
-}
-.card p{
-  font-size:26px;
-  margin:6px 0 0;
-  font-weight:700;
-}
-.table{
-  margin-top:24px;
-  background:#202020;
-  border-radius:14px;
-  overflow:hidden;
-}
-.head,.row{
-  display:grid;
-  grid-template-columns:3fr 1fr 1fr 1fr;
-  padding:12px 16px;
-}
-.head{
-  background:#2a2a2a;
+  padding:20px;
+  font-size:22px;
   font-weight:600;
 }
-.row{
-  border-top:1px solid #2a2a2a;
+.stats{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:12px;
+  padding:16px;
+}
+.card{
+  background:#1c1c1c;
+  border-radius:12px;
+  padding:14px;
+}
+.card span{
+  font-size:12px;
+  color:#aaa;
+}
+.card h2{
+  margin:4px 0 0;
+}
+
+.revenue{
+  display:flex;
+  gap:16px;
+  padding:16px;
+}
+.revenue div{
+  flex:1;
+  background:#1c1c1c;
+  border-radius:12px;
+  padding:12px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+th,td{
+  padding:10px;
+  border-bottom:1px solid #333;
+  font-size:13px;
+}
+th{
+  color:#aaa;
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <i class="fa-solid fa-arrow-left"
-     onclick="history.back()"></i>
-  <h3 style="margin-left:12px">Analytics</h3>
-</header>
+<header>📊 Analytics – Lumio Studio</header>
 
-<main>
+<div class="stats">
+  <div class="card"><span>Vues</span><h2 id="views">0</h2></div>
+  <div class="card"><span>Vidéos</span><h2 id="videos">0</h2></div>
+  <div class="card"><span>Abonnés</span><h2 id="subs">0</h2></div>
+  <div class="card"><span>Likes</span><h2 id="likes">0</h2></div>
+  <div class="card"><span>Commentaires</span><h2 id="comments">0</h2></div>
+  <div class="card"><span>Revenus</span><h2 id="revenue">$0</h2></div>
+</div>
 
-  <div class="cards">
-    <div class="card"><h3>Vues totales</h3><p id="views">0</p></div>
-    <div class="card"><h3>Likes</h3><p id="likes">0</p></div>
-    <div class="card"><h3>Abonnés</h3><p id="subs">0</p></div>
-    <div class="card"><h3>Revenus estimés</h3><p id="revenue">0 $</p></div>
-  </div>
+<div class="revenue">
+  <div>📺 Pub : <b id="revPub">$0</b></div>
+  <div>❤️ Dons : <b id="revDon">$0</b></div>
+  <div>📚 Livres : <b id="revBooks">$0</b></div>
+</div>
 
-  <div class="table">
-    <div class="head">
-      <span>Vidéo</span>
-      <span>Vues</span>
-      <span>Likes</span>
-      <span>Revenus</span>
-    </div>
-    <div id="videos"></div>
-  </div>
-
-</main>
+<table>
+  <thead>
+    <tr>
+      <th>Titre</th>
+      <th>Vues</th>
+      <th>Likes</th>
+      <th>Commentaires</th>
+      <th>Revenu</th>
+    </tr>
+  </thead>
+  <tbody id="videoTable"></tbody>
+</table>
 
 </body>
 </html>
