@@ -2,103 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Commentaires – Lumio</title>
+<title>Commentaires vidéo – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Font Awesome pour icônes -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-<style>
-body {
-  margin:0;
-  font-family:system-ui;
-  background:#181818;
-  color:white;
-}
-header {
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  padding:0 16px;
-}
-header i{
-  cursor:pointer;
-}
-main{
-  padding:16px;
-  max-width:800px;
-  margin:80px auto 40px auto;
-}
-.comment-form{
-  display:flex;
-  gap:10px;
-  margin-bottom:20px;
-}
-.comment-form input{
-  flex:1;
-  padding:10px;
-  border-radius:12px;
-  border:1px solid #333;
-  background:#202020;
-  color:white;
-}
-.comment-form button{
-  padding:10px 18px;
-  background:#ff6a00;
-  border:none;
-  border-radius:12px;
-  cursor:pointer;
-  font-weight:bold;
-}
-.comment-list .comment{
-  background:#202020;
-  padding:14px;
-  border-radius:14px;
-  margin-bottom:10px;
-}
-.comment-list .comment .author{
-  font-weight:bold;
-  color:#ff9800;
-}
-.comment-list .comment .text{
-  margin-top:6px;
-  color:#ddd;
-}
-.comment-list .comment .time{
-  font-size:11px;
-  color:#999;
-  margin-top:4px;
-}
-.empty{
-  text-align:center;
-  color:#777;
-  margin-top:20px;
-}
-</style>
-</head>
-<body>
-
-<header>
-  <i class="fa-solid fa-arrow-left" onclick="history.back()"></i>
-  <h3 style="margin-left:16px">Commentaires</h3>
-</header>
-
-<main>
-
-  <div class="comment-form">
-    <input id="commentInput" placeholder="Écrire un commentaire..." disabled>
-    <button id="commentBtn">Envoyer</button>
-  </div>
-
-  <div id="comments" class="comment-list"></div>
-
-</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -112,90 +22,119 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 const params = new URLSearchParams(location.search);
-const videoId = params.get("videoId");
+const videoId = params.get("id");
 
 if(!videoId){
   alert("Vidéo introuvable");
   location.href = "index.html";
 }
 
-const commentInput = document.getElementById("commentInput");
-const commentBtn = document.getElementById("commentBtn");
-const commentsContainer = document.getElementById("comments");
-
 let currentUser = null;
-let channelOwnerId = null;
 
-// Activer formulaire si connecté
-onAuthStateChanged(auth, user => {
-  if(user){
-    currentUser = user;
-    commentInput.disabled = false;
-  } else {
-    commentInput.placeholder = "Connecte-toi pour commenter";
-    commentBtn.disabled = true;
-  }
+onAuthStateChanged(auth, user=>{
+  currentUser = user;
 });
 
-// Charger les commentaires en temps réel
-onValue(ref(db, `comments/${videoId}`), snap => {
-  commentsContainer.innerHTML = "";
-  if(!snap.exists()){
-    commentsContainer.innerHTML = "<p class='empty'>Aucun commentaire pour l'instant</p>";
+const commentList = document.getElementById("commentList");
+const commentInput = document.getElementById("commentInput");
+const sendBtn = document.getElementById("sendBtn");
+
+sendBtn.onclick = () =>{
+  if(!currentUser){
+    alert("Connecte-toi pour commenter");
+    location.href="login.html";
     return;
   }
-  Object.entries(snap.val())
-    .sort((a,b)=>b[1].createdAt - a[1].createdAt)
-    .forEach(([id, c])=>{
-      const div = document.createElement("div");
-      div.className = "comment";
-      div.innerHTML = `
-        <div class="author">${c.username}</div>
-        <div class="text">${c.text}</div>
-        <div class="time">${new Date(c.createdAt).toLocaleString()}</div>
-      `;
-      commentsContainer.appendChild(div);
-    });
-});
 
-// Publier commentaire + notification
-commentBtn.onclick = async ()=>{
   const text = commentInput.value.trim();
-  if(!text || !currentUser) return;
+  if(text.length < 2) return;
 
-  const commentRef = push(ref(db, `comments/${videoId}`));
-
-  const commentData = {
+  push(ref(db,"comments/"+videoId),{
     uid: currentUser.uid,
-    username: currentUser.displayName || "Utilisateur",
     text,
     createdAt: Date.now()
-  };
+  });
 
-  await set(commentRef, commentData);
-
-  // Notification
-  // Trouver propriétaire de la vidéo
-  const videoSnap = await get(ref(db, `videos/${videoId}`));
-  if(videoSnap.exists()){
-    channelOwnerId = videoSnap.val().channelId;
-    if(channelOwnerId && channelOwnerId !== currentUser.uid){
-      const notifRef = push(ref(db, `notifications/${channelOwnerId}`));
-      await set(notifRef, {
-        type:"comment",
-        title:"Nouveau commentaire",
-        message:`${commentData.username} a commenté votre vidéo.`,
-        link:`player.html?id=${videoId}`,
-        read:false,
-        createdAt: Date.now()
-      });
-    }
-  }
-
-  commentInput.value = "";
+  commentInput.value="";
 };
 
+onValue(ref(db,"comments/"+videoId), snap=>{
+  commentList.innerHTML="";
+  if(!snap.exists()) return;
+
+  Object.values(snap.val())
+    .sort((a,b)=>b.createdAt-a.createdAt)
+    .forEach(c=>{
+      const div = document.createElement("div");
+      div.className="comment";
+      div.innerHTML = `
+        <b>${c.uid.slice(0,6)}...</b>
+        <p>${c.text}</p>
+        <small>${new Date(c.createdAt).toLocaleString()}</small>
+      `;
+      commentList.appendChild(div);
+    });
+});
 </script>
+
+<style>
+body{
+  margin:0;
+  background:#0f0f0f;
+  color:white;
+  font-family:system-ui;
+}
+header{
+  padding:16px;
+  font-size:20px;
+  border-bottom:1px solid #222;
+}
+.box{
+  padding:16px;
+}
+textarea{
+  width:100%;
+  background:#1c1c1c;
+  border:none;
+  border-radius:10px;
+  padding:10px;
+  color:white;
+  resize:none;
+}
+button{
+  margin-top:8px;
+  background:#fff;
+  color:black;
+  border:none;
+  padding:8px 14px;
+  border-radius:8px;
+  cursor:pointer;
+}
+.comment{
+  background:#1c1c1c;
+  margin-top:10px;
+  padding:10px;
+  border-radius:10px;
+}
+.comment p{
+  margin:6px 0;
+}
+.comment small{
+  color:#888;
+}
+</style>
+</head>
+
+<body>
+
+<header>💬 Commentaires de la vidéo</header>
+
+<div class="box">
+  <textarea id="commentInput" rows="3" placeholder="Écris ton commentaire..."></textarea>
+  <button id="sendBtn">Envoyer</button>
+</div>
+
+<div class="box" id="commentList"></div>
 
 </body>
 </html>
