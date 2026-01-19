@@ -2,61 +2,137 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Conditions d’utilisation – Lumio</title>
+<title>Aide & Support – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 <style>
+*{box-sizing:border-box}
 body{
   margin:0;
-  font-family:system-ui;
   background:#181818;
   color:white;
+  font-family:system-ui;
 }
-.container{
-  max-width:900px;
-  margin:auto;
-  padding:40px 16px;
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
 }
-h1,h2{margin-top:24px}
-p{color:#ccc;line-height:1.6}
+header h2{margin:0;font-size:20px}
+main{
+  max-width:700px;
+  margin:40px auto;
+  padding:20px;
+}
+.card{
+  background:#202020;
+  border-radius:14px;
+  padding:20px;
+  margin-bottom:16px;
+}
+.card h3{
+  margin-top:0;
+}
+.contact{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.contact a{
+  text-decoration:none;
+  color:white;
+  background:#2a2a2a;
+  padding:12px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.contact a:hover{
+  background:#333;
+}
+.notice{
+  color:#aaa;
+  font-size:14px;
+  margin-top:10px;
+}
+button{
+  background:#202020;
+  border:none;
+  color:white;
+  padding:8px 14px;
+  border-radius:20px;
+  cursor:pointer;
+}
 </style>
 </head>
+
 <body>
 
-<div class="container">
-  <h1>Conditions d’utilisation</h1>
+<header>
+  <h2>Aide Lumio</h2>
+  <button onclick="location.href='index.html'">
+    <i class="fa-solid fa-arrow-left"></i> Accueil
+  </button>
+</header>
 
-  <p>
-    En utilisant Lumio, vous acceptez les présentes conditions.
-  </p>
+<main>
 
-  <h2>1. Contenu</h2>
-  <p>
-    Les utilisateurs sont responsables du contenu qu’ils publient.
-    Les contenus illégaux, violents ou protégés par des droits d’auteur
-    sans autorisation sont interdits.
-  </p>
+  <div class="card">
+    <h3>📩 Support Lumio</h3>
+    <p>
+      Notre équipe répond aux messages sous <b>1 à 24 heures maximum</b>.
+      Aucun système d’IA automatique : chaque demande est traitée manuellement
+      pour une meilleure qualité de support.
+    </p>
+  </div>
 
-  <h2>2. Comptes</h2>
-  <p>
-    Chaque utilisateur est responsable de la sécurité de son compte.
-  </p>
+  <div class="card">
+    <h3>📞 Nous contacter</h3>
+    <div class="contact">
 
-  <h2>3. Droits d’auteur</h2>
-  <p>
-    Lumio respecte les droits des créateurs.
-    Tout contenu signalé pourra être retiré après vérification.
-  </p>
+      <!-- WhatsApp -->
+      <a href="https://wa.me/50941040511" target="_blank">
+        <i class="fa-brands fa-whatsapp"></i>
+        WhatsApp 
+      </a>
 
-  <h2>4. Suspension</h2>
-  <p>
-    Lumio se réserve le droit de suspendre ou supprimer un compte
-    en cas de non-respect des règles.
-  </p>
+      <!-- Email -->
+      <a href="mailto:supportlumio@gmail.com">
+        <i class="fa-solid fa-envelope"></i>
+        Email 
+      </a>
 
-  <p>
-    Dernière mise à jour : 2026
-  </p>
-</div>
+    </div>
+    <div class="notice">
+      ⚠️ Merci de décrire clairement votre problème et d’indiquer :
+      <ul>
+        <li>Votre email de compte Lumio</li>
+        <li>La page concernée (ex : upload.html, live.html, etc.)</li>
+        <li>Une capture d’écran si possible</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>❓ Questions fréquentes</h3>
+    <p><b>• Mon upload ne fonctionne pas</b><br>
+    Vérifiez votre connexion internet et que vous êtes bien connecté à votre compte.</p>
+
+    <p><b>• Ma chaîne n’apparaît pas</b><br>
+    Assurez-vous d’avoir créé une chaîne via <code>add-channel.html</code>.</p>
+
+    <p><b>• Un bug sur Lumio</b><br>
+    Contactez le support avec une description précise.</p>
+  </div>
+
+</main>
 
 </body>
 </html>
