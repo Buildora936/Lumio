@@ -5,8 +5,7 @@
 <title>Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
 *{box-sizing:border-box}
@@ -15,6 +14,44 @@ body{
   font-family:system-ui;
   background:#181818;
   color:white;
+}
+
+/* LOADER */
+#loader{
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#181818;
+  z-index:9999;
+}
+#loader img{
+  width:120px;
+  animation: spin 2s linear infinite;
+}
+@keyframes spin{
+  0%{transform:rotate(0deg);}
+  100%{transform:rotate(360deg);}
+}
+
+/* MODAL */
+#introModal{
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background:#181818;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10000;
+}
+#introModal img{
+  width:150px;
+  animation: pulse 1s infinite alternate;
+}
+@keyframes pulse{
+  0%{transform:scale(1);}
+  100%{transform:scale(1.1);}
 }
 
 /* HEADER */
@@ -29,13 +66,11 @@ header{
   padding:0 16px;
   z-index:10;
 }
-
 .left,.center,.right{
   display:flex;
   align-items:center;
   gap:14px;
 }
-
 .search input{
   width:420px;
   max-width:60vw;
@@ -46,7 +81,6 @@ header{
   background:#202020;
   color:white;
 }
-
 button{
   background:#202020;
   color:white;
@@ -69,7 +103,6 @@ button{
   position:relative;
   flex-shrink:0;
 }
-
 .sidebar a, .sidebar button{
   width:80px;
   display:flex;
@@ -84,13 +117,11 @@ button{
   text-decoration:none;
   cursor:pointer;
 }
-
 .sidebar i{font-size:20px}
 .sidebar a:hover, .sidebar button:hover{
   background:#1f1f1f;
   color:white;
 }
-
 /* MORE MENU */
 .more-menu{
   position:absolute;
@@ -183,6 +214,11 @@ button{
 
 <body>
 
+<!-- MODAL -->
+<div id="introModal">
+  <img src="logo-lumio.png" alt="Lumio">
+</div>
+
 <header>
   <div class="left">
     <h2>Lumio</h2>
@@ -193,8 +229,11 @@ button{
   </div>
 
   <div class="right">
-    <button id="uploadBtn" style="display:none"
-     onclick="location.href='publish.html'">
+    <button id="notificationsBtn" style="display:none" onclick="location.href='notification.html'">
+      <i class="fa-solid fa-bell"></i>
+    </button>
+
+    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
       <i class="fa-solid fa-plus"></i>
     </button>
 
@@ -202,8 +241,7 @@ button{
       Commencer
     </button>
 
-    <button id="profileBtn" style="display:none"
-     onclick="location.href='profile.html'">
+    <button id="profileBtn" style="display:none" onclick="location.href='profile.html'">
       <i class="fa-solid fa-user"></i>
     </button>
   </div>
@@ -233,19 +271,15 @@ button{
       <a href="privacy.html">🔐 Confidentialité</a>
       <a href="security.html">🛡️ Sécurité</a>
       <a href="copyright.html">© Copyright</a>
+      <a href="copyright.html">Centre D'aide</a>
     </div>
   </nav>
 
   <main class="content">
-    <div class="grid" id="grid"></div>
+    <div id="loader"><img src="logo-lumio.png" alt="Loading"></div>
+    <div class="grid" id="grid" style="display:none;"></div>
   </main>
- <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
-          </div>
-          <div class="ad-body">
-            <div class="ad-label">Publicité</div>
-            <div class="ad-title">Sponsorisé</div>
-            <div class="ad-meta">Annonce Lumio</div>
-          </div>
+
 </div>
 
 <script type="module">
@@ -265,9 +299,11 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 const grid = document.getElementById("grid");
+const loader = document.getElementById("loader");
 const startBtn = document.getElementById("startBtn");
 const profileBtn = document.getElementById("profileBtn");
 const uploadBtn = document.getElementById("uploadBtn");
+const notificationsBtn = document.getElementById("notificationsBtn");
 const searchInput = document.getElementById("searchInput");
 
 searchInput.addEventListener("keypress", e => {
@@ -282,10 +318,12 @@ onAuthStateChanged(auth, user => {
     startBtn.style.display = "none";
     profileBtn.style.display = "flex";
     uploadBtn.style.display = "flex";
+    notificationsBtn.style.display = "flex";
   } else {
     startBtn.style.display = "flex";
     profileBtn.style.display = "none";
     uploadBtn.style.display = "none";
+    notificationsBtn.style.display = "none";
   }
 });
 
@@ -293,12 +331,9 @@ onValue(ref(db, "videos"), snap => {
   grid.innerHTML = "";
   if (!snap.exists()) return;
 
-  let count = 0;
-
   Object.entries(snap.val())
     .sort((a,b) => b[1].createdAt - a[1].createdAt)
     .forEach(([id, v]) => {
-
       const card = document.createElement("div");
       card.className = "card";
       card.onclick = () => location.href = `player.html?id=${id}`;
@@ -313,34 +348,22 @@ onValue(ref(db, "videos"), snap => {
         </div>
       `;
       grid.appendChild(card);
-
-      count++;
-
-      /* PUB TOUTES LES 6 VIDEOS */
-      if(count % 6 === 0){
-        const ad = document.createElement("div");
-        ad.className = "ad-card";
-        ad.innerHTML = `
-          <div class="ad-thumb">
-            <script>
-              atOptions = {
-                'key' : '34ced6a9c342f10844eedf343e137cfb',
-                'format' : 'iframe',
-                'height' : 250,
-                'width' : 300,
-                'params' : {}
-              };
-            
-          
-        `;
-        grid.appendChild(ad);
-      }
     });
+
+  // Hide loader, show grid
+  loader.style.display = "none";
+  grid.style.display = "grid";
 });
 
+// More menu
 window.toggleMoreMenu = function(){
   document.getElementById("moreMenu").classList.toggle("open");
 };
+
+// Intro modal disappear after 6s
+setTimeout(()=>{
+  document.getElementById("introModal").style.display="none";
+},6000);
 </script>
 
 </body>
