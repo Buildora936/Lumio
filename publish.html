@@ -2,93 +2,136 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Publier</title>
+<title>Portail Créateur – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<link rel="stylesheet"
- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-<script type="module">
-import { initializeApp } from
- "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const app = initializeApp({
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-});
-
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-onAuthStateChanged(auth, async user => {
-  if (!user) {
-    location.href = "auth.html";
-    return;
-  }
-
-  const snap = await get(ref(db, "users/" + user.uid));
-  if (!snap.exists() || !snap.val().channelId) {
-    location.href = "add-channel.html";
-  }
-});
-</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
+*{box-sizing:border-box}
 body{
   margin:0;
   font-family:system-ui;
   background:#181818;
   color:white;
 }
-main{
-  max-width:500px;
-  margin:80px auto;
-  background:#202020;
-  padding:24px;
+.container{
+  max-width:700px;
+  margin:50px auto;
+  padding:20px;
+  background:#0f0f0f;
   border-radius:16px;
+  box-shadow:0 0 20px #000;
+  text-align:center;
 }
-h2{text-align:center}
-.btn{
+h2{color:#ff9800; margin-bottom:20px;}
+.channel-info{margin-bottom:30px; font-size:16px;}
+.buttons{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:20px;
+}
+.buttons a{
   display:flex;
+  flex-direction:column;
   align-items:center;
-  gap:12px;
-  padding:14px;
-  margin-top:16px;
-  background:#2a2a2a;
+  justify-content:center;
+  padding:20px;
+  background:#202020;
   border-radius:14px;
-  cursor:pointer;
+  text-decoration:none;
+  color:white;
+  transition:0.3s;
 }
-.btn:hover{background:#333}
-i{font-size:20px}
+.buttons a:hover{background:#ff9800; color:black;}
+.buttons a i{font-size:40px; margin-bottom:10px;}
+.error{color:#ff5555; margin-top:20px;}
 </style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+window.onload = ()=>{
+  const channelBox = document.getElementById("channelNameBox");
+  const errorBox = document.getElementById("error");
+  let channelId = null;
+
+  onAuthStateChanged(auth, async user=>{
+    if(!user){
+      alert("Connecte-toi pour accéder au portail créateur");
+      location.href="auth.html";
+      return;
+    }
+
+    // récupérer la chaîne active
+    const channelsSnap = await get(ref(db,"channels"));
+    if(channelsSnap.exists()){
+      const all = channelsSnap.val();
+      for(const key in all){
+        if(all[key].owner === user.uid){
+          channelId = key;
+          channelBox.textContent = all[key].name;
+          break;
+        }
+      }
+    }
+
+    if(!channelId){
+      channelBox.textContent = "Aucune chaîne trouvée. Créez-en une d'abord.";
+      errorBox.textContent = "Vous devez créer une chaîne pour publier du contenu.";
+      // optionnel : bouton vers add-channel.html
+    }
+  });
+
+  // Redirection boutons
+  document.getElementById("btnVideo").onclick=()=>{ if(channelId) location.href="upload.html"; }
+  document.getElementById("btnMV").onclick=()=>{ if(channelId) location.href="uploadmv.html"; }
+  document.getElementById("btnLive").onclick=()=>{ if(channelId) location.href="add-live.html"; }
+  document.getElementById("btnBook").onclick=()=>{ if(channelId) location.href="add-book.html"; }
+};
+</script>
 </head>
 
 <body>
+<div class="container">
+<h2>Portail Créateur Lumio</h2>
 
-<main>
-  <h2>Publier sur Lumio</h2>
+<div class="channel-info">
+Chaîne active : <b id="channelNameBox">...</b>
+</div>
 
-  <div class="btn" onclick="location.href='upload.html'">
+<div class="buttons">
+  <a href="javascript:void(0)" id="btnVideo">
     <i class="fa-solid fa-video"></i>
-    Publier une vidéo
-  </div>
+    <span>Publier une vidéo</span>
+  </a>
+  <a href="javascript:void(0)" id="btnMV">
+    <i class="fa-solid fa-music"></i>
+    <span>Publier un MV</span>
+  </a>
+  <a href="javascript:void(0)" id="btnLive">
+    <i class="fa-solid fa-broadcast-tower"></i>
+    <span>Lancer un live</span>
+  </a>
+  <a href="javascript:void(0)" id="btnBook">
+    <i class="fa-solid fa-book"></i>
+    <span>Publier un livre</span>
+  </a>
+</div>
 
-  <div class="btn" onclick="location.href='uploadmv.html'">
-    <i class="fa-solid fa-bolt"></i>
-    Publier un MV
-  </div>
-
-  <div class="btn" style="opacity:.4;cursor:not-allowed">
-    <i class="fa-solid fa-circle-dot"></i>
-    Live (bientôt)
-  </div>
-</main>
-
+<div class="error" id="error"></div>
+</div>
 </body>
 </html>
