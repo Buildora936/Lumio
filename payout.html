@@ -5,8 +5,7 @@
 <title>Payout – Paiement créateur | Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet"
- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -64,6 +63,7 @@ document.getElementById("payoutForm").addEventListener("submit", async e=>{
     return;
   }
 
+  // Sauvegarde dans Firebase
   const payoutRef = push(ref(db, "payoutRequests"));
   await set(payoutRef,{
     uid: currentUser.uid,
@@ -79,7 +79,15 @@ document.getElementById("payoutForm").addEventListener("submit", async e=>{
     balance
   });
 
-  alert("Demande de paiement envoyée avec succès !");
+  alert("Demande de paiement envoyée avec succès ! Vous allez être redirigé vers WhatsApp pour confirmation.");
+
+  // Redirection vers WhatsApp et Gmail
+  const message = encodeURIComponent(
+    `Bonjour Lumio,\n\nJe souhaite recevoir mon paiement de ${amount}$ via ${method}.\nDétails: ${info}\n\nMerci.`
+  );
+  window.open(`https://wa.me/50941040511?text=${message}`, "_blank");
+  window.open(`mailto:bjosephbrooks07@gmail.com?subject=Demande de paiement Lumio&body=${message}`, "_blank");
+
   location.reload();
 });
 </script>
@@ -167,13 +175,14 @@ button{
 
     <select id="method" required>
       <option value="">Méthode de paiement</option>
-      <option value="paypal">PayPal</option>
-      <option value="bank">Virement bancaire</option>
-      <option value="mobile">Mobile money</option>
-      <option value="crypto">Crypto</option>
+      <option value="unibank">Unibank</option>
+      <option value="songebank">Songebank</option>
+      <option value="bank_international1">Paypal</option>
+      <option value="wise">Wise</option>
+      <option value="payoneer">Payoneer</option>
     </select>
 
-    <input type="text" id="info" placeholder="Email PayPal, IBAN, numéro, wallet…" required>
+    <input type="text" id="info" placeholder="Numéro de compte, IBAN, email ou wallet..." required>
 
     <button type="submit">Envoyer la demande</button>
   </form>
@@ -186,6 +195,7 @@ button{
     <li>Délai moyen : 24 à 72 heures.</li>
     <li>Les demandes frauduleuses entraînent un blocage du compte.</li>
     <li>Un email de confirmation vous sera envoyé.</li>
+    <li>Après soumission, vous serez automatiquement redirigé vers WhatsApp et Gmail pour finaliser la demande.</li>
   </ul>
 </div>
 
