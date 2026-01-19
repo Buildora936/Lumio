@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Payout – Paiement créateur | Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get, set, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let currentUser = null;
+let balance = 0;
+
+onAuthStateChanged(auth, async user => {
+  if(!user){
+    alert("Connectez-vous pour accéder aux paiements.");
+    location.href="login.html";
+    return;
+  }
+  currentUser = user;
+  loadBalance();
+});
+
+async function loadBalance(){
+  const snap = await get(ref(db, "creatorBalances/" + currentUser.uid));
+  if(snap.exists()){
+    balance = snap.val().balance || 0;
+  }else{
+    balance = 0;
+  }
+  document.getElementById("balance").innerText = balance.toFixed(2) + " $";
+}
+
+document.getElementById("payoutForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+
+  const amount = parseFloat(document.getElementById("amount").value);
+  const method = document.getElementById("method").value;
+  const info = document.getElementById("info").value.trim();
+
+  if(amount <= 0 || amount > balance){
+    alert("Montant invalide.");
+    return;
+  }
+
+  if(!method || !info){
+    alert("Veuillez remplir tous les champs.");
+    return;
+  }
+
+  const payoutRef = push(ref(db, "payoutRequests"));
+  await set(payoutRef,{
+    uid: currentUser.uid,
+    amount,
+    method,
+    info,
+    status: "pending",
+    createdAt: serverTimestamp()
+  });
+
+  balance -= amount;
+  await set(ref(db,"creatorBalances/"+currentUser.uid),{
+    balance
+  });
+
+  alert("Demande de paiement envoyée avec succès !");
+  location.reload();
+});
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#181818;
+  color:white;
+  font-family:system-ui;
+}
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+}
+main{
+  max-width:600px;
+  margin:40px auto;
+  padding:20px;
+}
+.card{
+  background:#202020;
+  border-radius:14px;
+  padding:20px;
+  margin-bottom:20px;
+}
+h3{margin-top:0}
+.balance{
+  font-size:26px;
+  font-weight:700;
+  color:#ff8800;
+}
+input,select{
+  width:100%;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  background:#2a2a2a;
+  color:white;
+  margin-bottom:12px;
+}
+button{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:20px;
+  background:#ff8800;
+  font-weight:700;
+  cursor:pointer;
+}
+.notice{
+  color:#aaa;
+  font-size:14px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>Payout Lumio</h2>
+  <button onclick="location.href='studio.html'">
+    <i class="fa-solid fa-arrow-left"></i>
+  </button>
+</header>
+
+<main>
+
+<div class="card">
+  <h3>💰 Solde disponible</h3>
+  <div class="balance" id="balance">0.00 $</div>
+  <p class="notice">Minimum de retrait conseillé : 10$</p>
+</div>
+
+<div class="card">
+  <h3>📤 Demander un paiement</h3>
+
+  <form id="payoutForm">
+    <input type="number" id="amount" placeholder="Montant à retirer ($)" step="0.01" required>
+
+    <select id="method" required>
+      <option value="">Méthode de paiement</option>
+      <option value="paypal">PayPal</option>
+      <option value="bank">Virement bancaire</option>
+      <option value="mobile">Mobile money</option>
+      <option value="crypto">Crypto</option>
+    </select>
+
+    <input type="text" id="info" placeholder="Email PayPal, IBAN, numéro, wallet…" required>
+
+    <button type="submit">Envoyer la demande</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>ℹ️ Informations</h3>
+  <ul class="notice">
+    <li>Les paiements sont traités manuellement par l’équipe Lumio.</li>
+    <li>Délai moyen : 24 à 72 heures.</li>
+    <li>Les demandes frauduleuses entraînent un blocage du compte.</li>
+    <li>Un email de confirmation vous sera envoyé.</li>
+  </ul>
+</div>
+
+</main>
+
+</body>
+</html>
