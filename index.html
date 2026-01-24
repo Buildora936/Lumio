@@ -306,7 +306,98 @@ button{
   <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
   <a href="profile.html"><i class="fa-solid fa-user"></i><span>Profil</span></a>
 </nav>
-
+ <script type="module">            
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";            
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";            
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";            
+            
+const firebaseConfig = {            
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",            
+  authDomain: "lumio-6efed.firebaseapp.com",            
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",            
+  projectId: "lumio-6efed"            
+};            
+            
+const app = initializeApp(firebaseConfig);            
+const auth = getAuth(app);            
+const db = getDatabase(app);            
+            
+const grid = document.getElementById("grid");            
+const startBtn = document.getElementById("startBtn");            
+const profileBtn = document.getElementById("profileBtn");            
+const uploadBtn = document.getElementById("uploadBtn");            
+const notifBtn = document.getElementById("notifBtn");            
+const searchInput = document.getElementById("searchInput");            
+            
+searchInput.addEventListener("keypress", e => {            
+  if(e.key === "Enter"){            
+    const query = encodeURIComponent(searchInput.value.trim());            
+    if(query) window.location.href = `search.html?q=${query}`;            
+  }            
+});            
+            
+// Modal logo 6s            
+const introModal = document.getElementById("introModal");            
+setTimeout(()=>{ introModal.style.display="none"; },6000);            
+            
+// Loader 5s            
+const loader = document.getElementById("loader");            
+setTimeout(()=>{ loader.style.display="none"; },5000);            
+            
+onAuthStateChanged(auth, user=>{            
+  if(user){            
+    startBtn.style.display="none";            
+    profileBtn.style.display="flex";            
+    uploadBtn.style.display="flex";            
+    notifBtn.style.display="flex";            
+  }else{            
+    startBtn.style.display="flex";            
+    profileBtn.style.display="none";            
+    uploadBtn.style.display="none";            
+    notifBtn.style.display="none";            
+  }            
+});            
+            
+// Load videos after loader            
+setTimeout(()=>{            
+  onValue(ref(db,"videos"),snap=>{            
+    grid.innerHTML="";            
+    if(!snap.exists()) return;            
+            
+    let count=0;            
+    Object.entries(snap.val())            
+      .sort((a,b)=>b[1].createdAt - a[1].createdAt)            
+      .forEach(([id,v])=>{            
+        const card=document.createElement("div");            
+        card.className="card";            
+        card.onclick=()=>location.href=`player.html?id=${id}`;            
+        card.innerHTML=`            
+          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>            
+          <div class="card-body">            
+            <div class="title">${v.title}</div>            
+            <div class="meta">            
+              <span>${v.channelName}</span>            
+              <span>${v.views || 0} vues</span>            
+            </div>            
+          </div>            
+        `;            
+        grid.appendChild(card);            
+        count++;            
+        if(count%6===0){            
+          const ad=document.createElement("div");            
+          ad.className="ad-card";            
+          ad.innerHTML=`<div class="ad-thumb"></div><div class="ad-body"><div class="ad-label">Publicité</div><div class="ad-title">Sponsorisé</div><div class="ad-meta">Annonce Lumio</div></div>`;            
+          grid.appendChild(ad);            
+        }            
+      });            
+  });            
+},5000);            
+            
+window.toggleMoreMenu=function(){            
+  document.getElementById("moreMenu").classList.toggle("open");            
+};            
+</script>
+  
 <link rel="manifest" href="manifest.json">
 <script>
 if ("serviceWorker" in navigator) {
