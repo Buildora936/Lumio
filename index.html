@@ -16,7 +16,7 @@ body{
   color:white;
 }
 
-/* HEADER PC */
+/* HEADER PC / TABLET */
 header{
   position:fixed;
   top:0; left:0; right:0;
@@ -56,7 +56,7 @@ header button{
   cursor:pointer;
 }
 
-/* LAYOUT */
+/* LAYOUT PC */
 .layout{
   display:flex;
   margin-top:56px;
@@ -221,7 +221,7 @@ header button{
   100%{opacity:1;}
 }
 
-/* BOTTOM MENU (MOBILE / TABLETTE) */
+/* BOTTOM MENU MOBILE / TABLETTE */
 .bottom-menu{
   display:none;
   position:fixed;
@@ -252,23 +252,42 @@ header button{
   color:white;
 }
 
+/* VERTICAL RIGHT BUTTONS MOBILE */
+.right-vertical{
+  display:none;
+  position:fixed;
+  right:8px;
+  top:70px;
+  flex-direction:column;
+  gap:10px;
+  z-index:101;
+}
+.right-vertical button{
+  background:#202020;
+  border:none;
+  border-radius:50%;
+  width:44px;
+  height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  cursor:pointer;
+}
+.right-vertical button:hover{
+  background:#ff8800;
+}
+
 /* RESPONSIVE */
 @media screen and (max-width:900px){
-  .sidebar, header .search input{
-    display:none;
-  }
-  header .left h2{
-    display:none;
-  }
-  header .left img.logo{
-    display:inline-block;
-  }
-  header{
-    justify-content:flex-start;
-  }
-  .bottom-menu{
-    display:flex;
-  }
+  .sidebar{display:none;}
+  header .search input{display:none;}
+  header .left h2{display:none;}
+  header .left img.logo{display:inline-block;}
+  header{justify-content:flex-start;}
+  .layout{margin-top:56px;}
+  .bottom-menu{display:flex;}
+  .right-vertical{display:flex;}
 }
 </style>
 </head>
@@ -277,7 +296,7 @@ header button{
 
 <!-- MODAL LOGO LUMIO -->
 <div id="introModal">
-  <img src="icone-192.png" alt="Lumio">
+  <img src="logo_lumio.png" alt="Lumio">
 </div>
 
 <!-- LOADER -->
@@ -285,12 +304,17 @@ header button{
   <div class="loader-icon"></div>
 </div>
 
-<!-- HEADER PC -->
+<!-- HEADER -->
 <header>
   <div class="left">
     <img src="logo_lumio.png" class="logo" alt="Lumio">
     <h2>Lumio</h2>
   </div>
+
+  <!-- Bouton recherche mobile -->
+  <button class="search-mobile" onclick="location.href='search.html'" style="display:none;">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
 
   <div class="search">
     <input id="searchInput" placeholder="Rechercher sur Lumio">
@@ -313,8 +337,8 @@ header button{
   </div>
 </header>
 
+<!-- LAYOUT PC -->
 <div class="layout">
-  <!-- SIDEBAR PC -->
   <nav class="sidebar">
     <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
     <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
@@ -344,15 +368,27 @@ header button{
   </main>
 </div>
 
-<!-- BOTTOM MENU MOBILE / TABLETTE -->
+<!-- BOTTOM MENU MOBILE -->
 <footer class="bottom-menu">
   <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
   <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
   <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
   <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
   <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
-  <button onclick="location.href='search.html'"><i class="fa-solid fa-magnifying-glass"></i><span>Rechercher</span></button>
 </footer>
+
+<!-- RIGHT VERTICAL BUTTONS MOBILE -->
+<div class="right-vertical">
+  <button id="notifBtnMobile" onclick="location.href='notification.html'">
+    <i class="fa-solid fa-bell"></i>
+  </button>
+  <button id="uploadBtnMobile" onclick="location.href='publish.html'">
+    <i class="fa-solid fa-plus"></i>
+  </button>
+  <button id="startBtnMobile" onclick="location.href='auth.html'">
+    <i class="fa-solid fa-user"></i>
+  </button>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -375,38 +411,43 @@ const startBtn = document.getElementById("startBtn");
 const profileBtn = document.getElementById("profileBtn");
 const uploadBtn = document.getElementById("uploadBtn");
 const notifBtn = document.getElementById("notifBtn");
-const searchInput = document.getElementById("searchInput");
 
-searchInput.addEventListener("keypress", e => {
-  if(e.key === "Enter"){
-    const query = encodeURIComponent(searchInput.value.trim());
-    if(query) window.location.href = `search.html?q=${query}`;
-  }
-});
+const startBtnMobile = document.getElementById("startBtnMobile");
+const uploadBtnMobile = document.getElementById("uploadBtnMobile");
+const notifBtnMobile = document.getElementById("notifBtnMobile");
 
-// Modal logo 6s
+// Modal logo
 const introModal = document.getElementById("introModal");
 setTimeout(()=>{ introModal.style.display="none"; },6000);
 
-// Loader 5s
+// Loader
 const loader = document.getElementById("loader");
 setTimeout(()=>{ loader.style.display="none"; },5000);
 
+// Auth state
 onAuthStateChanged(auth, user=>{
   if(user){
     startBtn.style.display="none";
     profileBtn.style.display="flex";
     uploadBtn.style.display="flex";
     notifBtn.style.display="flex";
+
+    startBtnMobile.style.display="none";
+    uploadBtnMobile.style.display="flex";
+    notifBtnMobile.style.display="flex";
   }else{
     startBtn.style.display="flex";
     profileBtn.style.display="none";
     uploadBtn.style.display="none";
     notifBtn.style.display="none";
+
+    startBtnMobile.style.display="flex";
+    uploadBtnMobile.style.display="none";
+    notifBtnMobile.style.display="none";
   }
 });
 
-// Load videos after loader
+// Load videos
 setTimeout(()=>{
   onValue(ref(db,"videos"),snap=>{
     grid.innerHTML="";
@@ -445,8 +486,8 @@ window.toggleMoreMenu=function(){
   document.getElementById("moreMenu").classList.toggle("open");
 };
 </script>
-<link rel="manifest" href="manifest.json">
 
+<link rel="manifest" href="manifest.json">
 <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js");
