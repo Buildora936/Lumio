@@ -16,7 +16,7 @@ body{
   color:white;
 }
 
-/* HEADER PC / TABLET */
+/* ===== HEADER ===== */
 header{
   position:fixed;
   top:0; left:0; right:0;
@@ -25,51 +25,54 @@ header{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:0 16px;
-  z-index:10;
+  padding:0 12px;
+  z-index:20;
 }
-header .left{
+
+.header-left{
   display:flex;
   align-items:center;
-  gap:14px;
+  gap:10px;
 }
-header .left img.logo{
-  width:36px;
-  height:auto;
+.header-left img{
+  width:34px;
 }
-header .search input{
+
+.header-center input{
   width:420px;
   max-width:60vw;
   padding:8px 16px;
   border-radius:20px;
   border:none;
-  outline:none;
   background:#202020;
   color:white;
 }
-header button{
+
+.header-right{
+  display:flex;
+  gap:10px;
+}
+.header-right button{
   background:#202020;
   color:white;
   border:none;
-  padding:8px 14px;
+  padding:8px 12px;
   border-radius:20px;
   cursor:pointer;
 }
 
-/* LAYOUT PC */
+/* ===== LAYOUT ===== */
 .layout{
   display:flex;
   margin-top:56px;
 }
 
-/* SIDEBAR PC */
+/* ===== SIDEBAR (PC) ===== */
 .sidebar{
   width:80px;
   background:#0f0f0f;
-  position:relative;
-  flex-shrink:0;
 }
-.sidebar a, .sidebar button{
+.sidebar a{
   width:80px;
   display:flex;
   flex-direction:column;
@@ -78,59 +81,25 @@ header button{
   padding:14px 0;
   font-size:11px;
   color:#aaa;
-  background:none;
-  border:none;
   text-decoration:none;
-  cursor:pointer;
 }
-.sidebar i{font-size:20px}
-.sidebar a:hover, .sidebar button:hover{
-  background:#1f1f1f;
-  color:white;
-}
+.sidebar a i{font-size:20px}
+.sidebar a:hover{background:#1f1f1f;color:white}
 
-/* MORE MENU */
-.more-menu{
-  position:absolute;
-  left:80px;
-  top:0;
-  width:100px;
-  background:#111;
-  height:100%;
-  padding-top:10px;
-  transform:translateX(-220px);
-  transition:0.3s;
-  z-index:5;
-}
-.more-menu.open{
-  transform:translateX(0);
-}
-.more-menu a{
-  display:block;
-  padding:12px;
-  color:#aaa;
-  text-decoration:none;
-  font-size:14px;
-}
-.more-menu a:hover{
-  background:#222;
-  color:white;
-}
-
-/* CONTENT */
+/* ===== CONTENT ===== */
 .content{
   flex:1;
   padding:16px;
 }
 
-/* GRID */
+/* ===== GRID ===== */
 .grid{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
   gap:16px;
 }
 
-/* CARD */
+/* ===== CARD ===== */
 .card{
   background:#202020;
   border-radius:14px;
@@ -146,42 +115,10 @@ header button{
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
 
-/* AD CARD */
-.ad-card{
-  background:#202020;
-  border-radius:14px;
-  overflow:hidden;
-  border:1px solid #333;
-  cursor:default;
-}
-.ad-thumb{
-  height:140px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#111;
-}
-.ad-label{
-  font-size:11px;
-  color:#ff9800;
-  text-transform:uppercase;
-  font-weight:600;
-}
-.ad-body{padding:10px}
-.ad-title{
-  font-weight:600;
-  font-size:14px;
-}
-.ad-meta{
-  font-size:12px;
-  color:#aaa;
-}
-
-/* LOADER */
+/* ===== LOADER ===== */
 #loader{
   position:fixed;
-  top:0; left:0;
-  width:100%; height:100%;
+  inset:0;
   background:#181818;
   display:flex;
   align-items:center;
@@ -189,178 +126,78 @@ header button{
   z-index:100;
 }
 .loader-icon{
-  width:60px;
-  height:60px;
+  width:60px;height:60px;
   border:6px solid #333;
   border-top:6px solid #ff8800;
   border-radius:50%;
   animation:spin 1s linear infinite;
 }
-@keyframes spin{
-  0%{transform:rotate(0deg);}
-  100%{transform:rotate(360deg);}
-}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-/* MODAL */
-#introModal{
-  position:fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:#181818;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:101;
-}
-#introModal img{
-  width:180px;
-  animation:fadein 1s forwards;
-}
-@keyframes fadein{
-  0%{opacity:0;}
-  100%{opacity:1;}
-}
-
-/* BOTTOM MENU MOBILE / TABLETTE */
+/* ===== BOTTOM MENU (MOBILE) ===== */
 .bottom-menu{
   display:none;
   position:fixed;
-  bottom:0;
-  left:0;
+  bottom:0; left:0;
   width:100%;
   height:56px;
   background:#0f0f0f;
-  display:flex;
   justify-content:space-around;
   align-items:center;
-  z-index:100;
+  z-index:30;
 }
-.bottom-menu button, .bottom-menu a{
-  background:none;
-  border:none;
+.bottom-menu a{
   color:#aaa;
+  text-decoration:none;
   display:flex;
   flex-direction:column;
   align-items:center;
   font-size:11px;
-  cursor:pointer;
 }
-.bottom-menu i{
-  font-size:20px;
-}
-.bottom-menu button:hover, .bottom-menu a:hover{
-  color:white;
-}
+.bottom-menu i{font-size:20px}
 
-/* VERTICAL RIGHT BUTTONS MOBILE */
-.right-vertical{
-  display:none;
-  position:fixed;
-  right:8px;
-  top:70px;
-  flex-direction:column;
-  gap:10px;
-  z-index:101;
-}
-.right-vertical button{
-  background:#202020;
-  border:none;
-  border-radius:50%;
-  width:44px;
-  height:44px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:white;
-  cursor:pointer;
-}
-.right-vertical button:hover{
-  background:#ff8800;
-}
-
-/* RESPONSIVE */
-@media screen and (max-width:900px){
+/* ===== RESPONSIVE ===== */
+@media(max-width:900px){
   .sidebar{display:none;}
-  header .search input{display:none;}
-  header .left h2{display:none;}
-  header .left img.logo{display:inline-block;}
-  header{justify-content:flex-start;}
-  .layout{margin-top:56px;}
+  .header-center{display:none;} /* input search */
   .bottom-menu{display:flex;}
-  .right-vertical{display:flex;}
+  .content{padding-bottom:72px;}
 }
 </style>
 </head>
 
 <body>
 
-<!-- MODAL LOGO LUMIO -->
-<div id="introModal">
-  <img src="logo_lumio.png" alt="Lumio">
-</div>
-
 <!-- LOADER -->
-<div id="loader">
-  <div class="loader-icon"></div>
-</div>
+<div id="loader"><div class="loader-icon"></div></div>
 
 <!-- HEADER -->
 <header>
-  <div class="left">
-    <img src="logo_lumio.png" class="logo" alt="Lumio">
-    <h2>Lumio</h2>
+  <div class="header-left">
+    <img src="logo_lumio.png">
+    <strong>Lumio</strong>
   </div>
 
-  <!-- Bouton recherche mobile -->
-  <button class="search-mobile" onclick="location.href='search.html'" style="display:none;">
-    <i class="fa-solid fa-magnifying-glass"></i>
-  </button>
-
-  <div class="search">
+  <div class="header-center">
     <input id="searchInput" placeholder="Rechercher sur Lumio">
   </div>
 
-  <div class="right">
-    <button id="notifBtn" style="display:none" onclick="location.href='notification.html'">
-      <i class="fa-solid fa-bell"></i>
-    </button>
-
-    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
-      <i class="fa-solid fa-plus"></i>
-    </button>
-
-    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
-
-    <button id="profileBtn" style="display:none" onclick="location.href='profile.html'">
-      <i class="fa-solid fa-user"></i>
-    </button>
+  <div class="header-right">
+    <button onclick="location.href='search.html'"><i class="fa fa-search"></i></button>
+    <button id="notifBtn" onclick="location.href='notification.html'"><i class="fa fa-bell"></i></button>
+    <button id="uploadBtn" onclick="location.href='publish.html'"><i class="fa fa-plus"></i></button>
+    <button id="profileBtn" onclick="location.href='profile.html'"><i class="fa fa-user"></i></button>
   </div>
 </header>
 
-<!-- LAYOUT PC -->
 <div class="layout">
+  <!-- MENU UNIQUE -->
   <nav class="sidebar">
-    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
-    <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
-    <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
-    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
-
-    <button onclick="toggleMoreMenu()">
-      <i class="fa-solid fa-ellipsis-vertical"></i><span>Plus</span>
-    </button>
-
-    <div class="more-menu" id="moreMenu">
-      <a href="notification.html">🔔 Notifications</a>
-      <a href="profile.html">👤 Profil</a>
-      <a href="studio.html">🎬 Studio</a>
-      <a href="analytics.html">📊 Analytics</a>
-      <a href="monetization.html">💰 Monétisation</a>
-      <a href="settings.html">⚙️ Paramètres</a>
-      <a href="privacy.html">🔐 Confidentialité</a>
-      <a href="security.html">🛡️ Sécurité</a>
-      <a href="copyright.html">© Copyright</a>
-    </div>
+    <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
+    <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
+    <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
+    <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
+    <a href="library.html"><i class="fa fa-folder"></i><span>Bibli</span></a>
   </nav>
 
   <main class="content">
@@ -368,130 +205,18 @@ header button{
   </main>
 </div>
 
-<!-- BOTTOM MENU MOBILE -->
+<!-- SAME MENU, MOVED TO BOTTOM -->
 <footer class="bottom-menu">
-  <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-  <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
-  <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
-  <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
-  <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
+  <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
+  <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
+  <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
+  <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
+  <a href="library.html"><i class="fa fa-folder"></i><span>Bibli</span></a>
 </footer>
 
-<!-- RIGHT VERTICAL BUTTONS MOBILE -->
-<div class="right-vertical">
-  <button id="notifBtnMobile" onclick="location.href='notification.html'">
-    <i class="fa-solid fa-bell"></i>
-  </button>
-  <button id="uploadBtnMobile" onclick="location.href='publish.html'">
-    <i class="fa-solid fa-plus"></i>
-  </button>
-  <button id="startBtnMobile" onclick="location.href='auth.html'">
-    <i class="fa-solid fa-user"></i>
-  </button>
-</div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-const grid = document.getElementById("grid");
-const startBtn = document.getElementById("startBtn");
-const profileBtn = document.getElementById("profileBtn");
-const uploadBtn = document.getElementById("uploadBtn");
-const notifBtn = document.getElementById("notifBtn");
-
-const startBtnMobile = document.getElementById("startBtnMobile");
-const uploadBtnMobile = document.getElementById("uploadBtnMobile");
-const notifBtnMobile = document.getElementById("notifBtnMobile");
-
-// Modal logo
-const introModal = document.getElementById("introModal");
-setTimeout(()=>{ introModal.style.display="none"; },6000);
-
-// Loader
-const loader = document.getElementById("loader");
-setTimeout(()=>{ loader.style.display="none"; },5000);
-
-// Auth state
-onAuthStateChanged(auth, user=>{
-  if(user){
-    startBtn.style.display="none";
-    profileBtn.style.display="flex";
-    uploadBtn.style.display="flex";
-    notifBtn.style.display="flex";
-
-    startBtnMobile.style.display="none";
-    uploadBtnMobile.style.display="flex";
-    notifBtnMobile.style.display="flex";
-  }else{
-    startBtn.style.display="flex";
-    profileBtn.style.display="none";
-    uploadBtn.style.display="none";
-    notifBtn.style.display="none";
-
-    startBtnMobile.style.display="flex";
-    uploadBtnMobile.style.display="none";
-    notifBtnMobile.style.display="none";
-  }
-});
-
-// Load videos
-setTimeout(()=>{
-  onValue(ref(db,"videos"),snap=>{
-    grid.innerHTML="";
-    if(!snap.exists()) return;
-
-    let count=0;
-    Object.entries(snap.val())
-      .sort((a,b)=>b[1].createdAt - a[1].createdAt)
-      .forEach(([id,v])=>{
-        const card=document.createElement("div");
-        card.className="card";
-        card.onclick=()=>location.href=`player.html?id=${id}`;
-        card.innerHTML=`
-          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-          <div class="card-body">
-            <div class="title">${v.title}</div>
-            <div class="meta">
-              <span>${v.channelName}</span>
-              <span>${v.views || 0} vues</span>
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
-        count++;
-        if(count%6===0){
-          const ad=document.createElement("div");
-          ad.className="ad-card";
-          ad.innerHTML=`<div class="ad-thumb"></div><div class="ad-body"><div class="ad-label">Publicité</div><div class="ad-title">Sponsorisé</div><div class="ad-meta">Annonce Lumio</div></div>`;
-          grid.appendChild(ad);
-        }
-      });
-  });
-},5000);
-
-window.toggleMoreMenu=function(){
-  document.getElementById("moreMenu").classList.toggle("open");
-};
-</script>
-
-<link rel="manifest" href="manifest.json">
 <script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
-}
+setTimeout(()=>document.getElementById("loader").style.display="none",5000);
 </script>
+
 </body>
 </html>
