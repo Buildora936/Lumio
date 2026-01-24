@@ -16,10 +16,10 @@ body{
   color:white;
 }
 
-/* HEADER */
+/* HEADER PC */
 header{
   position:fixed;
-  top:0;left:0;right:0;
+  top:0; left:0; right:0;
   height:56px;
   background:#0f0f0f;
   display:flex;
@@ -28,20 +28,16 @@ header{
   padding:0 16px;
   z-index:10;
 }
-
-.left,.center,.right{
+header .left{
   display:flex;
   align-items:center;
   gap:14px;
 }
-
-.left img{
-  width:28px;
-  height:28px;
-  border-radius:6px;
+header .left img.logo{
+  width:36px;
+  height:auto;
 }
-
-.search input{
+header .search input{
   width:420px;
   max-width:60vw;
   padding:8px 16px;
@@ -51,8 +47,7 @@ header{
   background:#202020;
   color:white;
 }
-
-button{
+header button{
   background:#202020;
   color:white;
   border:none;
@@ -67,14 +62,13 @@ button{
   margin-top:56px;
 }
 
-/* SIDEBAR (DESKTOP) */
+/* SIDEBAR PC */
 .sidebar{
   width:80px;
   background:#0f0f0f;
   position:relative;
   flex-shrink:0;
 }
-
 .sidebar a, .sidebar button{
   width:80px;
   display:flex;
@@ -89,7 +83,6 @@ button{
   text-decoration:none;
   cursor:pointer;
 }
-
 .sidebar i{font-size:20px}
 .sidebar a:hover, .sidebar button:hover{
   background:#1f1f1f;
@@ -101,7 +94,7 @@ button{
   position:absolute;
   left:80px;
   top:0;
-  width:140px;
+  width:100px;
   background:#111;
   height:100%;
   padding-top:10px;
@@ -109,7 +102,9 @@ button{
   transition:0.3s;
   z-index:5;
 }
-.more-menu.open{ transform:translateX(0); }
+.more-menu.open{
+  transform:translateX(0);
+}
 .more-menu a{
   display:block;
   padding:12px;
@@ -157,6 +152,7 @@ button{
   border-radius:14px;
   overflow:hidden;
   border:1px solid #333;
+  cursor:default;
 }
 .ad-thumb{
   height:140px;
@@ -172,6 +168,14 @@ button{
   font-weight:600;
 }
 .ad-body{padding:10px}
+.ad-title{
+  font-weight:600;
+  font-size:14px;
+}
+.ad-meta{
+  font-size:12px;
+  color:#aaa;
+}
 
 /* LOADER */
 #loader{
@@ -208,54 +212,83 @@ button{
   justify-content:center;
   z-index:101;
 }
+#introModal img{
+  width:180px;
+  animation:fadein 1s forwards;
+}
+@keyframes fadein{
+  0%{opacity:0;}
+  100%{opacity:1;}
+}
 
-/* ===== MOBILE / TABLET ===== */
-.bottom-nav{
+/* BOTTOM MENU (MOBILE / TABLETTE) */
+.bottom-menu{
   display:none;
   position:fixed;
-  bottom:0; left:0; right:0;
-  height:64px;
+  bottom:0;
+  left:0;
+  width:100%;
+  height:56px;
   background:#0f0f0f;
-  border-top:1px solid #222;
   display:flex;
   justify-content:space-around;
   align-items:center;
-  z-index:20;
+  z-index:100;
 }
-
-.bottom-nav a{
+.bottom-menu button, .bottom-menu a{
+  background:none;
+  border:none;
   color:#aaa;
-  font-size:12px;
-  text-decoration:none;
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:4px;
+  font-size:11px;
+  cursor:pointer;
 }
-.bottom-nav i{font-size:20px}
+.bottom-menu i{
+  font-size:20px;
+}
+.bottom-menu button:hover, .bottom-menu a:hover{
+  color:white;
+}
 
-@media (max-width: 900px){
-  .sidebar{display:none;}
-  .layout{margin-bottom:64px;}
-  .bottom-nav{display:flex;}
-  .search input{width:160px;}
+/* RESPONSIVE */
+@media screen and (max-width:900px){
+  .sidebar, header .search input{
+    display:none;
+  }
+  header .left h2{
+    display:none;
+  }
+  header .left img.logo{
+    display:inline-block;
+  }
+  header{
+    justify-content:flex-start;
+  }
+  .bottom-menu{
+    display:flex;
+  }
 }
 </style>
 </head>
 
 <body>
 
+<!-- MODAL LOGO LUMIO -->
 <div id="introModal">
   <img src="icone-192.png" alt="Lumio">
 </div>
 
+<!-- LOADER -->
 <div id="loader">
   <div class="loader-icon"></div>
 </div>
 
+<!-- HEADER PC -->
 <header>
   <div class="left">
-    <img src="logo_lumio.png" alt="Lumio">
+    <img src="logo_lumio.png" class="logo" alt="Lumio">
     <h2>Lumio</h2>
   </div>
 
@@ -267,10 +300,13 @@ button{
     <button id="notifBtn" style="display:none" onclick="location.href='notification.html'">
       <i class="fa-solid fa-bell"></i>
     </button>
+
     <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
       <i class="fa-solid fa-plus"></i>
     </button>
+
     <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
+
     <button id="profileBtn" style="display:none" onclick="location.href='profile.html'">
       <i class="fa-solid fa-user"></i>
     </button>
@@ -278,17 +314,28 @@ button{
 </header>
 
 <div class="layout">
+  <!-- SIDEBAR PC -->
   <nav class="sidebar">
     <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
     <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
     <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
     <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
     <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
+
     <button onclick="toggleMoreMenu()">
       <i class="fa-solid fa-ellipsis-vertical"></i><span>Plus</span>
     </button>
+
     <div class="more-menu" id="moreMenu">
+      <a href="notification.html">🔔 Notifications</a>
+      <a href="profile.html">👤 Profil</a>
+      <a href="studio.html">🎬 Studio</a>
+      <a href="analytics.html">📊 Analytics</a>
+      <a href="monetization.html">💰 Monétisation</a>
       <a href="settings.html">⚙️ Paramètres</a>
+      <a href="privacy.html">🔐 Confidentialité</a>
+      <a href="security.html">🛡️ Sécurité</a>
+      <a href="copyright.html">© Copyright</a>
     </div>
   </nav>
 
@@ -297,113 +344,113 @@ button{
   </main>
 </div>
 
-<!-- MOBILE BOTTOM MENU -->
-<nav class="bottom-nav">
+<!-- BOTTOM MENU MOBILE / TABLETTE -->
+<footer class="bottom-menu">
   <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
   <a href="trending.html"><i class="fa-solid fa-fire"></i><span>Tendance</span></a>
   <a href="shorts.html"><i class="fa-solid fa-bolt"></i><span>MV</span></a>
   <a href="subscriptions.html"><i class="fa-solid fa-tv"></i><span>Subs</span></a>
   <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli</span></a>
-  <a href="profile.html"><i class="fa-solid fa-user"></i><span>Profil</span></a>
-</nav>
- <script type="module">            
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";            
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";            
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";            
-            
-const firebaseConfig = {            
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",            
-  authDomain: "lumio-6efed.firebaseapp.com",            
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",            
-  projectId: "lumio-6efed"            
-};            
-            
-const app = initializeApp(firebaseConfig);            
-const auth = getAuth(app);            
-const db = getDatabase(app);            
-            
-const grid = document.getElementById("grid");            
-const startBtn = document.getElementById("startBtn");            
-const profileBtn = document.getElementById("profileBtn");            
-const uploadBtn = document.getElementById("uploadBtn");            
-const notifBtn = document.getElementById("notifBtn");            
-const searchInput = document.getElementById("searchInput");            
-            
-searchInput.addEventListener("keypress", e => {            
-  if(e.key === "Enter"){            
-    const query = encodeURIComponent(searchInput.value.trim());            
-    if(query) window.location.href = `search.html?q=${query}`;            
-  }            
-});            
-            
-// Modal logo 6s            
-const introModal = document.getElementById("introModal");            
-setTimeout(()=>{ introModal.style.display="none"; },6000);            
-            
-// Loader 5s            
-const loader = document.getElementById("loader");            
-setTimeout(()=>{ loader.style.display="none"; },5000);            
-            
-onAuthStateChanged(auth, user=>{            
-  if(user){            
-    startBtn.style.display="none";            
-    profileBtn.style.display="flex";            
-    uploadBtn.style.display="flex";            
-    notifBtn.style.display="flex";            
-  }else{            
-    startBtn.style.display="flex";            
-    profileBtn.style.display="none";            
-    uploadBtn.style.display="none";            
-    notifBtn.style.display="none";            
-  }            
-});            
-            
-// Load videos after loader            
-setTimeout(()=>{            
-  onValue(ref(db,"videos"),snap=>{            
-    grid.innerHTML="";            
-    if(!snap.exists()) return;            
-            
-    let count=0;            
-    Object.entries(snap.val())            
-      .sort((a,b)=>b[1].createdAt - a[1].createdAt)            
-      .forEach(([id,v])=>{            
-        const card=document.createElement("div");            
-        card.className="card";            
-        card.onclick=()=>location.href=`player.html?id=${id}`;            
-        card.innerHTML=`            
-          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>            
-          <div class="card-body">            
-            <div class="title">${v.title}</div>            
-            <div class="meta">            
-              <span>${v.channelName}</span>            
-              <span>${v.views || 0} vues</span>            
-            </div>            
-          </div>            
-        `;            
-        grid.appendChild(card);            
-        count++;            
-        if(count%6===0){            
-          const ad=document.createElement("div");            
-          ad.className="ad-card";            
-          ad.innerHTML=`<div class="ad-thumb"></div><div class="ad-body"><div class="ad-label">Publicité</div><div class="ad-title">Sponsorisé</div><div class="ad-meta">Annonce Lumio</div></div>`;            
-          grid.appendChild(ad);            
-        }            
-      });            
-  });            
-},5000);            
-            
-window.toggleMoreMenu=function(){            
-  document.getElementById("moreMenu").classList.toggle("open");            
-};            
+  <button onclick="location.href='search.html'"><i class="fa-solid fa-magnifying-glass"></i><span>Rechercher</span></button>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain: "lumio-6efed.firebaseapp.com",
+  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId: "lumio-6efed"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const grid = document.getElementById("grid");
+const startBtn = document.getElementById("startBtn");
+const profileBtn = document.getElementById("profileBtn");
+const uploadBtn = document.getElementById("uploadBtn");
+const notifBtn = document.getElementById("notifBtn");
+const searchInput = document.getElementById("searchInput");
+
+searchInput.addEventListener("keypress", e => {
+  if(e.key === "Enter"){
+    const query = encodeURIComponent(searchInput.value.trim());
+    if(query) window.location.href = `search.html?q=${query}`;
+  }
+});
+
+// Modal logo 6s
+const introModal = document.getElementById("introModal");
+setTimeout(()=>{ introModal.style.display="none"; },6000);
+
+// Loader 5s
+const loader = document.getElementById("loader");
+setTimeout(()=>{ loader.style.display="none"; },5000);
+
+onAuthStateChanged(auth, user=>{
+  if(user){
+    startBtn.style.display="none";
+    profileBtn.style.display="flex";
+    uploadBtn.style.display="flex";
+    notifBtn.style.display="flex";
+  }else{
+    startBtn.style.display="flex";
+    profileBtn.style.display="none";
+    uploadBtn.style.display="none";
+    notifBtn.style.display="none";
+  }
+});
+
+// Load videos after loader
+setTimeout(()=>{
+  onValue(ref(db,"videos"),snap=>{
+    grid.innerHTML="";
+    if(!snap.exists()) return;
+
+    let count=0;
+    Object.entries(snap.val())
+      .sort((a,b)=>b[1].createdAt - a[1].createdAt)
+      .forEach(([id,v])=>{
+        const card=document.createElement("div");
+        card.className="card";
+        card.onclick=()=>location.href=`player.html?id=${id}`;
+        card.innerHTML=`
+          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+          <div class="card-body">
+            <div class="title">${v.title}</div>
+            <div class="meta">
+              <span>${v.channelName}</span>
+              <span>${v.views || 0} vues</span>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+        count++;
+        if(count%6===0){
+          const ad=document.createElement("div");
+          ad.className="ad-card";
+          ad.innerHTML=`<div class="ad-thumb"></div><div class="ad-body"><div class="ad-label">Publicité</div><div class="ad-title">Sponsorisé</div><div class="ad-meta">Annonce Lumio</div></div>`;
+          grid.appendChild(ad);
+        }
+      });
+  });
+},5000);
+
+window.toggleMoreMenu=function(){
+  document.getElementById("moreMenu").classList.toggle("open");
+};
 </script>
-  
 <link rel="manifest" href="manifest.json">
+
 <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js");
 }
 </script>
-
 </body>
 </html>
