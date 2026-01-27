@@ -12,7 +12,7 @@
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
 body{background:#181818;color:white}
 
-/* ===== HEADER ===== */
+/* HEADER */
 header{
   position:fixed;top:0;left:0;right:0;
   height:56px;background:#0f0f0f;
@@ -20,25 +20,25 @@ header{
   justify-content:space-between;
   padding:0 12px;z-index:100
 }
-header .left{display:flex;align-items:center;gap:10px}
-header .left img{width:34px}
-header .center{flex:1;display:flex;justify-content:center}
-header .center input{
+.left{display:flex;align-items:center;gap:10px}
+.left img{width:34px}
+.center{flex:1;display:flex;justify-content:center}
+.center input{
   width:420px;max-width:60vw;
   padding:8px 16px;border-radius:20px;
   border:none;background:#202020;color:white
 }
-header .right{display:flex;gap:10px}
-header button{
+.right{display:flex;gap:10px}
+button{
   background:#202020;color:white;
   border:none;padding:8px 12px;
   border-radius:20px;cursor:pointer
 }
 
-/* ===== LAYOUT ===== */
+/* LAYOUT */
 .layout{display:flex;margin-top:56px}
 
-/* ===== SIDEBAR ===== */
+/* SIDEBAR */
 .sidebar{
   width:80px;background:#0f0f0f;
   display:flex;flex-direction:column;align-items:center
@@ -48,27 +48,24 @@ header button{
   background:none;border:none;
   color:#aaa;text-decoration:none;
   font-size:11px;display:flex;
-  flex-direction:column;
-  align-items:center;gap:6px;cursor:pointer
+  flex-direction:column;align-items:center;gap:6px;cursor:pointer
 }
 .sidebar i{font-size:20px}
 .sidebar a:hover,.sidebar button:hover{
   background:#1f1f1f;color:white
 }
 
-/* ===== MORE MENU ===== */
+/* MORE MENU */
 .more-menu{
   position:fixed;left:80px;top:56px;
   width:160px;background:#111;
-  display:none;flex-direction:column
+  display:none;flex-direction:column;z-index:200
 }
 .more-menu.open{display:flex}
-.more-menu a{
-  padding:12px;color:#aaa;text-decoration:none
-}
+.more-menu a{padding:12px;color:#aaa;text-decoration:none}
 .more-menu a:hover{background:#222;color:white}
 
-/* ===== CONTENT ===== */
+/* CONTENT */
 .content{flex:1;padding:16px}
 .grid{
   display:grid;
@@ -76,7 +73,7 @@ header button{
   gap:16px
 }
 
-/* ===== CARD ===== */
+/* CARD */
 .card{
   background:#202020;border-radius:14px;
   overflow:hidden;border:1px solid #262626;
@@ -90,30 +87,28 @@ header button{
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
 
-/* ===== PUB CARD ===== */
+/* PUB CARD */
 .ad-card{
-  background:#181818;border-radius:14px;
-  border:1px solid #333;padding:10px
+  background:#181818;
+  border:1px solid #333;
+  border-radius:14px;
+  padding:10px;
+  text-align:center
 }
 
-/* ===== SKELETON ===== */
+/* SKELETON */
 .skeleton{animation:pulse 1.2s infinite}
-@keyframes pulse{
-  0%{opacity:.6}
-  50%{opacity:.3}
-  100%{opacity:.6}
-}
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 
-/* ===== RESPONSIVE ===== */
+/* MOBILE */
 @media(max-width:900px){
   .layout{flex-direction:column;margin-bottom:56px}
   .sidebar{
     position:fixed;bottom:0;left:0;
     width:100%;height:56px;
-    flex-direction:row;
-    justify-content:space-around;z-index:100
+    flex-direction:row;justify-content:space-around
   }
-  header .center{display:none}
+  .center{display:none}
   #searchBtn{display:inline-flex}
 }
 </style>
@@ -141,7 +136,7 @@ header button{
     <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
       <i class="fa fa-plus"></i>
     </button>
-    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
+    <button id="startBtn" onclick="location.href='auth.html'">Start</button>
     <button id="profileBtn" style="display:none" onclick="location.href='profile.html'">
       <i class="fa fa-user"></i>
     </button>
@@ -154,11 +149,16 @@ header button{
   <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
   <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
   <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
-  <a href="library.html"><i class="fa fa-folder"></i><span>Bibli</span></a>
+  <a href="book.html"><i class="fa fa-book"></i><span>Livre</span></a>
   <button onclick="toggleMoreMenu()"><i class="fa fa-ellipsis"></i><span>Plus</span></button>
 </nav>
 
 <div class="more-menu" id="moreMenu">
+  <a href="help.html">Centre d'aide</a>
+  <a href="notification.html">notification</a>
+  <a href="book.html">Livres</a>
+  <a href="library.html">library</a>
+  <a href="live.html">Lives</a>
   <a href="profile.html">👤 Profil</a>
   <a href="studio.html">🎬 Studio</a>
   <a href="analytics.html">📊 Analytics</a>
@@ -171,23 +171,33 @@ header button{
 </main>
 </div>
 
+<!-- PUB PRINCIPALE -->
+<div class="ad-card">
+<script>
+atOptions={
+  'key':'34ced6a9c342f10844eedf343e137cfb',
+  'format':'iframe','height':250,'width':300,'params':{}
+};
+</script>
+<script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase,ref,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app = initializeApp({
+const app=initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain:"lumio-6efed.firebaseapp.com",
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
 });
-
 const auth=getAuth(app);
 const db=getDatabase(app);
 const grid=document.getElementById("grid");
 
-/* AUTH UI */
+/* AUTH */
 onAuthStateChanged(auth,user=>{
   if(user){
     startBtn.style.display="none";
@@ -203,51 +213,41 @@ for(let i=0;i<8;i++){
   <div class="card skeleton">
     <div class="thumb"></div>
     <div class="card-body">
-      <div class="title"> </div>
-      <div class="meta"> </div>
+      <div class="title">&nbsp;</div>
+      <div class="meta">&nbsp;</div>
     </div>
   </div>`;
 }
 
-/* Load videos */
+/* VIDEOS */
 onValue(ref(db,"videos"),snap=>{
   grid.innerHTML="";
   if(!snap.exists()) return;
 
-  let count=0;
-
+  let index=0;
   Object.entries(snap.val())
-  .sort((a,b)=>b[1].createdAt-a[1].createdAt)
-  .forEach(([id,v])=>{
-    count++;
+    .sort((a,b)=>b[1].createdAt-a[1].createdAt)
+    .forEach(([id,v])=>{
+      index++;
 
-    if(count===1 || count%6===0){
-      grid.innerHTML+=`
-      <div class="ad-card">
-        <script>
-          atOptions={
-            'key':'34ced6a9c342f10844eedf343e137cfb',
-            'format':'iframe',
-            'height':250,
-            'width':300,
-            'params':{}
-          };
-        </script>
-        <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
-      </div>`;
-    }
+      if(index%6===0){
+        const ad=document.createElement("div");
+        ad.className="ad-card";
+        ad.innerHTML=document.querySelector(".ad-card").innerHTML;
+        grid.appendChild(ad);
+      }
 
-    const card=document.createElement("div");
-    card.className="card";
-    card.onclick=()=>location.href=`player.html?id=${id}`;
-    card.innerHTML=`
-      <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-      <div class="card-body">
-        <div class="title">${v.title}</div>
-        <div class="meta">${v.channelName} • ${v.views||0} vues</div>
-      </div>`;
-    grid.appendChild(card);
-  });
+      const card=document.createElement("div");
+      card.className="card";
+      card.onclick=()=>location.href=`player.html?id=${id}`;
+      card.innerHTML=`
+        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+        <div class="card-body">
+          <div class="title">${v.title}</div>
+          <div class="meta">${v.channelName} • ${v.views||0} vues</div>
+        </div>`;
+      grid.appendChild(card);
+    });
 });
 
 window.toggleMoreMenu=()=>{
