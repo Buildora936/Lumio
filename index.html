@@ -12,36 +12,21 @@
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
 body{background:#181818;color:white}
 
-/* ===== TOP LOADER ===== */
-#topLoader{
-  position:fixed;
-  top:0;left:0;
-  height:3px;
-  width:0%;
-  background:#ff8800;
-  z-index:999;
-  transition:width .4s ease;
-}
-
 /* ===== HEADER ===== */
 header{
   position:fixed;top:0;left:0;right:0;
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
+  height:56px;background:#0f0f0f;
+  display:flex;align-items:center;
   justify-content:space-between;
-  padding:0 12px;
-  z-index:100;
+  padding:0 12px;z-index:100
 }
 header .left{display:flex;align-items:center;gap:10px}
 header .left img{width:34px}
 header .center{flex:1;display:flex;justify-content:center}
 header .center input{
   width:420px;max-width:60vw;
-  padding:8px 16px;
-  border-radius:20px;border:none;
-  background:#202020;color:white
+  padding:8px 16px;border-radius:20px;
+  border:none;background:#202020;color:white
 }
 header .right{display:flex;gap:10px}
 header button{
@@ -62,8 +47,8 @@ header button{
   width:100%;padding:12px 0;
   background:none;border:none;
   color:#aaa;text-decoration:none;
-  font-size:11px;
-  display:flex;flex-direction:column;
+  font-size:11px;display:flex;
+  flex-direction:column;
   align-items:center;gap:6px;cursor:pointer
 }
 .sidebar i{font-size:20px}
@@ -75,7 +60,7 @@ header button{
 .more-menu{
   position:fixed;left:80px;top:56px;
   width:160px;background:#111;
-  display:none;flex-direction:column;z-index:90
+  display:none;flex-direction:column
 }
 .more-menu.open{display:flex}
 .more-menu a{
@@ -91,23 +76,33 @@ header button{
   gap:16px
 }
 
-/* ===== VIDEO CARD ===== */
+/* ===== CARD ===== */
 .card{
-  background:#202020;
-  border-radius:14px;
-  overflow:hidden;
-  border:1px solid #262626;
+  background:#202020;border-radius:14px;
+  overflow:hidden;border:1px solid #262626;
   cursor:pointer
 }
 .thumb{
-  height:140px;
-  background:#2a2a2a;
-  background-size:cover;
-  background-position:center
+  height:140px;background:#2a2a2a;
+  background-size:cover;background-position:center
 }
 .card-body{padding:10px}
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
+
+/* ===== PUB CARD ===== */
+.ad-card{
+  background:#181818;border-radius:14px;
+  border:1px solid #333;padding:10px
+}
+
+/* ===== SKELETON ===== */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
 
 /* ===== RESPONSIVE ===== */
 @media(max-width:900px){
@@ -115,8 +110,8 @@ header button{
   .sidebar{
     position:fixed;bottom:0;left:0;
     width:100%;height:56px;
-    flex-direction:row;justify-content:space-around;
-    z-index:100
+    flex-direction:row;
+    justify-content:space-around;z-index:100
   }
   header .center{display:none}
   #searchBtn{display:inline-flex}
@@ -126,11 +121,9 @@ header button{
 
 <body>
 
-<div id="topLoader"></div>
-
 <header>
   <div class="left">
-    <img src="logo_lumio.png" alt="Lumio">
+    <img src="logo_lumio.png">
     <strong>Lumio</strong>
   </div>
 
@@ -156,7 +149,6 @@ header button{
 </header>
 
 <div class="layout">
-
 <nav class="sidebar">
   <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
   <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
@@ -177,7 +169,6 @@ header button{
 <main class="content">
   <div class="grid" id="grid"></div>
 </main>
-
 </div>
 
 <script type="module">
@@ -185,7 +176,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebas
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase,ref,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* ===== FIREBASE ===== */
 const app = initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain:"lumio-6efed.firebaseapp.com",
@@ -195,19 +185,9 @@ const app = initializeApp({
 
 const auth=getAuth(app);
 const db=getDatabase(app);
-
 const grid=document.getElementById("grid");
-const loader=document.getElementById("topLoader");
 
-/* ===== SEARCH ===== */
-document.getElementById("searchInput").addEventListener("keypress",e=>{
-  if(e.key==="Enter"){
-    const q=e.target.value.trim();
-    if(q) location.href=`search.html?q=${encodeURIComponent(q)}`;
-  }
-});
-
-/* ===== AUTH UI ===== */
+/* AUTH UI */
 onAuthStateChanged(auth,user=>{
   if(user){
     startBtn.style.display="none";
@@ -217,19 +197,24 @@ onAuthStateChanged(auth,user=>{
   }
 });
 
-/* ===== LOAD VIDEOS ===== */
-loader.style.width="40%";
+/* Skeleton */
+for(let i=0;i<8;i++){
+  grid.innerHTML+=`
+  <div class="card skeleton">
+    <div class="thumb"></div>
+    <div class="card-body">
+      <div class="title"> </div>
+      <div class="meta"> </div>
+    </div>
+  </div>`;
+}
 
+/* Load videos */
 onValue(ref(db,"videos"),snap=>{
   grid.innerHTML="";
-  let count=0;
-  loader.style.width="70%";
+  if(!snap.exists()) return;
 
-  if(!snap.exists()){
-    loader.style.width="100%";
-    setTimeout(()=>loader.style.width="0%",400);
-    return;
-  }
+  let count=0;
 
   Object.entries(snap.val())
   .sort((a,b)=>b[1].createdAt-a[1].createdAt)
@@ -237,20 +222,19 @@ onValue(ref(db,"videos"),snap=>{
     count++;
 
     if(count===1 || count%6===0){
-      const ad=document.createElement("div");
-      ad.className="card";
-      ad.innerHTML=`
-      <script>
-atOptions={
-  'key':'34ced6a9c342f10844eedf343e137cfb',
-  'format':'iframe',
-  'height':250,
-  'width':300,
-  'params':{}
-};
-</script>
-<script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
- <script>     grid.appendChild(ad);
+      grid.innerHTML+=`
+      <div class="ad-card">
+        <script>
+          atOptions={
+            'key':'34ced6a9c342f10844eedf343e137cfb',
+            'format':'iframe',
+            'height':250,
+            'width':300,
+            'params':{}
+          };
+        </script>
+        <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
+      </div>`;
     }
 
     const card=document.createElement("div");
@@ -264,21 +248,11 @@ atOptions={
       </div>`;
     grid.appendChild(card);
   });
-
-  loader.style.width="100%";
-  setTimeout(()=>loader.style.width="0%",400);
 });
 
 window.toggleMoreMenu=()=>{
   document.getElementById("moreMenu").classList.toggle("open");
 };
-</script>
-
-<link rel="manifest" href="manifest.json">
-<script>
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("service-worker.js");
-}
 </script>
 
 </body>
