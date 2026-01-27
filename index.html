@@ -9,54 +9,81 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui;color:white}
-body{background:#181818}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
 
-/* ================= HEADER ================= */
+/* ===== TOP LOADER ===== */
+#topLoader{
+  position:fixed;
+  top:0;left:0;
+  height:3px;
+  width:0%;
+  background:#ff8800;
+  z-index:999;
+  transition:width .3s ease;
+}
+
+/* ===== HEADER ===== */
 header{
-  position:fixed;top:0;left:0;right:0;height:56px;
-  background:#0f0f0f;display:flex;align-items:center;
-  justify-content:space-between;padding:0 12px;z-index:100;
+  position:fixed;top:0;left:0;right:0;
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 12px;
+  z-index:100;
 }
 header .left{display:flex;align-items:center;gap:10px}
 header .left img{width:34px}
 header .center{flex:1;display:flex;justify-content:center}
 header .center input{
-  width:420px;max-width:60vw;padding:8px 16px;
-  border-radius:20px;border:none;background:#202020;color:white
+  width:420px;max-width:60vw;
+  padding:8px 16px;
+  border-radius:20px;border:none;
+  background:#202020;color:white
 }
 header .right{display:flex;gap:10px}
 header button{
-  background:#202020;border:none;padding:8px 12px;
+  background:#202020;color:white;
+  border:none;padding:8px 12px;
   border-radius:20px;cursor:pointer
 }
 
-/* ================= LAYOUT ================= */
+/* ===== LAYOUT ===== */
 .layout{display:flex;margin-top:56px}
 
-/* ================= SIDEBAR ================= */
+/* ===== SIDEBAR ===== */
 .sidebar{
   width:80px;background:#0f0f0f;
   display:flex;flex-direction:column;align-items:center
 }
 .sidebar a,.sidebar button{
-  width:100%;padding:12px 0;background:none;border:none;
-  color:#aaa;font-size:11px;text-decoration:none;
-  display:flex;flex-direction:column;align-items:center;gap:6px
+  width:100%;padding:12px 0;
+  background:none;border:none;
+  color:#aaa;text-decoration:none;
+  font-size:11px;
+  display:flex;flex-direction:column;
+  align-items:center;gap:6px;cursor:pointer
 }
 .sidebar i{font-size:20px}
-.sidebar a:hover,.sidebar button:hover{background:#1f1f1f;color:white}
+.sidebar a:hover,.sidebar button:hover{
+  background:#1f1f1f;color:white
+}
 
-/* ================= MORE MENU ================= */
+/* ===== MORE MENU ===== */
 .more-menu{
-  position:fixed;left:80px;top:56px;width:140px;
-  background:#111;display:none;flex-direction:column;z-index:99
+  position:fixed;left:80px;top:56px;
+  width:160px;background:#111;
+  display:none;flex-direction:column
 }
 .more-menu.open{display:flex}
-.more-menu a{padding:12px;color:#aaa;text-decoration:none}
+.more-menu a{
+  padding:12px;color:#aaa;text-decoration:none
+}
 .more-menu a:hover{background:#222;color:white}
 
-/* ================= CONTENT ================= */
+/* ===== CONTENT ===== */
 .content{flex:1;padding:16px}
 .grid{
   display:grid;
@@ -64,38 +91,42 @@ header button{
   gap:16px
 }
 
-/* ================= CARD ================= */
+/* ===== VIDEO CARD ===== */
 .card{
-  background:#181818;border-radius:16px;padding:14px;
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
   border:1px solid #262626;
-  display:flex;flex-direction:column;gap:10px
+  cursor:pointer
 }
-.card img{
-  width:100%;height:140px;border-radius:12px;
-  object-fit:cover;background:#222
+.thumb{
+  height:140px;
+  background:#2a2a2a;
+  background-size:cover;
+  background-position:center
 }
-.card h3{font-size:16px}
-.card p{font-size:12px;color:#aaa}
+.card-body{padding:10px}
+.title{font-weight:600}
+.meta{font-size:12px;color:#aaa}
 
-/* ================= PRO LOADER (SKELETON) ================= */
+/* ===== SKELETON ===== */
 .skeleton{
-  animation:pulse 1.4s infinite;
-  background:linear-gradient(90deg,#222,#2a2a2a,#222);
-  background-size:200% 100%
+  animation:pulse 1.2s infinite;
 }
-.skeleton-img{height:140px;border-radius:12px}
-.skeleton-text{height:14px;border-radius:6px;margin-top:8px;width:80%}
 @keyframes pulse{
-  0%{background-position:0%}
-  100%{background-position:200%}
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
 }
 
-/* ================= RESPONSIVE ================= */
+/* ===== RESPONSIVE ===== */
 @media(max-width:900px){
   .layout{flex-direction:column;margin-bottom:56px}
   .sidebar{
-    position:fixed;bottom:0;left:0;width:100%;height:56px;
-    flex-direction:row;justify-content:space-around
+    position:fixed;bottom:0;left:0;
+    width:100%;height:56px;
+    flex-direction:row;justify-content:space-around;
+    z-index:100
   }
   header .center{display:none}
   #searchBtn{display:inline-flex}
@@ -105,6 +136,8 @@ header button{
 
 <body>
 
+<div id="topLoader"></div>
+
 <header>
   <div class="left">
     <img src="logo_lumio.png">
@@ -112,8 +145,7 @@ header button{
   </div>
 
   <div class="center">
-    <input placeholder="Rechercher sur Lumio"
-      onkeydown="if(event.key==='Enter')location.href='search.html'">
+    <input id="searchInput" placeholder="Rechercher sur Lumio">
   </div>
 
   <div class="right">
@@ -134,7 +166,6 @@ header button{
 </header>
 
 <div class="layout">
-
 <nav class="sidebar">
   <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
   <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
@@ -153,44 +184,28 @@ header button{
 </div>
 
 <main class="content">
-  <div class="grid" id="grid">
-
-    <!-- Skeleton loader -->
-    <div class="card skeleton">
-      <div class="skeleton-img"></div>
-      <div class="skeleton-text"></div>
-      <div class="skeleton-text" style="width:60%"></div>
-    </div>
-    <div class="card skeleton">
-      <div class="skeleton-img"></div>
-      <div class="skeleton-text"></div>
-      <div class="skeleton-text" style="width:60%"></div>
-    </div>
-
-  </div>
+  <div class="grid" id="grid"></div>
 </main>
-
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const firebaseConfig={
+const app = initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain:"lumio-6efed.firebaseapp.com",
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
-};
+});
 
-const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
 const db=getDatabase(app);
-
 const grid=document.getElementById("grid");
+const loader=document.getElementById("topLoader");
 
-/* AUTH UI */
+/* ===== AUTH UI ===== */
 onAuthStateChanged(auth,user=>{
   if(user){
     startBtn.style.display="none";
@@ -200,35 +215,62 @@ onAuthStateChanged(auth,user=>{
   }
 });
 
-/* LOAD VIDEOS FAST */
+/* ===== SKELETON ===== */
+for(let i=0;i<8;i++){
+  grid.innerHTML+=`
+  <div class="card skeleton">
+    <div class="thumb"></div>
+    <div class="card-body">
+      <div class="title"> </div>
+      <div class="meta"> </div>
+    </div>
+  </div>`;
+}
+
+/* ===== LOAD VIDEOS ===== */
 onValue(ref(db,"videos"),snap=>{
   grid.innerHTML="";
   let count=0;
-  if(!snap.exists())return;
+  loader.style.width="60%";
 
-  Object.entries(snap.val()).forEach(([id,v])=>{
+  if(!snap.exists()){loader.style.width="100%";return;}
+
+  Object.entries(snap.val())
+  .sort((a,b)=>b[1].createdAt-a[1].createdAt)
+  .forEach(([id,v])=>{
     count++;
 
     if(count===1 || count%6===0){
       const ad=document.createElement("div");
       ad.className="card";
       ad.innerHTML=`
-      <script>
-        atOptions={'key':'34ced6a9c342f10844eedf343e137cfb','format':'iframe','height':250,'width':300,'params':{}};
-      </script>
-      <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
-      grid.appendChild(ad);
+<script>
+atOptions={
+'key':'34ced6a9c342f10844eedf343e137cfb',
+'format':'iframe',
+'height':250,
+'width':300,
+'params':{}
+};
+</script>
+<script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
+   <script>   grid.appendChild(ad);
     }
 
     const card=document.createElement("div");
     card.className="card";
-    card.innerHTML=`
-      <img loading="lazy" src="${v.thumbnailBase64}">
-      <h3>${v.title}</h3>
-      <p>${v.channelName}</p>`;
     card.onclick=()=>location.href=`player.html?id=${id}`;
+    card.innerHTML=`
+      <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+      <div class="card-body">
+        <div class="title">${v.title}</div>
+        <div class="meta">${v.channelName} • ${v.views||0} vues</div>
+      </div>`;
     grid.appendChild(card);
   });
+
+  loader.style.width="100%";
+  setTimeout(()=>loader.style.width="0%",400);
 });
 
 window.toggleMoreMenu=()=>{
