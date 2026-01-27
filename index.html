@@ -75,7 +75,7 @@ header button{
 .more-menu{
   position:fixed;left:80px;top:56px;
   width:160px;background:#111;
-  display:none;flex-direction:column
+  display:none;flex-direction:column;z-index:90
 }
 .more-menu.open{display:flex}
 .more-menu a{
@@ -109,14 +109,6 @@ header button{
 .title{font-weight:600}
 .meta{font-size:12px;color:#aaa}
 
-/* ===== SKELETON ===== */
-.skeleton{animation:pulse 1.2s infinite}
-@keyframes pulse{
-  0%{opacity:.6}
-  50%{opacity:.3}
-  100%{opacity:.6}
-}
-
 /* ===== RESPONSIVE ===== */
 @media(max-width:900px){
   .layout{flex-direction:column;margin-bottom:56px}
@@ -138,7 +130,7 @@ header button{
 
 <header>
   <div class="left">
-    <img src="logo_lumio.png">
+    <img src="logo_lumio.png" alt="Lumio">
     <strong>Lumio</strong>
   </div>
 
@@ -193,6 +185,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebas
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase,ref,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+/* ===== FIREBASE ===== */
 const app = initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain:"lumio-6efed.firebaseapp.com",
@@ -202,8 +195,17 @@ const app = initializeApp({
 
 const auth=getAuth(app);
 const db=getDatabase(app);
+
 const grid=document.getElementById("grid");
 const loader=document.getElementById("topLoader");
+
+/* ===== SEARCH ===== */
+document.getElementById("searchInput").addEventListener("keypress",e=>{
+  if(e.key==="Enter"){
+    const q=e.target.value.trim();
+    if(q) location.href=`search.html?q=${encodeURIComponent(q)}`;
+  }
+});
 
 /* ===== AUTH UI ===== */
 onAuthStateChanged(auth,user=>{
@@ -215,25 +217,19 @@ onAuthStateChanged(auth,user=>{
   }
 });
 
-/* ===== SKELETON ===== */
-for(let i=0;i<8;i++){
-  grid.innerHTML+=`
-  <div class="card skeleton">
-    <div class="thumb"></div>
-    <div class="card-body">
-      <div class="title">&nbsp;</div>
-      <div class="meta">&nbsp;</div>
-    </div>
-  </div>`;
-}
+/* ===== LOAD VIDEOS ===== */
+loader.style.width="40%";
 
-/* ===== LOAD VIDEOS + ADS ===== */
 onValue(ref(db,"videos"),snap=>{
   grid.innerHTML="";
   let count=0;
-  loader.style.width="60%";
+  loader.style.width="70%";
 
-  if(!snap.exists()){loader.style.width="100%";return;}
+  if(!snap.exists()){
+    loader.style.width="100%";
+    setTimeout(()=>loader.style.width="0%",400);
+    return;
+  }
 
   Object.entries(snap.val())
   .sort((a,b)=>b[1].createdAt-a[1].createdAt)
@@ -244,38 +240,45 @@ onValue(ref(db,"videos"),snap=>{
       const ad=document.createElement("div");
       ad.className="card";
       ad.innerHTML=`
-<script>
+      <script>
 atOptions={
-'key':'34ced6a9c342f10844eedf343e137cfb',
-'format':'iframe',
-'height':250,
-'width':300,
-'params':{}
+  'key':'34ced6a9c342f10844eedf343e137cfb',
+  'format':'iframe',
+  'height':250,
+  'width':300,
+  'params':{}
 };
 </script>
 <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
-      grid.appendChild(ad);
+ <script>     grid.appendChild(ad);
     }
 
     const card=document.createElement("div");
     card.className="card";
-    card.onclick=()=>location.href=\`player.html?id=\${id}\`;
-    card.innerHTML=\`
-      <div class="thumb" style="background-image:url('\${v.thumbnailBase64}')"></div>
+    card.onclick=()=>location.href=`player.html?id=${id}`;
+    card.innerHTML=`
+      <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
       <div class="card-body">
-        <div class="title">\${v.title}</div>
-        <div class="meta">\${v.channelName} • \${v.views||0} vues</div>
-      </div>\`;
+        <div class="title">${v.title}</div>
+        <div class="meta">${v.channelName} • ${v.views||0} vues</div>
+      </div>`;
     grid.appendChild(card);
   });
 
   loader.style.width="100%";
-  setTimeout(()=>loader.style.width="0%",300);
+  setTimeout(()=>loader.style.width="0%",400);
 });
 
 window.toggleMoreMenu=()=>{
   document.getElementById("moreMenu").classList.toggle("open");
 };
+</script>
+
+<link rel="manifest" href="manifest.json">
+<script>
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("service-worker.js");
+}
 </script>
 
 </body>
