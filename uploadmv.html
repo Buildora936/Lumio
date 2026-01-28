@@ -27,58 +27,103 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 let channelId = null;
-let channelName = null;
+let channelName = "";
+let channelPhotoURL = "";
 
 onAuthStateChanged(auth, async user => {
-  if (!user) return location.href="auth.html";
-
-  const userSnap = await get(ref(db,"users/"+user.uid));
-  if(!userSnap.exists() || !userSnap.val().channelId){
-    location.href="add-channel.html";
+  if (!user){
+    location.href = "auth.html";
     return;
   }
 
-  channelId = userSnap.val().channelId;
-  const channelSnap = await get(ref(db,"channels/"+channelId));
-  channelName = channelSnap.val().name;
+  try{
+    // ✅ récupérer le channel via userChannels (architecture correcte)
+    const userChannelSnap = await get(ref(db, "userChannels/" + user.uid));
+    if(!userChannelSnap.exists()){
+      location.href = "add-channel.html";
+      return;
+    }
+
+    channelId = userChannelSnap.val();
+
+    // ✅ récupérer infos du channel
+    const channelSnap = await get(ref(db, "channels/" + channelId));
+    if(!channelSnap.exists()) throw new Error("Chaîne introuvable");
+
+    const channel = channelSnap.val();
+    channelName = channel.name;
+    channelPhotoURL = channel.photoURL;
+
+  }catch(err){
+    console.error(err);
+    alert(err.message);
+  }
 });
 
-const toBase64 = file => new Promise(res=>{
-  const r=new FileReader();
-  r.onload=()=>res(r.result);
+// util base64
+const toBase64 = file => new Promise((res, rej)=>{
+  const r = new FileReader();
+  r.onload = ()=>res(r.result);
+  r.onerror = e=>rej(e);
   r.readAsDataURL(file);
 });
 
-uploadForm.onsubmit = async e =>{
-  e.preventDefault();
+window.onload = ()=>{
+  const form = document.getElementById("uploadForm");
 
-  const title=title.value.trim();
-  const video=videoFile.files[0];
-  const thumb=thumbFile.files[0];
+  form.onsubmit = async e =>{
+    e.preventDefault();
 
-  if(!title||!video||!thumb) return alert("Champs manquants");
+    const title = document.getElementById("title").value.trim();
+    const description = document.getElementById("description").value.trim();
+    const video = document.getElementById("video").files[0];
+    const thumb = document.getElementById("thumbnail").files[0];
+    const allowComments = document.getElementById("comments").checked;
 
-  const v64=await toBase64(video);
-  const t64=await toBase64(thumb);
+    if(!title || !video || !thumb){
+      alert("Champs manquants");
+      return;
+    }
 
-  const refVid = push(ref(db,"videos"));
-  await set(refVid,{
-    title,
-    videoBase64:v64,
-    thumbnailBase64:t64,
-    channelId,
-    channelName,
-    category:"MV",
-    createdAt:Date.now(),
-    views:0,
-    likes:0,
-    allowComments:true
-  });
+    try{
+      const videoBase64 = await toBase64(video);
+      const thumbBase64 = await toBase64(thumb);
 
-  await set(ref(db,`channels/${channelId}/videos/${refVid.key}`),true);
-  location.href="index.html";
+      const refVid = push(ref(db,"videos"));
+
+      await set(refVid,{
+        type: "mv",
+        title,
+        description,
+        videoBase64,
+        thumbnailBase64: thumbBase64,
+
+        // ✅ infos channel embarquées
+        channelId,
+        channelName,
+        channelPhotoURL,
+
+        category: "MV",
+        allowComments,
+        createdAt: Date.now(),
+        views: 0,
+        likes: 0
+      });
+
+      // référence dans la chaîne (utile plus tard)
+      await set(ref(db,`channels/${channelId}/videos/${refVid.key}`), true);
+
+      alert("MV publié avec succès !");
+      location.href = "index.html";
+
+    }catch(err){
+      console.error(err);
+      alert(err.message);
+    }
+  };
 };
 </script>
+
 <style>
 *{box-sizing:border-box}
 body{
@@ -98,14 +143,34 @@ header h1{font-size:20px; font-weight:600;}
 header button{background:#202020; color:white; border:none; padding:6px 12px; border-radius:12px; cursor:pointer;}
 
 /* CONTENT */
-main{margin-top:72px; padding:16px; max-width:600px; margin-left:auto; margin-right:auto;}
+main{
+  margin-top:72px;
+  padding:16px;
+  max-width:600px;
+  margin-left:auto;
+  margin-right:auto;
+}
 
 form{display:flex; flex-direction:column; gap:16px;}
 label{font-weight:600;}
-input, textarea{padding:8px; border-radius:10px; border:none; outline:none; width:100%; background:#222; color:white;}
+input, textarea{
+  padding:8px;
+  border-radius:10px;
+  border:none;
+  outline:none;
+  width:100%;
+  background:#222;
+  color:white;
+}
 textarea{resize:none; height:100px;}
 button.submit-btn{
-  background:#ff8800; color:white; border:none; padding:12px; border-radius:20px; font-weight:600; cursor:pointer;
+  background:#ff8800;
+  color:white;
+  border:none;
+  padding:12px;
+  border-radius:20px;
+  font-weight:600;
+  cursor:pointer;
 }
 button.submit-btn:hover{background:#ffa633;}
 </style>
@@ -115,7 +180,9 @@ button.submit-btn:hover{background:#ffa633;}
 
 <header>
   <h1>Publier un MV</h1>
-  <button onclick="location.href='index.html'"><i class="fa-solid fa-arrow-left"></i></button>
+  <button onclick="location.href='index.html'">
+    <i class="fa-solid fa-arrow-left"></i>
+  </button>
 </header>
 
 <main>
