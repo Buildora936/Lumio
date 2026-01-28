@@ -37,13 +37,24 @@ onAuthStateChanged(auth, async user => {
   channelId = snap.val();
 });
 
-// 🔹 Base64
-function toBase64(file){
-  return new Promise(res=>{
+// 🔹 Base64 AVEC progression réelle
+function toBase64(file, onProgress){
+  return new Promise((res, rej)=>{
     const reader = new FileReader();
-    reader.onload=()=>res(reader.result);
+    reader.onload = ()=>res(reader.result);
+    reader.onerror = e=>rej(e);
+    reader.onprogress = e=>{
+      if(e.lengthComputable && onProgress){
+        onProgress(e.loaded / e.total);
+      }
+    };
     reader.readAsDataURL(file);
   });
+}
+
+// 🔹 Progress bar
+function setProgress(percent){
+  document.getElementById("progressBar").style.width = percent + "%";
 }
 
 // 🔹 Formulaire
@@ -64,8 +75,17 @@ document.getElementById("bookForm").onsubmit = async e=>{
     return;
   }
 
-  const coverBase64 = await toBase64(coverFile);
-  const bookBase64 = await toBase64(bookFile);
+  setProgress(0);
+
+  // Cover = 0 → 40%
+  const coverBase64 = await toBase64(coverFile, p=>{
+    setProgress(Math.floor(p * 40));
+  });
+
+  // Book file = 40 → 90%
+  const bookBase64 = await toBase64(bookFile, p=>{
+    setProgress(40 + Math.floor(p * 50));
+  });
 
   const bookRef = push(ref(db,"books"));
   const bookData = {
@@ -82,13 +102,16 @@ document.getElementById("bookForm").onsubmit = async e=>{
     salesCount:0,
     status:"public"
   };
+
   await set(bookRef, bookData);
 
   // Lier au channel automatiquement
   await set(ref(db, `channels/${channelId}/books/${bookRef.key}`), true);
 
+  setProgress(100);
+
   alert("Livre ajouté avec succès !");
-  location.href="publish.html"; // portail de publication
+  location.href="publish.html";
 };
 </script>
 
@@ -97,14 +120,51 @@ document.getElementById("bookForm").onsubmit = async e=>{
 body{margin:0;font-family:system-ui;background:#181818;color:white;}
 main{max-width:600px;margin:80px auto;background:#202020;padding:24px;border-radius:14px}
 h2{text-align:center;margin-bottom:20px}
-input,textarea,select{width:100%;padding:12px;margin-bottom:14px;border:none;border-radius:8px;background:#2a2a2a;color:white}
-label{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-button{width:100%;padding:14px;background:#ff6a00;border:none;border-radius:20px;font-weight:700;cursor:pointer}
+input,textarea,select{
+  width:100%;
+  padding:12px;
+  margin-bottom:14px;
+  border:none;
+  border-radius:8px;
+  background:#2a2a2a;
+  color:white
+}
+button{
+  width:100%;
+  padding:14px;
+  background:#ff6a00;
+  border:none;
+  border-radius:20px;
+  font-weight:700;
+  cursor:pointer
+}
+
+/* 🔥 Progress bar */
+.progress{
+  width:100%;
+  height:18px;
+  background:#333;
+  border-radius:10px;
+  overflow:hidden;
+  margin-bottom:16px;
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:#ff6a00;
+  transition:width .2s linear;
+}
 </style>
 </head>
+
 <body>
 <main>
   <h2>Ajouter un livre</h2>
+
+  <div class="progress">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
   <form id="bookForm">
     <input id="title" placeholder="Titre du livre" required>
     <textarea id="desc" placeholder="Description (optionnel)"></textarea>
