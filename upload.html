@@ -43,15 +43,27 @@ button{
 button:hover{background:#e68a00;}
 label{font-size:14px; margin-top:8px; display:block;}
 .options label{display:block; margin:6px 0;}
-.progress{width:100%; background:#202020; border-radius:10px; overflow:hidden; margin-top:10px; height:20px;}
-.bar{width:0%; height:100%; background:#ff9800; transition:width 0.5s ease;}
+.progress{
+  width:100%;
+  background:#202020;
+  border-radius:10px;
+  overflow:hidden;
+  margin-top:10px;
+  height:20px;
+}
+.bar{
+  width:0%;
+  height:100%;
+  background:#ff9800;
+  transition:width 0.5s ease;
+}
 .error{color:#ff5555; text-align:center; font-size:14px; margin-top:8px;}
 .channel-info{margin-bottom:15px;}
 </style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, push, set, get, child } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 /* Firebase config */
@@ -66,6 +78,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
+/* Utils */
 function toBase64(file){
   return new Promise((res, rej)=>{
     const r = new FileReader();
@@ -82,36 +95,54 @@ function updateProgress(percent){
 window.onload = ()=>{
   let currentUser = null;
   let channelId = null;
+  let channelName = "";
+  let channelPhotoURL = "";
 
   const channelBox = document.getElementById("channelNameBox");
   const form = document.getElementById("uploadForm");
   const errorBox = document.getElementById("error");
 
+  /* 🔥 Détection rapide du channel */
   onAuthStateChanged(auth, async user=>{
     if(!user){
       alert("Connecte-toi pour publier une vidéo");
       location.href="auth.html";
       return;
     }
+
     currentUser = user;
 
-    // récupérer la chaîne active
-    const userChannels = await get(ref(db,"channels"));
-    if(userChannels.exists()){
-      const all = userChannels.val();
-      for(const key in all){
-        if(all[key].owner === user.uid){
-          channelId = key;
-          channelBox.textContent = all[key].name;
-          break;
-        }
+    try{
+      // 1. récupérer channelId via userChannels
+      const userChannelSnap = await get(ref(db, "userChannels/" + user.uid));
+      if(!userChannelSnap.exists()){
+        channelBox.textContent = "Aucune chaîne trouvée";
+        alert("Crée une chaîne avant de publier");
+        location.href="add-channel.html";
+        return;
       }
-    }
-    if(!channelId){
-      channelBox.textContent = "Aucune chaîne trouvée. Créez-en une d'abord.";
+
+      channelId = userChannelSnap.val();
+
+      // 2. récupérer les infos du channel
+      const channelSnap = await get(ref(db, "channels/" + channelId));
+      if(!channelSnap.exists()){
+        throw new Error("Chaîne introuvable");
+      }
+
+      const channel = channelSnap.val();
+      channelName = channel.name;
+      channelPhotoURL = channel.photoURL;
+
+      channelBox.textContent = channelName;
+
+    }catch(err){
+      console.error(err);
+      errorBox.textContent = err.message;
     }
   });
 
+  /* Publication vidéo */
   form.onsubmit = async e=>{
     e.preventDefault();
     if(!currentUser || !channelId) return;
@@ -123,10 +154,13 @@ window.onload = ()=>{
     const desc = document.getElementById("descInput").value.trim();
     const category = document.getElementById("categoryInput").value;
     const language = document.getElementById("languageInput").value;
-    const tags = document.getElementById("tagsInput").value.split(",").map(t=>t.trim()).filter(t=>t);
+    const tags = document.getElementById("tagsInput").value
+      .split(",").map(t=>t.trim()).filter(Boolean);
+
     const visibility = document.getElementById("visibilityInput").value;
     const thumb = document.getElementById("thumbInput").files[0];
     const videoFile = document.getElementById("videoInput").files[0];
+
     const commentsEnabled = document.getElementById("commentsInput").checked;
     const likesEnabled = document.getElementById("likesInput").checked;
     const shareEnabled = document.getElementById("shareInput").checked;
@@ -139,30 +173,44 @@ window.onload = ()=>{
 
     try{
       const thumbBase64 = await toBase64(thumb);
-      updateProgress(20);
+      updateProgress(30);
+
       const videoBase64 = await toBase64(videoFile);
-      updateProgress(60);
+      updateProgress(70);
 
       const videoRef = push(ref(db,"videos"));
       const videoId = videoRef.key;
 
       await set(videoRef,{
-        title, description:desc, channelId, category, language, tags, visibility,
-        thumbnailBase64: thumbBase64, videoURL: videoBase64,
-        commentsEnabled, likesEnabled, shareEnabled,
-        monetEnabled, donationEnabled,
+        title,
+        description: desc,
+        channelId,
+        channelName,          // ✅ ajouté
+        channelPhotoURL,      // ✅ ajouté
+        category,
+        language,
+        tags,
+        visibility,
+        thumbnailBase64: thumbBase64,
+        videoURL: videoBase64,
+        commentsEnabled,
+        likesEnabled,
+        shareEnabled,
+        monetEnabled,
+        donationEnabled,
         createdAt: Date.now(),
-        views:0
+        views: 0
       });
 
       updateProgress(100);
       alert("Vidéo publiée avec succès !");
-      location.href=`player.html?id=${videoId}`;
+      location.href = `player.html?id=${videoId}`;
+
     }catch(err){
       console.error(err);
       errorBox.textContent = err.message;
     }
-  }
+  };
 };
 </script>
 </head>
@@ -217,7 +265,7 @@ Chaîne active : <b id="channelNameBox">...</b>
 
 <button type="submit">Publier la vidéo</button>
 
-<div class="progress" id="progress">
+<div class="progress">
   <div class="bar" id="progressBar"></div>
 </div>
 
