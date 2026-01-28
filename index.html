@@ -84,8 +84,24 @@ button{
   background-size:cover;background-position:center
 }
 .card-body{padding:10px}
-.title{font-weight:600}
-.meta{font-size:12px;color:#aaa}
+.title{font-weight:600;margin-bottom:6px}
+
+/* CHANNEL ROW */
+.channel-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.channel-row img{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  object-fit:cover;
+}
+.meta{
+  font-size:12px;
+  color:#aaa;
+}
 
 /* PUB CARD */
 .ad-card{
@@ -245,7 +261,13 @@ onValue(ref(db,"videos"),snap=>{
         <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
         <div class="card-body">
           <div class="title">${v.title}</div>
-          <div class="meta">${v.channelName} • ${v.views||0} vues</div>
+
+          <div class="channel-row">
+            <img src="${v.channelPhoto || v.channelPhotoBase64 || 'default-channel.png'}">
+            <div class="meta">
+              ${v.channelName} • ${v.views||0} vues
+            </div>
+          </div>
         </div>`;
       grid.appendChild(card);
     });
