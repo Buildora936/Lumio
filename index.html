@@ -116,7 +116,6 @@ button{
 .skeleton{animation:pulse 1.2s infinite}
 @keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 
-/* MOBILE */
 @media(max-width:900px){
   .layout{flex-direction:column;margin-bottom:56px}
   .sidebar{
@@ -187,7 +186,6 @@ button{
 </main>
 </div>
 
-<!-- PUB PRINCIPALE -->
 <div class="ad-card">
 <script>
 atOptions={
@@ -201,7 +199,7 @@ atOptions={
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,onValue,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -236,41 +234,53 @@ for(let i=0;i<8;i++){
   </div>`;
 }
 
-/* VIDEOS */
-onValue(ref(db,"videos"),snap=>{
+/* VIDEOS + CHANNEL DYNAMIQUE */
+onValue(ref(db,"videos"), async snap=>{
   grid.innerHTML="";
   if(!snap.exists()) return;
 
   let index=0;
-  Object.entries(snap.val())
-    .sort((a,b)=>b[1].createdAt-a[1].createdAt)
-    .forEach(([id,v])=>{
-      index++;
 
-      if(index%6===0){
-        const ad=document.createElement("div");
-        ad.className="ad-card";
-        ad.innerHTML=document.querySelector(".ad-card").innerHTML;
-        grid.appendChild(ad);
+  for(const [id,v] of Object.entries(snap.val())
+    .sort((a,b)=>b[1].createdAt-a[1].createdAt)){
+
+    index++;
+
+    if(index%6===0){
+      const ad=document.createElement("div");
+      ad.className="ad-card";
+      ad.innerHTML=document.querySelector(".ad-card").innerHTML;
+      grid.appendChild(ad);
+    }
+
+    let channelName="Chaîne inconnue";
+    let channelPhoto="default-channel.png";
+
+    if(v.channelId){
+      const chSnap=await get(ref(db,"channels/"+v.channelId));
+      if(chSnap.exists()){
+        const ch=chSnap.val();
+        channelName=ch.name||channelName;
+        channelPhoto=ch.photoBase64||ch.photoURL||channelPhoto;
       }
+    }
 
-      const card=document.createElement("div");
-      card.className="card";
-      card.onclick=()=>location.href=`player.html?id=${id}`;
-      card.innerHTML=`
-        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-        <div class="card-body">
-          <div class="title">${v.title}</div>
-
-          <div class="channel-row">
-            <img src="${v.channelPhoto || v.channelPhotoBase64 || 'default-channel.png'}">
-            <div class="meta">
-              ${v.channelName} • ${v.views||0} vues
-            </div>
+    const card=document.createElement("div");
+    card.className="card";
+    card.onclick=()=>location.href=`player.html?id=${id}`;
+    card.innerHTML=`
+      <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+      <div class="card-body">
+        <div class="title">${v.title}</div>
+        <div class="channel-row">
+          <img src="${channelPhoto}">
+          <div class="meta">
+            ${channelName} • ${v.views||0} vues
           </div>
-        </div>`;
-      grid.appendChild(card);
-    });
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  }
 });
 
 window.toggleMoreMenu=()=>{
