@@ -1,21 +1,23 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lancer un Live – Lumio</title>
+<title>Live – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet"
  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
+*{box-sizing:border-box}
 body{
   margin:0;
   background:#181818;
   color:white;
   font-family:system-ui;
 }
+
+/* HEADER */
 header{
   height:56px;
   background:#0f0f0f;
@@ -24,220 +26,215 @@ header{
   justify-content:space-between;
   padding:0 16px;
 }
-header h2{
-  margin:0;
-  font-weight:600;
+header h2{margin:0;font-size:18px}
+
+/* LAYOUT */
+.main{
+  display:flex;
+  gap:12px;
+  padding:12px;
 }
-.container{
-  max-width:800px;
-  margin:40px auto;
-  background:#202020;
-  padding:24px;
-  border-radius:14px;
-}
-h3{
-  margin-top:0;
-  border-bottom:1px solid #333;
-  padding-bottom:10px;
-}
-input,textarea,select{
-  width:100%;
-  background:#121212;
-  border:none;
-  color:white;
-  padding:10px;
-  border-radius:8px;
-  margin-top:6px;
-}
-label{
-  font-size:14px;
-  color:#aaa;
-}
-button{
-  background:#ff6a00;
-  border:none;
-  padding:12px 20px;
-  border-radius:20px;
-  color:white;
-  font-weight:600;
-  cursor:pointer;
-}
-.preview{
-  margin-top:10px;
-  width:100%;
-  height:180px;
-  background:#000;
-  border-radius:10px;
-  background-size:cover;
-  background-position:center;
+@media(max-width:900px){
+  .main{flex-direction:column}
 }
 
-/* 🔥 Progress bar */
-.progress{
-  width:100%;
-  height:18px;
-  background:#333;
-  border-radius:10px;
-  overflow:hidden;
-  margin-top:16px;
+/* PLAYER */
+.player-box{
+  flex:2;
 }
-.progress-bar{
-  width:0%;
-  height:100%;
+.player{
+  width:100%;
+  height:360px;
+  background:#000;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.player span{
+  color:#ff5555;
+  font-weight:700;
+  font-size:18px;
+}
+.live-info{
+  margin-top:10px;
+}
+.channel{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.channel img{
+  width:40px;
+  height:40px;
+  border-radius:50%;
+}
+.views{
+  font-size:13px;
+  color:#aaa;
+}
+
+/* CHAT */
+.chat-box{
+  flex:1;
+  background:#202020;
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+  height:520px;
+}
+.chat-header{
+  padding:12px;
+  border-bottom:1px solid #333;
+  font-weight:600;
+}
+.messages{
+  flex:1;
+  padding:10px;
+  overflow-y:auto;
+}
+.msg{
+  margin-bottom:8px;
+  font-size:14px;
+}
+.msg b{color:#ff9800}
+.chat-input{
+  display:flex;
+  gap:6px;
+  padding:10px;
+  border-top:1px solid #333;
+}
+.chat-input input{
+  flex:1;
+  padding:10px;
+  border-radius:20px;
+  border:none;
+  background:#121212;
+  color:white;
+}
+.chat-input button{
   background:#ff6a00;
-  transition:width .2s linear;
+  border:none;
+  padding:10px 16px;
+  border-radius:20px;
+  cursor:pointer;
+  color:white;
+  font-weight:600;
 }
 </style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, push, set, onChildAdded, runTransaction } 
+  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } 
+  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-const firebaseConfig = {
+const app = initializeApp({
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
   databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId: "lumio-6efed"
-};
+});
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getDatabase(app);
+const auth = getAuth(app);
+
+const liveId = new URLSearchParams(location.search).get("id");
+if(!liveId) location.href="index.html";
+
+const titleBox = document.getElementById("title");
+const channelNameBox = document.getElementById("channelName");
+const channelImg = document.getElementById("channelImg");
+const viewsBox = document.getElementById("views");
+const messagesBox = document.getElementById("messages");
 
 let currentUser = null;
-let channels = {};
-let thumbnailBase64 = "";
 
-function setProgress(p){
-  document.getElementById("progressBar").style.width = p + "%";
-}
-
-onAuthStateChanged(auth, async user => {
-  if(!user){
-    alert("Connexion obligatoire");
-    location.href = "login.html";
-    return;
-  }
+/* AUTH */
+onAuthStateChanged(auth,user=>{
   currentUser = user;
+});
 
-  const snap = await get(ref(db, `users/${user.uid}/channels`));
-  if(!snap.exists()){
-    alert("Tu dois créer une chaîne d'abord.");
-    location.href = "add-channel.html";
-    return;
-  }
-  channels = snap.val();
+/* LOAD LIVE */
+const liveRef = ref(db,"lives/"+liveId);
+const snap = await get(liveRef);
+if(!snap.exists()) location.href="index.html";
 
-  const select = document.getElementById("channelSelect");
-  Object.entries(channels).forEach(([id, ch])=>{
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = ch.name;
-    select.appendChild(opt);
+const live = snap.val();
+
+titleBox.textContent = live.title;
+channelNameBox.textContent = live.channelName;
+channelImg.src = live.thumbnailBase64;
+viewsBox.textContent = "🔴 EN DIRECT";
+
+/* VIEWERS COUNT */
+runTransaction(ref(db,`lives/${liveId}/viewersCount`), v => (v||0)+1);
+window.addEventListener("beforeunload", ()=>{
+  runTransaction(ref(db,`lives/${liveId}/viewersCount`), v => Math.max((v||1)-1,0));
+});
+
+/* CHAT */
+onChildAdded(ref(db,"liveChats/"+liveId), snap=>{
+  const m = snap.val();
+  const div = document.createElement("div");
+  div.className="msg";
+  div.innerHTML = `<b>${m.user}</b> : ${m.text}`;
+  messagesBox.appendChild(div);
+  messagesBox.scrollTop = messagesBox.scrollHeight;
+});
+
+window.sendMsg = async ()=>{
+  const input = document.getElementById("msgInput");
+  const text = input.value.trim();
+  if(!text) return;
+
+  await push(ref(db,"liveChats/"+liveId),{
+    text,
+    user: currentUser?.displayName || "Invité",
+    uid: currentUser?.uid || null,
+    createdAt: Date.now()
   });
-});
-
-document.getElementById("thumb").addEventListener("change", e=>{
-  const file = e.target.files[0];
-  const reader = new FileReader();
-
-  reader.onprogress = ev=>{
-    if(ev.lengthComputable){
-      setProgress(Math.floor((ev.loaded / ev.total) * 50));
-    }
-  };
-
-  reader.onload = ()=>{
-    thumbnailBase64 = reader.result;
-    document.getElementById("preview").style.backgroundImage =
-      `url('${thumbnailBase64}')`;
-    setProgress(50);
-  };
-
-  reader.readAsDataURL(file);
-});
-
-document.getElementById("liveForm").addEventListener("submit", async e=>{
-  e.preventDefault();
-
-  const title = titleInput.value.trim();
-  const description = descInput.value.trim();
-  const channelId = channelSelect.value;
-
-  if(!title || !channelId || !thumbnailBase64){
-    alert("Champs obligatoires manquants");
-    return;
-  }
-
-  setProgress(60);
-
-  const liveRef = push(ref(db,"lives"));
-  const liveId = liveRef.key;
-  const channelName = channels[channelId].name;
-
-  const liveData = {
-    title,
-    description,
-    channelId,
-    channelName,
-    thumbnailBase64,
-    status:"live",
-    viewersCount:0,
-    createdAt:Date.now(),
-    ownerUid:currentUser.uid
-  };
-
-  await set(liveRef, liveData);
-  setProgress(85);
-
-  await set(ref(db,`channels/${channelId}/lives/${liveId}`), true);
-  await set(ref(db,`users/${currentUser.uid}/lives/${liveId}`), true);
-
-  setProgress(100);
-
-  alert("🔴 Live lancé avec succès !");
-  location.href = `live.html?id=${liveId}`;
-});
+  input.value="";
+};
 </script>
 </head>
 
 <body>
 
 <header>
-  <h2>Lumio</h2>
-  <button onclick="location.href='index.html'">Retour</button>
+  <h2>Lumio Live</h2>
+  <button onclick="location.href='index.html'">Quitter</button>
 </header>
 
-<div class="container">
-  <h3>Lancer un live</h3>
+<div class="main">
 
-  <form id="liveForm">
-
-    <label>Chaîne</label>
-    <select id="channelSelect" required>
-      <option value="">-- Sélectionne une chaîne --</option>
-    </select>
-
-    <label>Titre du live</label>
-    <input id="titleInput" maxlength="100" required>
-
-    <label>Description</label>
-    <textarea id="descInput" rows="3"></textarea>
-
-    <label>Miniature (Thumbnail)</label>
-    <input type="file" id="thumb" accept="image/*" required>
-
-    <div class="preview" id="preview"></div>
-
-    <div class="progress">
-      <div class="progress-bar" id="progressBar"></div>
+  <div class="player-box">
+    <div class="player">
+      <span>🔴 LIVE EN COURS</span>
     </div>
 
-    <br>
-    <button type="submit">🔴 Lancer le Live</button>
+    <div class="live-info">
+      <h3 id="title">...</h3>
+      <div class="channel">
+        <img id="channelImg">
+        <div>
+          <div id="channelName"></div>
+          <div class="views" id="views"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  </form>
+  <div class="chat-box">
+    <div class="chat-header">💬 Chat en direct</div>
+    <div class="messages" id="messages"></div>
+    <div class="chat-input">
+      <input id="msgInput" placeholder="Écrire un message...">
+      <button onclick="sendMsg()">Envoyer</button>
+    </div>
+  </div>
+
 </div>
 
 </body>
