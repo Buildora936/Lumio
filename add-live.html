@@ -9,18 +9,15 @@
  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-*{box-sizing:border-box}
 body{
   margin:0;
-  background:#181818;
-  color:white;
   font-family:system-ui;
+  background:#0f0f0f;
+  color:white;
 }
-
-/* HEADER */
 header{
   height:56px;
-  background:#0f0f0f;
+  background:#181818;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -28,174 +25,197 @@ header{
 }
 header h2{margin:0;font-size:18px}
 
-/* LAYOUT */
 .main{
   display:flex;
-  gap:12px;
-  padding:12px;
-}
-@media(max-width:900px){
-  .main{flex-direction:column}
+  gap:16px;
+  padding:16px;
+  max-width:1400px;
+  margin:auto;
 }
 
-/* PLAYER */
-.player-box{
+.video-area{
   flex:2;
 }
-.player{
+video{
   width:100%;
-  height:360px;
-  background:#000;
-  border-radius:14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  background:black;
+  border-radius:12px;
 }
-.player span{
-  color:#ff5555;
-  font-weight:700;
-  font-size:18px;
-}
+
 .live-info{
   margin-top:10px;
 }
-.channel{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.channel img{
-  width:40px;
-  height:40px;
-  border-radius:50%;
-}
-.views{
-  font-size:13px;
-  color:#aaa;
-}
+.live-info h3{margin:6px 0}
+.viewers{color:#aaa;font-size:14px}
 
-/* CHAT */
-.chat-box{
+.chat{
   flex:1;
-  background:#202020;
-  border-radius:14px;
+  background:#181818;
+  border-radius:12px;
   display:flex;
   flex-direction:column;
-  height:520px;
+  height:80vh;
 }
-.chat-header{
-  padding:12px;
-  border-bottom:1px solid #333;
-  font-weight:600;
-}
-.messages{
+
+.chat-messages{
   flex:1;
-  padding:10px;
+  padding:12px;
   overflow-y:auto;
 }
 .msg{
-  margin-bottom:8px;
+  margin-bottom:10px;
+}
+.msg span{
+  font-weight:600;
+}
+.msg p{
+  margin:4px 0 0;
   font-size:14px;
 }
-.msg b{color:#ff9800}
+
 .chat-input{
   display:flex;
-  gap:6px;
   padding:10px;
+  gap:8px;
   border-top:1px solid #333;
 }
 .chat-input input{
   flex:1;
   padding:10px;
-  border-radius:20px;
   border:none;
-  background:#121212;
+  border-radius:20px;
+  background:#222;
   color:white;
 }
 .chat-input button{
-  background:#ff6a00;
+  background:#ff0000;
   border:none;
-  padding:10px 16px;
-  border-radius:20px;
-  cursor:pointer;
+  padding:10px 14px;
+  border-radius:50%;
   color:white;
-  font-weight:600;
+  cursor:pointer;
+}
+
+.superchat{
+  background:#ff6a00;
+  padding:8px 12px;
+  border-radius:20px;
+  margin-bottom:10px;
+  font-size:14px;
 }
 </style>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get, push, set, onChildAdded, runTransaction } 
-  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth, onAuthStateChanged } 
-  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { initializeApp } from
+ "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, push, set, onValue, update, increment, remove }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app = initializeApp({
+const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
   databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId: "lumio-6efed"
-});
+};
 
-const db = getDatabase(app);
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getDatabase(app);
 
-const liveId = new URLSearchParams(location.search).get("id");
+const params = new URLSearchParams(location.search);
+const liveId = params.get("id");
 if(!liveId) location.href="index.html";
 
-const titleBox = document.getElementById("title");
-const channelNameBox = document.getElementById("channelName");
-const channelImg = document.getElementById("channelImg");
-const viewsBox = document.getElementById("views");
-const messagesBox = document.getElementById("messages");
-
 let currentUser = null;
+let viewerRef = null;
 
-/* AUTH */
-onAuthStateChanged(auth,user=>{
+// 🔔 AUTH
+onAuthStateChanged(auth, user=>{
   currentUser = user;
 });
 
-/* LOAD LIVE */
-const liveRef = ref(db,"lives/"+liveId);
-const snap = await get(liveRef);
-if(!snap.exists()) location.href="index.html";
+// 👁️ VIEWERS COUNT
+viewerRef = push(ref(db,`lives/${liveId}/viewers`));
+set(viewerRef,true);
 
-const live = snap.val();
-
-titleBox.textContent = live.title;
-channelNameBox.textContent = live.channelName;
-channelImg.src = live.thumbnailBase64;
-viewsBox.textContent = "🔴 EN DIRECT";
-
-/* VIEWERS COUNT */
-runTransaction(ref(db,`lives/${liveId}/viewersCount`), v => (v||0)+1);
-window.addEventListener("beforeunload", ()=>{
-  runTransaction(ref(db,`lives/${liveId}/viewersCount`), v => Math.max((v||1)-1,0));
+window.addEventListener("beforeunload",()=>{
+  remove(viewerRef);
 });
 
-/* CHAT */
-onChildAdded(ref(db,"liveChats/"+liveId), snap=>{
-  const m = snap.val();
-  const div = document.createElement("div");
-  div.className="msg";
-  div.innerHTML = `<b>${m.user}</b> : ${m.text}`;
-  messagesBox.appendChild(div);
-  messagesBox.scrollTop = messagesBox.scrollHeight;
+// 📡 LIVE DATA
+onValue(ref(db,`lives/${liveId}`), snap=>{
+  if(!snap.exists()) return;
+  const l = snap.val();
+  document.getElementById("title").textContent = l.title;
+  document.getElementById("channel").textContent = l.channelName;
 });
 
-window.sendMsg = async ()=>{
-  const input = document.getElementById("msgInput");
-  const text = input.value.trim();
+// 👥 VIEWERS UPDATE
+onValue(ref(db,`lives/${liveId}/viewers`), snap=>{
+  document.getElementById("viewers").textContent =
+    Object.keys(snap.val()||{}).length + " spectateurs";
+});
+
+// 💬 CHAT
+const chatBox = document.getElementById("messages");
+
+onValue(ref(db,`liveChats/${liveId}`), snap=>{
+  chatBox.innerHTML="";
+  snap.forEach(m=>{
+    const msg = m.val();
+    const div = document.createElement("div");
+    div.className="msg";
+
+    if(msg.amount){
+      div.innerHTML = `
+        <div class="superchat">
+          💰 <b>${msg.user}</b> : ${msg.text} (${msg.amount}$)
+        </div>`;
+    }else{
+      div.innerHTML = `<span>${msg.user}</span><p>${msg.text}</p>`;
+    }
+    chatBox.appendChild(div);
+  });
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// ➤ SEND MESSAGE
+sendBtn.onclick = async ()=>{
+  const text = msgInput.value.trim();
   if(!text) return;
+  msgInput.value="";
 
-  await push(ref(db,"liveChats/"+liveId),{
-    text,
+  await push(ref(db,`liveChats/${liveId}`),{
     user: currentUser?.displayName || "Invité",
-    uid: currentUser?.uid || null,
+    text,
     createdAt: Date.now()
   });
-  input.value="";
+};
+
+// 💰 SUPER CHAT
+superBtn.onclick = async ()=>{
+  const text = prompt("Message SuperChat");
+  const amount = prompt("Montant ($)");
+  if(!text || !amount) return;
+
+  await push(ref(db,`liveChats/${liveId}`),{
+    user: currentUser?.displayName || "Anonyme",
+    text,
+    amount,
+    createdAt:Date.now()
+  });
+};
+
+// ⏹️ END LIVE → REPLAY
+window.endLive = async ()=>{
+  await update(ref(db,`lives/${liveId}`),{
+    status:"ended",
+    endedAt:Date.now()
+  });
+  alert("Live terminé – Replay disponible");
+  location.href="index.html";
 };
 </script>
 </head>
@@ -203,35 +223,30 @@ window.sendMsg = async ()=>{
 <body>
 
 <header>
-  <h2>Lumio Live</h2>
-  <button onclick="location.href='index.html'">Quitter</button>
+  <h2>Lumio Live 🔴</h2>
+  <button onclick="endLive()">Terminer</button>
 </header>
 
 <div class="main">
 
-  <div class="player-box">
-    <div class="player">
-      <span>🔴 LIVE EN COURS</span>
-    </div>
+  <div class="video-area">
+    <!-- STREAM VIDEO -->
+    <video controls autoplay muted></video>
 
     <div class="live-info">
-      <h3 id="title">...</h3>
-      <div class="channel">
-        <img id="channelImg">
-        <div>
-          <div id="channelName"></div>
-          <div class="views" id="views"></div>
-        </div>
-      </div>
+      <h3 id="title"></h3>
+      <div class="viewers" id="viewers">0 spectateurs</div>
+      <div class="viewers">Chaîne : <span id="channel"></span></div>
     </div>
   </div>
 
-  <div class="chat-box">
-    <div class="chat-header">💬 Chat en direct</div>
-    <div class="messages" id="messages"></div>
+  <div class="chat">
+    <div class="chat-messages" id="messages"></div>
+
     <div class="chat-input">
       <input id="msgInput" placeholder="Écrire un message...">
-      <button onclick="sendMsg()">Envoyer</button>
+      <button id="sendBtn"><i class="fa fa-paper-plane"></i></button>
+      <button id="superBtn">💰</button>
     </div>
   </div>
 
