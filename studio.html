@@ -2,177 +2,213 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio Studio</title>
+<title>Studio – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Font Awesome pour icônes -->
+<meta name="theme-color" content="#181818">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-// UI Elements
-const videoGrid = document.getElementById("videoGrid");
-const filterSelect = document.getElementById("filterSelect");
-const uploadBtn = document.getElementById("uploadBtn");
-
-// 🔐 Auth
-let currentUserId = null;
-onAuthStateChanged(auth, user => {
-  if (user) {
-    currentUserId = user.uid;
-    loadVideos();
-  } else {
-    alert("Vous devez être connecté pour accéder au Studio");
-    location.href = "auth.html";
-  }
-});
-
-// 📹 Charger les vidéos du créateur
-function loadVideos() {
-  onValue(ref(db, "videos"), snap => {
-    videoGrid.innerHTML = "";
-    if (!snap.exists()) return;
-
-    Object.entries(snap.val())
-      .filter(([id, v]) => v.creatorId === currentUserId)
-      .filter(([id, v]) => {
-        const filter = filterSelect.value;
-        if(filter === "all") return true;
-        if(filter === "mv") return v.type === "mv";
-        return v.type === "video";
-      })
-      .sort((a,b) => b[1].createdAt - a[1].createdAt)
-      .forEach(([id, v]) => {
-
-        const card = document.createElement("div");
-        card.className = "card";
-
-        card.innerHTML = `
-          <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-          <div class="card-body">
-            <div class="title">${v.title}</div>
-            <div class="meta">
-              <span>Vues: ${v.views || 0}</span>
-              <span>${v.type.toUpperCase()}</span>
-            </div>
-            <div class="actions">
-              <button class="edit-btn" onclick="editVideo('${id}')">Modifier</button>
-              <button class="delete-btn" onclick="deleteVideo('${id}')">Supprimer</button>
-            </div>
-          </div>
-        `;
-
-        videoGrid.appendChild(card);
-      });
-  });
-}
-
-// ✏️ Edit video
-function editVideo(id) {
-  location.href = `edit-video.html?id=${id}`;
-}
-
-// ❌ Delete video
-function deleteVideo(id) {
-  if(confirm("Voulez-vous vraiment supprimer cette vidéo ?")) {
-    remove(ref(db, "videos/"+id))
-      .then(() => alert("Vidéo supprimée !"))
-      .catch(e => alert("Erreur: "+e.message));
-  }
-}
-
-// 🔘 Filter
-filterSelect.addEventListener("change", loadVideos);
-</script>
-
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont;
-  background:#181818;
-  color:white;
-}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
 
 /* HEADER */
 header{
-  position:fixed;
-  top:0;left:0;right:0;
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-  z-index:10;
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:#0f0f0f;display:flex;align-items:center;
+  justify-content:space-between;padding:0 12px;z-index:100
 }
-header h1{font-size:20px;font-weight:600}
-header .right{display:flex;gap:10px;align-items:center}
-button{
-  background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer;
+.left{display:flex;align-items:center;gap:10px}
+.left img{width:34px}
+.right button{
+  background:#202020;color:white;border:none;
+  padding:8px 12px;border-radius:20px;cursor:pointer
 }
-button:hover{background:#333}
 
-/* FILTER & UPLOAD */
-.controls{margin-top:56px;display:flex;justify-content:space-between;align-items:center;padding:16px}
-.controls select{padding:6px 12px;border-radius:12px;border:none;background:#202020;color:white;cursor:pointer}
+/* LAYOUT */
+.layout{margin-top:56px;padding:16px}
 
-/* GRID */
-.grid{
+/* DASH GRID */
+.dashboard{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-  gap:16px;
-  padding:16px;
+  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:16px
 }
+
+/* CARD */
 .card{
   background:#202020;
-  border-radius:14px;
-  overflow:hidden;
+  border-radius:16px;
+  padding:16px;
+  border:1px solid #262626;
+  cursor:pointer;
+  transition:.25s;
+  position:relative;
+  overflow:hidden
 }
-.thumb{height:140px;background-size:cover;background-position:center}
-.card-body{padding:10px}
-.title{font-weight:600;font-size:14px;margin-bottom:6px}
-.meta{font-size:12px;color:#aaa;margin-bottom:6px}
-.actions{display:flex;gap:6px}
-.edit-btn{background:#f90;color:#111;font-weight:600}
-.delete-btn{background:#cc0000;color:white;font-weight:600}
+.card:hover{
+  transform:translateY(-4px);
+  background:#232323
+}
+.card i{
+  font-size:26px;
+  color:#ff9800;
+  margin-bottom:10px
+}
+.card h3{
+  font-size:15px;
+  margin-bottom:6px
+}
+.card p{
+  font-size:12px;
+  color:#aaa
+}
+
+/* STATS */
+.stats{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:16px;
+  margin-bottom:24px
+}
+.stat{
+  background:#0f0f0f;
+  border-radius:14px;
+  padding:14px;
+  border:1px solid #262626
+}
+.stat strong{font-size:20px;color:#ff9800}
+.stat span{font-size:12px;color:#aaa}
+
+/* SKELETON */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
+
+/* MOBILE */
+@media(max-width:600px){
+  .dashboard{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>Lumio Studio</h1>
+  <div class="left">
+    <img src="logo_lumio.png">
+    <strong>Creator Studio</strong>
+  </div>
   <div class="right">
-    <button id="uploadBtn" onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i> Publier</button>
+    <button onclick="location.href='index.html'"><i class="fa fa-home"></i></button>
   </div>
 </header>
 
-<div class="controls">
-  <label for="filterSelect">Filtrer:</label>
-  <select id="filterSelect">
-    <option value="all">Toutes</option>
-    <option value="video">Vidéos</option>
-    <option value="mv">MV</option>
-  </select>
+<div class="layout">
+
+  <!-- STATS -->
+  <div class="stats" id="stats">
+    <div class="stat skeleton"></div>
+    <div class="stat skeleton"></div>
+    <div class="stat skeleton"></div>
+    <div class="stat skeleton"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard">
+
+    <div class="card" onclick="location.href='publish.html'">
+      <i class="fa fa-upload"></i>
+      <h3>Publier</h3>
+      <p>Vidéo, MV ou Live</p>
+    </div>
+
+    <div class="card" onclick="location.href='analytics.html'">
+      <i class="fa fa-chart-line"></i>
+      <h3>Statistiques</h3>
+      <p>Vues & engagement</p>
+    </div>
+
+    <div class="card" onclick="location.href='monetization.html'">
+      <i class="fa fa-dollar-sign"></i>
+      <h3>Monétisation</h3>
+      <p>Revenus & pubs</p>
+    </div>
+
+    <div class="card" onclick="location.href='payout.html'">
+      <i class="fa fa-wallet"></i>
+      <h3>Payout</h3>
+      <p>Retirer vos gains</p>
+    </div>
+
+    <div class="card" onclick="location.href='videos.html'">
+      <i class="fa fa-film"></i>
+      <h3>Contenus</h3>
+      <p>Gérer les vidéos</p>
+    </div>
+
+    <div class="card" onclick="location.href='edit-video.html'">
+      <i class="fa fa-scissors"></i>
+      <h3>Éditeur</h3>
+      <p>Modifier une vidéo</p>
+    </div>
+
+    <div class="card" onclick="location.href='comments.html'">
+      <i class="fa fa-comments"></i>
+      <h3>Commentaires</h3>
+      <p>Modération</p>
+    </div>
+
+    <div class="card" onclick="location.href='copyright.html'">
+      <i class="fa fa-shield"></i>
+      <h3>Droits d’auteur</h3>
+      <p>Réclamations</p>
+    </div>
+
+    <div class="card" onclick="location.href='settings.html'">
+      <i class="fa fa-gear"></i>
+      <h3>Paramètres</h3>
+      <p>Chaîne & compte</p>
+    </div>
+
+  </div>
 </div>
 
-<div class="grid" id="videoGrid"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const auth=getAuth(app);
+const db=getDatabase(app);
+const statsBox=document.getElementById("stats");
+
+/* AUTH REQUIRED */
+onAuthStateChanged(auth,async user=>{
+  if(!user){
+    location.href="auth.html";
+    return;
+  }
+
+  const snap=await get(ref(db,"stats/"+user.uid));
+  const s=snap.val()||{views:0,subs:0,revenue:0,videos:0};
+
+  statsBox.innerHTML=`
+    <div class="stat"><strong>${s.views}</strong><span>Vues totales</span></div>
+    <div class="stat"><strong>${s.subs}</strong><span>Abonnés</span></div>
+    <div class="stat"><strong>$${s.revenue}</strong><span>Revenus</span></div>
+    <div class="stat"><strong>${s.videos}</strong><span>Vidéos</span></div>
+  `;
+});
+</script>
 
 </body>
 </html>
