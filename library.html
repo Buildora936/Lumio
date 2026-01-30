@@ -2,171 +2,211 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Bibliothèque</title>
+<title>Bibliothèque – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Font Awesome -->
+<meta name="theme-color" content="#181818">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-// UI Elements
-const startBtn = document.getElementById("startBtn");
-const profileBtn = document.getElementById("profileBtn");
-const uploadBtn = document.getElementById("uploadBtn");
-const historyGrid = document.getElementById("historyGrid");
-const likedGrid = document.getElementById("likedGrid");
-
-// Auth state
-onAuthStateChanged(auth, user => {
-  if (user) {
-    startBtn.style.display = "none";
-    profileBtn.style.display = "flex";
-    uploadBtn.style.display = "flex";
-
-    // Charger Historique
-    onValue(ref(db, `users/${user.uid}/history`), snap => {
-      historyGrid.innerHTML = "";
-      if (!snap.exists()) return;
-      Object.entries(snap.val())
-        .sort((a,b) => b[1].watchedAt - a[1].watchedAt)
-        .forEach(([videoId, video]) => {
-          const card = document.createElement("div");
-          card.className = "card";
-          card.onclick = () => location.href = `player.html?id=${videoId}`;
-          card.innerHTML = `
-            <div class="thumb" style="background-image:url('${video.thumbnailBase64}')"></div>
-            <div class="card-body">
-              <div class="title">${video.title}</div>
-              <div class="meta">
-                <span>${video.channelName}</span>
-                <span>${video.views || 0} vues</span>
-              </div>
-            </div>
-          `;
-          historyGrid.appendChild(card);
-        });
-    });
-
-    // Charger Vidéos Likées
-    onValue(ref(db, `users/${user.uid}/liked`), snap => {
-      likedGrid.innerHTML = "";
-      if (!snap.exists()) return;
-      Object.entries(snap.val())
-        .forEach(([videoId, video]) => {
-          const card = document.createElement("div");
-          card.className = "card";
-          card.onclick = () => location.href = `player.html?id=${videoId}`;
-          card.innerHTML = `
-            <div class="thumb" style="background-image:url('${video.thumbnailBase64}')"></div>
-            <div class="card-body">
-              <div class="title">${video.title}</div>
-              <div class="meta">
-                <span>${video.channelName}</span>
-                <span>${video.views || 0} vues</span>
-              </div>
-            </div>
-          `;
-          likedGrid.appendChild(card);
-        });
-    });
-
-  } else {
-    startBtn.style.display = "flex";
-    profileBtn.style.display = "none";
-    uploadBtn.style.display = "none";
-    historyGrid.innerHTML = "<p>Connecte-toi pour voir ton historique.</p>";
-    likedGrid.innerHTML = "<p>Connecte-toi pour voir tes vidéos likées.</p>";
-  }
-});
-</script>
-
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont;background:#181818;color:white}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
 
 /* HEADER */
-header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10}
-header h2{font-size:20px;font-weight:600}
-.left,.right{display:flex;align-items:center;gap:14px}
-button{background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer}
+header{
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:#0f0f0f;display:flex;align-items:center;
+  justify-content:space-between;padding:0 12px;z-index:100
+}
+.left{display:flex;align-items:center;gap:10px}
+.left img{width:34px}
+.right{display:flex;gap:10px}
+button{
+  background:#202020;color:white;border:none;
+  padding:8px 12px;border-radius:20px;cursor:pointer
+}
 
 /* LAYOUT */
-.layout{display:flex;margin-top:56px}
+.layout{margin-top:56px;padding:16px}
 
-/* SIDEBAR */
-.sidebar{width:72px;background:#0f0f0f;padding-top:12px}
-.sidebar a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;font-size:11px;color:#aaa;text-decoration:none}
-.sidebar a:hover{background:#1f1f1f;color:white}
-.sidebar a i{font-size:18px}
-
-/* CONTENT */
-.content{flex:1;padding:16px}
-
-/* SECTION TITRE */
-.section-title{font-weight:600;font-size:16px;margin:12px 0}
+/* TITRES */
+.section-title{
+  font-size:18px;font-weight:700;
+  margin:20px 0 12px
+}
 
 /* GRID */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:16px
+}
 
 /* CARD */
-.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer}
-.thumb{height:140px;background-size:cover;background-position:center}
+.card{
+  background:#202020;border-radius:14px;
+  overflow:hidden;border:1px solid #262626;
+  cursor:pointer;position:relative
+}
+.thumb{
+  height:130px;background:#2a2a2a;
+  background-size:cover;background-position:center
+}
 .card-body{padding:10px}
 .title{font-weight:600;font-size:14px}
-.meta{font-size:12px;color:#aaa}
-.meta span{display:block}
+.meta{font-size:12px;color:#aaa;margin-top:4px}
 
-/* MOBILE */
-@media(max-width:640px){.sidebar{display:none}}
+/* BADGE */
+.badge{
+  position:absolute;top:8px;left:8px;
+  background:#ff9800;color:black;
+  font-size:11px;font-weight:700;
+  padding:4px 6px;border-radius:6px
+}
+
+/* SKELETON */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
+
+/* EMPTY */
+.empty{
+  color:#777;text-align:center;
+  margin-top:40px
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <div class="left"><h2>Lumio</h2></div>
+  <div class="left">
+    <img src="logo_lumio.png">
+    <strong>Lumio</strong>
+  </div>
   <div class="right">
-    <button id="uploadBtn" style="display:none" onclick="location.href='upload.html'"><i class="fa-solid fa-plus"></i></button>
-    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
-    <button id="profileBtn" style="display:none" onclick="location.href='channel.html'"><i class="fa-solid fa-user"></i></button>
+    <button id="notifBtn" style="display:none" onclick="location.href='notification.html'"><i class="fa fa-bell"></i></button>
+    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'"><i class="fa fa-plus"></i></button>
+    <button id="profileBtn" style="display:none" onclick="location.href='profile.html'"><i class="fa fa-user"></i></button>
+    <button id="startBtn" onclick="location.href='auth.html'">Start</button>
   </div>
 </header>
 
 <div class="layout">
 
-  <nav class="sidebar">
-    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
-    <a href="#"><i class="fa-solid fa-tv"></i><span>Abos</span></a>
-    <a href="#"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
-    <a href="#"><i class="fa-solid fa-download"></i><span>Télécharg.</span></a>
-  </nav>
+  <div class="section-title">📚 Historique</div>
+  <div class="grid" id="historyGrid"></div>
 
-  <main class="content">
-    <div class="section-title">Historique</div>
-    <div class="grid" id="historyGrid"></div>
+  <div class="section-title">❤️ Vidéos aimées</div>
+  <div class="grid" id="likesGrid"></div>
 
-    <div class="section-title">Vidéos likées</div>
-    <div class="grid" id="likedGrid"></div>
-  </main>
+  <div class="section-title">⏰ À regarder plus tard</div>
+  <div class="grid" id="laterGrid"></div>
 
 </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+const historyGrid=document.getElementById("historyGrid");
+const likesGrid=document.getElementById("likesGrid");
+const laterGrid=document.getElementById("laterGrid");
+
+/* SKELETON */
+function skeleton(grid){
+  for(let i=0;i<6;i++){
+    grid.innerHTML+=`
+    <div class="card skeleton">
+      <div class="thumb"></div>
+      <div class="card-body">
+        <div class="title">&nbsp;</div>
+        <div class="meta">&nbsp;</div>
+      </div>
+    </div>`;
+  }
+}
+[skeleton(historyGrid),skeleton(likesGrid),skeleton(laterGrid)];
+
+/* AUTH */
+onAuthStateChanged(auth,async user=>{
+  if(!user) return;
+
+  startBtn.style.display="none";
+  notifBtn.style.display="inline-flex";
+  uploadBtn.style.display="inline-flex";
+  profileBtn.style.display="inline-flex";
+
+  loadLibrary(user.uid);
+});
+
+/* LOAD LIBRARY */
+async function loadLibrary(uid){
+  historyGrid.innerHTML="";
+  likesGrid.innerHTML="";
+  laterGrid.innerHTML="";
+
+  const [videosSnap,libSnap]=await Promise.all([
+    get(ref(db,"videos")),
+    get(ref(db,"library/"+uid))
+  ]);
+
+  if(!libSnap.exists()){
+    showEmpty(historyGrid,"Aucune vidéo regardée");
+    showEmpty(likesGrid,"Aucun like");
+    showEmpty(laterGrid,"Aucune vidéo");
+    return;
+  }
+
+  const videos=videosSnap.val()||{};
+  const lib=libSnap.val();
+
+  renderSection(historyGrid,lib.history,videos);
+  renderSection(likesGrid,lib.likes,videos,"❤️");
+  renderSection(laterGrid,lib.watchLater,videos,"⏰");
+}
+
+function renderSection(grid,data,videos,badge){
+  if(!data){
+    showEmpty(grid,"Aucun contenu");
+    return;
+  }
+  Object.keys(data).forEach(id=>{
+    const v=videos[id];
+    if(!v) return;
+
+    const card=document.createElement("div");
+    card.className="card";
+    card.onclick=()=>location.href=`player.html?id=${id}`;
+
+    card.innerHTML=`
+      ${badge?`<div class="badge">${badge}</div>`:""}
+      <div class="thumb" style="background-image:url('${v.thumbnailBase64||""}')"></div>
+      <div class="card-body">
+        <div class="title">${v.title}</div>
+        <div class="meta">${v.channelName||"Chaîne"}</div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function showEmpty(grid,text){
+  grid.innerHTML=`<div class="empty">${text}</div>`;
+}
+</script>
 
 </body>
 </html>
