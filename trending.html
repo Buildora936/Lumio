@@ -2,108 +2,135 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Tendances</title>
+<title>Lumio – Tendance</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Font Awesome -->
+<meta name="theme-color" content="#181818">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-// UI Elements
-const startBtn = document.getElementById("startBtn");
-const profileBtn = document.getElementById("profileBtn");
-const uploadBtn = document.getElementById("uploadBtn");
-const trendingGrid = document.getElementById("trendingGrid");
-const mvGrid = document.getElementById("mvGrid");
-const searchInput = document.getElementById("searchInput");
-
-// Auth State
-onAuthStateChanged(auth, user => {
-  if(user){
-    startBtn.style.display="none";
-    profileBtn.style.display="flex";
-    uploadBtn.style.display="flex";
-  } else {
-    startBtn.style.display="flex";
-    profileBtn.style.display="none";
-    uploadBtn.style.display="none";
-  }
-});
-
-// Charger vidéos tendances
-onValue(ref(db, "videos"), snap=>{
-  trendingGrid.innerHTML="";
-  mvGrid.innerHTML="";
-
-  if(!snap.exists()) return;
-
-  Object.entries(snap.val())
-    .sort((a,b)=>b[1].views - a[1].views) // tri par vues
-    .forEach(([id,v])=>{
-      const card = document.createElement("div");
-      card.className="card";
-      card.onclick = ()=>location.href=`player.html?id=${id}`;
-      card.innerHTML=`
-        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-        <div class="card-body">
-          <div class="title">${v.title}</div>
-          <div class="meta">
-            <span>${v.channelName}</span>
-            <span>${v.views || 0} vues</span>
-          </div>
-        </div>
-      `;
-      if(v.category==="MV") mvGrid.appendChild(card);
-      else trendingGrid.appendChild(card);
-    });
-});
-
-// Recherche
-function doSearch(){
-  const q = searchInput.value.trim();
-  if(q) location.href=`search.html?q=${encodeURIComponent(q)}`;
-}
-</script>
-
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont;background:#181818;color:white;}
-header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:10;}
-.left,.right{display:flex;align-items:center;gap:14px;}
-.left h2{margin:0;font-size:20px;}
-.right button{background:#202020;color:white;border:none;padding:8px 14px;border-radius:20px;cursor:pointer;}
-.search input{padding:8px 14px;border-radius:20px;border:none;outline:none;background:#222;color:white;}
-.layout{display:flex;margin-top:56px;}
-.sidebar{width:72px;background:#0f0f0f;padding-top:12px;}
-.sidebar a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;font-size:11px;color:#aaa;text-decoration:none;}
-.sidebar a i{font-size:18px;}
-.sidebar a:hover{background:#1f1f1f;color:white;}
-.content{flex:1;padding:16px;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;}
-.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer;}
-.thumb{height:140px;background-size:cover;background-position:center;}
-.card-body{padding:10px;}
-.title{font-weight:600;font-size:14px;}
-.meta{font-size:12px;color:#aaa;}
-.meta span{display:block;}
-h3{margin-bottom:10px;color:#ffa500;} /* Orange doux pour section title */
-@media(max-width:640px){.sidebar{display:none;}}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
+header{
+  position:fixed;top:0;left:0;right:0;
+  height:56px;background:#0f0f0f;
+  display:flex;align-items:center;
+  justify-content:space-between;
+  padding:0 12px;z-index:100
+}
+.left{display:flex;align-items:center;gap:10px}
+.left img{width:34px}
+.center{flex:1;display:flex;justify-content:center}
+.center input{
+  width:420px;max-width:60vw;
+  padding:8px 16px;border-radius:20px;
+  border:none;background:#202020;color:white
+}
+.right{display:flex;gap:10px}
+button{
+  background:#202020;color:white;
+  border:none;padding:8px 12px;
+  border-radius:20px;cursor:pointer
+}
+
+/* LAYOUT */
+.layout{display:flex;margin-top:56px}
+
+/* SIDEBAR */
+.sidebar{
+  width:80px;background:#0f0f0f;
+  display:flex;flex-direction:column;align-items:center
+}
+.sidebar a,.sidebar button{
+  width:100%;padding:12px 0;
+  background:none;border:none;
+  color:#aaa;text-decoration:none;
+  font-size:11px;display:flex;
+  flex-direction:column;align-items:center;gap:6px;cursor:pointer
+}
+.sidebar i{font-size:20px}
+.sidebar a:hover,.sidebar button:hover{
+  background:#1f1f1f;color:white
+}
+
+/* MORE MENU */
+.more-menu{
+  position:fixed;left:80px;top:56px;
+  width:160px;background:#111;
+  display:none;flex-direction:column;z-index:200
+}
+.more-menu.open{display:flex}
+.more-menu a{padding:12px;color:#aaa;text-decoration:none}
+.more-menu a:hover{background:#222;color:white}
+
+/* CONTENT */
+.content{flex:1;padding:16px}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px
+}
+
+/* CARD */
+.card{
+  background:#202020;border-radius:14px;
+  overflow:hidden;border:1px solid #262626;
+  cursor:pointer;position:relative
+}
+.thumb{
+  height:140px;background:#2a2a2a;
+  background-size:cover;background-position:center
+}
+.card-body{padding:10px}
+.title{font-weight:600;margin-bottom:6px}
+
+/* BADGES */
+.badge{
+  position:absolute;top:8px;left:8px;
+  background:red;color:white;
+  font-size:11px;font-weight:700;
+  padding:4px 6px;border-radius:6px
+}
+.badge.mv{background:#ff9800}
+.badge.live{background:#f44336}
+.verified{color:#1da1f2;margin-left:4px;font-size:13px}
+
+/* CHANNEL ROW */
+.channel-row{
+  display:flex;align-items:center;gap:8px
+}
+.channel-row img{
+  width:26px;height:26px;
+  border-radius:50%;object-fit:cover
+}
+.meta{font-size:12px;color:#aaa}
+
+/* PUB CARD */
+.ad-card{
+  background:#181818;
+  border:1px solid #333;
+  border-radius:14px;
+  padding:10px;
+  display:flex;
+  justify-content:center
+}
+
+/* SKELETON */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
+
+/* MOBILE */
+@media(max-width:900px){
+  .layout{flex-direction:column;margin-bottom:56px}
+  .sidebar{
+    position:fixed;bottom:0;left:0;
+    width:100%;height:56px;
+    flex-direction:row;justify-content:space-around
+  }
+  .center{display:none}
+  #searchBtn{display:inline-flex}
+}
 </style>
 </head>
 
@@ -111,44 +138,136 @@ h3{margin-bottom:10px;color:#ffa500;} /* Orange doux pour section title */
 
 <header>
   <div class="left">
-    <h2>Lumio</h2>
-    <div class="search">
-      <input type="text" id="searchInput" placeholder="Rechercher sur Lumio...">
-      <button onclick="doSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
-    </div>
+    <img src="logo_lumio.png">
+    <strong>Lumio</strong>
+  </div>
+
+  <div class="center">
+    <input placeholder="Rechercher sur Lumio">
   </div>
 
   <div class="right">
-    <button id="uploadBtn" style="display:none" onclick="location.href='upload.html'">
-      <i class="fa-solid fa-plus"></i>
+    <button id="searchBtn" style="display:none" onclick="location.href='search.html'">
+      <i class="fa fa-search"></i>
     </button>
-    <button id="startBtn" onclick="location.href='auth.html'">Commencer</button>
-    <button id="profileBtn" style="display:none" onclick="location.href='channel.html'">
-      <i class="fa-solid fa-user"></i>
+    <button id="notifBtn" style="display:none" onclick="location.href='notification.html'">
+      <i class="fa fa-bell"></i>
+    </button>
+    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
+      <i class="fa fa-plus"></i>
+    </button>
+    <button id="startBtn" onclick="location.href='auth.html'">Start</button>
+    <button id="profileBtn" style="display:none" onclick="location.href='profile.html'">
+      <i class="fa fa-user"></i>
     </button>
   </div>
 </header>
 
 <div class="layout">
+<nav class="sidebar">
+  <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
+  <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
+  <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
+  <button onclick="toggleMoreMenu()"><i class="fa fa-ellipsis"></i><span>Plus</span></button>
+</nav>
 
-  <nav class="sidebar">
-    <a href="index.html"><i class="fa-solid fa-house"></i><span>Accueil</span></a>
-    <a href="#"><i class="fa-solid fa-fire"></i><span>Tendances</span></a>
-    <a href="shorts.html"><i class="fa-solid fa-tv"></i><span>MV</span></a>
-    <a href="subscriptions.html"><i class="fa-solid fa-video"></i><span>Abos</span></a>
-    <a href="library.html"><i class="fa-solid fa-folder"></i><span>Bibli.</span></a>
-    <a href="downloads.html"><i class="fa-solid fa-download"></i><span>Téléchargements</span></a>
-  </nav>
-
-  <main class="content">
-    <h3>Vidéos tendances</h3>
-    <div class="grid" id="trendingGrid"></div>
-
-    <h3>MV tendances</h3>
-    <div class="grid" id="mvGrid"></div>
-  </main>
-
+<div class="more-menu" id="moreMenu">
+  <a href="library.html">Bibliothèque</a>
+  <a href="studio.html">Studio</a>
+  <a href="settings.html">Paramètres</a>
 </div>
+
+<main class="content">
+  <div class="grid" id="grid"></div>
+</main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+
+const auth=getAuth(app);
+const db=getDatabase(app);
+const grid=document.getElementById("grid");
+
+/* AUTH */
+onAuthStateChanged(auth,user=>{
+  if(user){
+    startBtn.style.display="none";
+    notifBtn.style.display="inline-flex";
+    uploadBtn.style.display="inline-flex";
+    profileBtn.style.display="inline-flex";
+  }
+});
+
+/* SKELETON */
+for(let i=0;i<8;i++){
+  grid.innerHTML+=`
+  <div class="card skeleton">
+    <div class="thumb"></div>
+    <div class="card-body">
+      <div class="title">&nbsp;</div>
+      <div class="meta">&nbsp;</div>
+    </div>
+  </div>`;
+}
+
+/* LOAD TRENDING */
+(async()=>{
+  const snap=await get(ref(db,"videos"));
+  grid.innerHTML="";
+
+  let count=0;
+
+  /* PUB AVANT */
+  addAd();
+
+  Object.entries(snap.val()||{}).forEach(([id,v])=>{
+    count++;
+
+    if(count%6===0) addAd();
+
+    const card=document.createElement("div");
+    card.className="card";
+    card.onclick=()=>location.href=`player.html?id=${id}`;
+
+    card.innerHTML=`
+      <div class="thumb" style="background-image:url('${v.thumbnailBase64||""}')"></div>
+      <div class="card-body">
+        <div class="title">${v.title}</div>
+        <div class="meta">${v.views||0} vues</div>
+      </div>`;
+    grid.appendChild(card);
+  });
+})();
+
+function addAd(){
+  const ad=document.createElement("div");
+  ad.className="ad-card";
+  ad.innerHTML=`
+    <script>
+      atOptions={
+        'key':'34ced6a9c342f10844eedf343e137cfb',
+        'format':'iframe','height':250,'width':300,'params':{}
+      };
+    <\/script>
+    <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"><\/script>
+  `;
+  grid.appendChild(ad);
+}
+
+window.toggleMoreMenu=()=>{
+  document.getElementById("moreMenu").classList.toggle("open");
+};
+</script>
 
 </body>
 </html>
