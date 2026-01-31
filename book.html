@@ -4,66 +4,102 @@
 <meta charset="UTF-8">
 <title>Livre – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-
-const app = initializeApp({
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com"
-});
-
-const db = getDatabase(app);
-const auth = getAuth(app);
-
-const id = new URLSearchParams(location.search).get("id");
-
-const title = document.getElementById("title");
-const desc = document.getElementById("desc");
-const img = document.getElementById("img");
-const buyBtn = document.getElementById("buy");
-
-let currentUser;
-
-onAuthStateChanged(auth, u => currentUser = u);
-
-get(ref(db, "books/"+id)).then(snap=>{
-  const b = snap.val();
-  title.textContent = b.title;
-  desc.textContent = b.description;
-  img.src = b.coverBase64;
-  buyBtn.textContent = `Acheter $${b.price}`;
-});
-
-buyBtn.onclick = () => {
-  if (!currentUser) return alert("Connecte-toi");
-  set(ref(db, `bookSales/${id}/${currentUser.uid}`), {
-    paid:true,
-    paidAt:Date.now()
-  }).then(()=>alert("Livre ajouté à ta bibliothèque"));
-};
-</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-body{background:#181818;color:white;font-family:system-ui;margin:0;padding:16px}
-img{width:200px;border-radius:12px}
-button{
-  background:#ff7f50;
-  border:none;
-  padding:12px 20px;
-  border-radius:20px;
-  font-weight:600;
-  cursor:pointer;
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
+header{
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:#0f0f0f;display:flex;align-items:center;
+  padding:0 12px;z-index:100
+}
+
+/* CONTENT */
+main{
+  margin-top:56px;
+  max-width:720px;
+  margin-inline:auto;
+  padding:16px
+}
+h1{margin-bottom:6px}
+.author{color:#aaa;font-size:14px;margin-bottom:20px}
+.chapter{margin-bottom:24px;line-height:1.7}
+
+/* PUB */
+.ad-card{
+  background:#181818;
+  border:1px solid #333;
+  border-radius:14px;
+  padding:10px;
+  margin:20px 0;
+  text-align:center
 }
 </style>
 </head>
 
 <body>
-<img id="img">
-<h2 id="title"></h2>
-<p id="desc"></p>
-<button id="buy"></button>
+
+<header>
+  <button onclick="history.back()" style="background:none;border:none;color:white">
+    <i class="fa fa-arrow-left"></i>
+  </button>
+</header>
+
+<main id="content"></main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const db=getDatabase(app);
+
+const id=new URLSearchParams(location.search).get("id");
+const content=document.getElementById("content");
+
+(async()=>{
+  const snap=await get(ref(db,"books/"+id));
+  if(!snap.exists()){content.textContent="Livre introuvable";return}
+  const b=snap.val();
+
+  content.innerHTML=`
+    <h1>${b.title}</h1>
+    <div class="author">${b.author||""}</div>
+  `;
+
+  addAd();
+
+  (b.chapters||[]).forEach((c,i)=>{
+    if(i>0 && i%5===0) addAd();
+    const div=document.createElement("div");
+    div.className="chapter";
+    div.innerHTML=`<h3>${c.title||""}</h3><p>${c.text||""}</p>`;
+    content.appendChild(div);
+  });
+})();
+
+function addAd(){
+  const ad=document.createElement("div");
+  ad.className="ad-card";
+  ad.innerHTML=`
+  <script>
+    atOptions={
+      'key':'34ced6a9c342f10844eedf343e137cfb',
+      'format':'iframe','height':250,'width':300,'params':{}
+    };
+  </script>
+  <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
+  content.appendChild(ad);
+}
+</script>
+
 </body>
 </html>
