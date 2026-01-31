@@ -4,201 +4,263 @@
 <meta charset="UTF-8">
 <title>Lecture – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
-.container{max-width:900px;margin:auto;padding:10px}
-video{width:100%;border-radius:12px;background:black}
-.channel{display:flex;align-items:center;gap:10px;margin:10px 0}
-.channel img{width:40px;height:40px;border-radius:50%}
-.comments{margin-top:20px}
-.comment{background:#1f1f1f;padding:8px;border-radius:8px;margin:6px 0}
-input,button{
-  width:100%;padding:10px;margin-top:6px;
-  border:none;border-radius:10px;
-  background:#1f1f1f;color:white;
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#000;color:white}
+
+/* VIDEO */
+.video-container{
+  width:100%;
+  max-height:60vh;
+  background:black;
 }
-button{background:white;color:black;font-weight:600}
-.recommendations{margin-top:30px}
-.rec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-.card{background:#202020;border-radius:14px;overflow:hidden;cursor:pointer}
-.thumb{height:140px;background-size:cover;background-position:center}
-.card-body{padding:10px}
-.title{font-weight:600}
-.meta{font-size:12px;color:#aaa}
-.ad-card{background:#202020;border-radius:14px;border:1px solid #333;overflow:hidden;cursor:default}
-.ad-thumb{height:140px;display:flex;align-items:center;justify-content:center;background:#111}
-.ad-label{font-size:11px;color:#ff9800;text-transform:uppercase;font-weight:600}
-.ad-body{padding:10px}
-.ad-title{font-weight:600;font-size:14px}
-.ad-meta{font-size:12px;color:#aaa}
+video{
+  width:100%;
+  max-height:60vh;
+  background:black;
+}
+
+/* SKELETON */
+.skeleton{
+  background:#1f1f1f;
+  animation:pulse 1.2s infinite;
+}
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
+
+.info{padding:16px}
+.title{font-size:20px;font-weight:700;margin-bottom:6px}
+.meta{color:#aaa;font-size:14px;margin-bottom:10px}
+
+/* ACTIONS */
+.actions{
+  display:flex;
+  gap:18px;
+  align-items:center;
+  margin:12px 0;
+}
+.actions i{
+  font-size:20px;
+  cursor:pointer;
+}
+.actions span{
+  font-size:13px;
+  color:#aaa;
+}
+
+/* CHANNEL */
+.channel{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-top:14px;
+}
+.channel img{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+}
+.sub-btn{
+  margin-left:auto;
+  padding:8px 16px;
+  border-radius:20px;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+}
+.subscribe{background:#ff9800;color:black}
+.subscribed{background:#eee;color:black}
+
+/* COMMENTS */
+.comments{
+  margin-top:20px;
+}
+.comments h3{margin-bottom:10px}
+.comments textarea{
+  width:100%;
+  background:#1f1f1f;
+  color:white;
+  border:none;
+  border-radius:10px;
+  padding:10px;
+}
+.comments button{
+  margin-top:8px;
+  padding:8px 14px;
+  background:#ff9800;
+  border:none;
+  border-radius:20px;
+  font-weight:700;
+  cursor:pointer;
+}
+.comment{
+  margin-top:12px;
+  font-size:14px;
+}
+.comment b{color:#ff9800}
 </style>
 </head>
 
 <body>
 
-<div class="container">
-  <video id="videoPlayer" controls></video>
+<!-- VIDEO -->
+<div class="video-container skeleton" id="videoBox"></div>
 
-  <h2 id="videoTitle"></h2>
-  <div id="videoViews"></div>
+<div class="info">
+  <div class="title skeleton" id="titleBox">&nbsp;</div>
+  <div class="meta skeleton" id="metaBox">&nbsp;</div>
 
+  <!-- ACTIONS -->
+  <div class="actions">
+    <i id="likeBtn" class="fa-regular fa-thumbs-up"></i>
+    <i id="dislikeBtn" class="fa-regular fa-thumbs-down"></i>
+    <i id="saveBtn" class="fa-regular fa-bookmark"></i>
+    <i id="favBtn" class="fa-regular fa-star"></i>
+    <i id="shareBtn" class="fa-solid fa-share"></i>
+  </div>
+
+  <!-- CHANNEL -->
   <div class="channel">
-    <img id="channelAvatar">
-    <a id="channelLink" style="color:white;text-decoration:none">
-      <span id="channelName"></span>
-    </a>
+    <img id="channelPhoto">
+    <div>
+      <div id="channelName"></div>
+      <span id="subsCount"></span>
+    </div>
+    <button id="subBtn" class="sub-btn subscribe">S’abonner</button>
   </div>
 
-  <p id="videoDesc"></p>
-
-  <div class="comments">
+  <!-- COMMENTS -->
+  <div class="comments" id="commentsBox">
     <h3>Commentaires</h3>
-    <form id="commentForm">
-      <input id="commentInput" placeholder="Écrire un commentaire...">
-      <button>Publier</button>
-    </form>
-    <div id="comments"></div>
-  </div>
-
-  <div class="recommendations">
-    <h3>Vidéos recommandées</h3>
-    <div class="rec-grid" id="recGrid"></div>
+    <textarea id="commentInput" placeholder="Ajouter un commentaire"></textarea>
+    <button id="sendComment">Publier</button>
+    <div id="commentsList"></div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get, update, push, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, set, push, runTransaction, onValue, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
+/* Firebase */
+const app = initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-const params = new URLSearchParams(location.search);
-const videoId = params.get("id");
-let currentUser = null;
+const videoId = new URLSearchParams(location.search).get("id");
+let currentUser=null, channelId=null;
 
-onAuthStateChanged(auth,user=>{currentUser=user});
+/* AUTH */
+onAuthStateChanged(auth,u=>currentUser=u);
 
-if(!videoId){
-  alert("Vidéo introuvable");
-  location.href="index.html";
+/* LOAD VIDEO */
+(async()=>{
+  const snap = await get(ref(db,"videos/"+videoId));
+  if(!snap.exists()) return alert("Vidéo introuvable");
+
+  const v = snap.val();
+  channelId = v.channelId;
+
+  /* Video */
+  videoBox.innerHTML = `
+    <video controls autoplay playsinline src="${v.videoURL}"></video>
+  `;
+  videoBox.classList.remove("skeleton");
+
+  titleBox.textContent = v.title;
+  metaBox.textContent = `${v.views} vues`;
+  titleBox.classList.remove("skeleton");
+  metaBox.classList.remove("skeleton");
+
+  /* View count */
+  runTransaction(ref(db,"videos/"+videoId+"/views"),n=>(n||0)+1);
+
+  /* Channel */
+  channelPhoto.src = v.channelPhotoURL;
+  channelName.textContent = v.channelName;
+
+  /* Subs count */
+  onValue(ref(db,"subscriptions/"+channelId),s=>{
+    subsCount.textContent = s.exists() ? Object.keys(s.val()).length+" abonnés" : "0 abonné";
+  });
+
+})();
+
+/* SUBSCRIBE */
+subBtn.onclick=async()=>{
+  if(!currentUser) return location.href="auth.html";
+  const r = ref(db,`subscriptions/${channelId}/${currentUser.uid}`);
+  const s = await get(r);
+  if(s.exists()){
+    await remove(r);
+    subBtn.textContent="S’abonner";
+    subBtn.className="sub-btn subscribe";
+  }else{
+    await set(r,true);
+    subBtn.textContent="Abonné";
+    subBtn.className="sub-btn subscribed";
+  }
+};
+
+/* LIKE / DISLIKE */
+likeBtn.onclick=()=>toggle("likes");
+dislikeBtn.onclick=()=>toggle("dislikes");
+
+async function toggle(type){
+  if(!currentUser) return location.href="auth.html";
+  const r = ref(db,`${type}/${videoId}/${currentUser.uid}`);
+  const s = await get(r);
+  s.exists() ? remove(r) : set(r,true);
 }
 
-const videoPlayer=document.getElementById("videoPlayer");
-const videoTitle=document.getElementById("videoTitle");
-const videoDesc=document.getElementById("videoDesc");
-const videoViews=document.getElementById("videoViews");
-const channelName=document.getElementById("channelName");
-const channelAvatar=document.getElementById("channelAvatar");
-const channelLink=document.getElementById("channelLink");
-const comments=document.getElementById("comments");
-const commentForm=document.getElementById("commentForm");
-const commentInput=document.getElementById("commentInput");
-const recGrid=document.getElementById("recGrid");
-
-async function loadVideo(){
-  const snap=await get(ref(db,"videos/"+videoId));
-  if(!snap.exists()){
-    alert("Vidéo supprimée");
-    location.href="index.html";
-    return;
-  }
-  const v=snap.val();
-  videoPlayer.src=v.videoBase64; // Base64 ou URL
-  videoTitle.textContent=v.title;
-  videoDesc.textContent=v.description||"";
-  videoViews.textContent=(v.views||0)+" vues";
-
-  // Increment views
-  await update(ref(db,"videos/"+videoId),{views:(v.views||0)+1});
-
-  // Load channel info
-  const chSnap=await get(ref(db,"channels/"+v.channelId));
-  if(chSnap.exists()){
-    const ch=chSnap.val();
-    channelName.textContent=ch.name;
-    channelAvatar.src=ch.avatar||"";
-    channelLink.href="channel.html?id="+v.channelId;
-  }
-
-  loadComments();
-  loadRecommendations();
+/* SAVE / FAVORITE */
+saveBtn.onclick=()=>simple("saved");
+favBtn.onclick=()=>simple("favorites");
+function simple(path){
+  if(!currentUser) return location.href="auth.html";
+  const r=ref(db,`${path}/${currentUser.uid}/${videoId}`);
+  get(r).then(s=>s.exists()?remove(r):set(r,true));
 }
 
-async function loadComments(){
-  comments.innerHTML="";
-  const snap=await get(ref(db,"comments/"+videoId));
-  if(!snap.exists()) return;
-  for(const id in snap.val()){
-    const c=snap.val()[id];
-    const div=document.createElement("div");
-    div.className="comment";
-    div.innerHTML=`<b>${c.username}</b><p>${c.text}</p>`;
-    comments.appendChild(div);
-  }
+/* SHARE */
+shareBtn.onclick=()=>{
+  navigator.share?.({
+    title:document.title,
+    url:location.href
+  });
 }
 
-commentForm.onsubmit=async e=>{
-  e.preventDefault();
-  if(!currentUser){alert("Connecte-toi pour commenter");return;}
+/* COMMENTS */
+sendComment.onclick=async()=>{
+  if(!currentUser) return location.href="auth.html";
   const text=commentInput.value.trim();
   if(!text) return;
-  const userSnap=await get(ref(db,"users/"+currentUser.uid));
-  const user=userSnap.val();
-  const cRef=push(ref(db,"comments/"+videoId));
-  await set(cRef,{uid:currentUser.uid,username:user.username,text,createdAt:Date.now()});
+  await push(ref(db,"comments/"+videoId),{
+    uid:currentUser.uid,
+    text,
+    date:Date.now()
+  });
   commentInput.value="";
-  loadComments();
-}
+};
 
-async function loadRecommendations(){
-  const snap=await get(ref(db,"videos"));
+onValue(ref(db,"comments/"+videoId),snap=>{
+  commentsList.innerHTML="";
   if(!snap.exists()) return;
-  recGrid.innerHTML="";
-  let count=0;
-  Object.entries(snap.val())
-    .sort((a,b)=>b[1].createdAt-b[1].createdAt)
-    .forEach(([id,v])=>{
-      if(id===videoId) return; // skip current video
-      const card=document.createElement("div");
-      card.className="card";
-      card.onclick=()=>location.href="player.html?id="+id;
-      card.innerHTML=`
-        <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
-        <div class="card-body">
-          <div class="title">${v.title}</div>
-          <div class="meta">${v.channelName} | ${v.views||0} vues</div>
-        </div>
-      `;
-      recGrid.appendChild(card);
-      count++;
-      if(count%6===0){
-        const ad=document.createElement("div");
-        ad.className="ad-card";
-        ad.innerHTML=`<div class="ad-thumb">💰 Pub Lumio</div>
-        <div class="ad-body">
-          <div class="ad-label">Publicité</div>
-          <div class="ad-title">Sponsorisé</div>
-          <div class="ad-meta">Annonce Lumio</div>
-        </div>`;
-        recGrid.appendChild(ad);
-      }
-    });
-}
-
-loadVideo();
+  Object.values(snap.val()).reverse().forEach(c=>{
+    commentsList.innerHTML+=`
+      <div class="comment"><b>${c.uid.slice(0,6)}</b> ${c.text}</div>
+    `;
+  });
+});
 </script>
 
 </body>
