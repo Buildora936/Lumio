@@ -4,82 +4,215 @@
 <meta charset="UTF-8">
 <title>Chaîne – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#181818">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-const params = new URLSearchParams(location.search);
-const channelId = params.get("id");
-
-if(!channelId){
-  alert("Chaîne introuvable");
-  location.href = "index.html";
-}
-
-async function loadChannel(){
-  const snap = await get(ref(db, "channels/" + channelId));
-  if(!snap.exists()) return;
-
-  const ch = snap.val();
-  channelName.textContent = ch.name;
-  channelDesc.textContent = ch.description;
-  avatar.src = ch.avatar;
-  banner.src = ch.banner;
-}
-
-async function loadVideos(){
-  const snap = await get(ref(db, "videosByChannel/" + channelId));
-  if(!snap.exists()) return;
-
-  for(const videoId in snap.val()){
-    const vSnap = await get(ref(db, "videos/" + videoId));
-    if(!vSnap.exists()) continue;
-    const v = vSnap.val();
-
-    const div = document.createElement("div");
-    div.className = "video";
-    div.innerHTML = `
-      <img src="${v.thumbnail}">
-      <h4>${v.title}</h4>
-    `;
-    div.onclick = ()=>location.href = "player.html?id=" + videoId;
-    videos.appendChild(div);
-  }
-}
-
-loadChannel();
-loadVideos();
-</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
-.banner{width:100%;height:160px;object-fit:cover}
-.avatar{width:80px;height:80px;border-radius:50%;margin-top:-40px;border:4px solid #0f0f0f}
-.videos{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;padding:10px}
-.video img{width:100%;border-radius:10px}
-.video{cursor:pointer}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
+header{
+  position:fixed;top:0;left:0;right:0;
+  height:56px;background:#0f0f0f;
+  display:flex;align-items:center;
+  padding:0 14px;z-index:100
+}
+header strong{margin-left:10px}
+
+/* CHANNEL HEADER */
+.channel-header{
+  margin-top:56px;
+  padding:20px;
+  display:flex;
+  gap:16px;
+  align-items:center;
+  background:#0f0f0f;
+  border-bottom:1px solid #222
+}
+.channel-header img{
+  width:90px;height:90px;
+  border-radius:50%;
+  object-fit:cover
+}
+.channel-info{flex:1}
+.channel-info h1{font-size:22px}
+.channel-info p{color:#aaa;font-size:14px;margin-top:4px}
+.channel-info span{font-size:13px;color:#888}
+
+/* SUBSCRIBE BUTTON */
+.subscribe-btn{
+  padding:10px 18px;
+  border-radius:20px;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+  background:#ff8800;
+  color:black;
+}
+.subscribe-btn.subscribed{
+  background:#eee;
+  color:black;
+}
+
+/* CONTENT */
+main{padding:16px}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:16px
+}
+
+/* CARD */
+.card{
+  background:#202020;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid #262626;
+  cursor:pointer;
+}
+.thumb{
+  height:140px;
+  background:#2a2a2a;
+  background-size:cover;
+  background-position:center
+}
+.card-body{padding:10px}
+.title{font-weight:600;margin-bottom:4px}
+.desc{font-size:13px;color:#aaa}
+.meta{font-size:12px;color:#888;margin-top:6px}
+
+/* SKELETON */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 </style>
 </head>
 
 <body>
-<img id="banner" class="banner">
-<div style="padding:10px">
-<img id="avatar" class="avatar">
-<h2 id="channelName"></h2>
-<p id="channelDesc"></p>
+
+<header>
+  <i class="fa fa-arrow-left" onclick="history.back()" style="cursor:pointer"></i>
+  <strong>Lumio</strong>
+</header>
+
+<!-- CHANNEL INFO -->
+<div class="channel-header">
+  <img id="channelPhoto" src="default-channel.png">
+  <div class="channel-info">
+    <h1 id="channelName">Chargement...</h1>
+    <p id="channelDesc"></p>
+    <span id="subCount">0 abonnés</span>
+  </div>
+  <button id="subBtn" class="subscribe-btn">S’abonner</button>
 </div>
 
-<div class="videos" id="videos"></div>
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get,set,remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+/* Firebase */
+const app = initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+const grid=document.getElementById("grid");
+const subBtn=document.getElementById("subBtn");
+
+const channelId = new URLSearchParams(location.search).get("id");
+let currentUser=null;
+
+/* Skeleton immédiat */
+for(let i=0;i<8;i++){
+  grid.innerHTML+=`
+  <div class="card skeleton">
+    <div class="thumb"></div>
+    <div class="card-body">
+      <div class="title">&nbsp;</div>
+      <div class="desc">&nbsp;</div>
+    </div>
+  </div>`;
+}
+
+/* AUTH */
+onAuthStateChanged(auth,user=>{
+  currentUser=user;
+  if(!user) subBtn.onclick=()=>location.href="auth.html";
+});
+
+/* LOAD CHANNEL */
+const channelSnap = await get(ref(db,"channels/"+channelId));
+if(channelSnap.exists()){
+  const c=channelSnap.val();
+  channelName.textContent=c.name;
+  channelDesc.textContent=c.description;
+  channelPhoto.src=c.photoURL||"default-channel.png";
+}
+
+/* SUB COUNT */
+const subsSnap = await get(ref(db,"channelSubscribers/"+channelId));
+const subsCount=subsSnap.exists()?Object.keys(subsSnap.val()).length:0;
+subCount.textContent=subsCount+" abonnés";
+
+/* SUB STATE */
+if(currentUser){
+  const subSnap = await get(ref(db,"subscriptions/"+currentUser.uid+"/"+channelId));
+  if(subSnap.exists()){
+    subBtn.classList.add("subscribed");
+    subBtn.textContent="Abonné";
+  }
+}
+
+/* SUBSCRIBE */
+subBtn.onclick=async ()=>{
+  if(!currentUser) return;
+  const pathUser="subscriptions/"+currentUser.uid+"/"+channelId;
+  const pathChannel="channelSubscribers/"+channelId+"/"+currentUser.uid;
+
+  if(subBtn.classList.contains("subscribed")){
+    await remove(ref(db,pathUser));
+    await remove(ref(db,pathChannel));
+    subBtn.classList.remove("subscribed");
+    subBtn.textContent="S’abonner";
+  }else{
+    await set(ref(db,pathUser),true);
+    await set(ref(db,pathChannel),true);
+    subBtn.classList.add("subscribed");
+    subBtn.textContent="Abonné";
+  }
+};
+
+/* LOAD VIDEOS */
+const videosSnap = await get(ref(db,"videos"));
+grid.innerHTML="";
+if(videosSnap.exists()){
+  Object.entries(videosSnap.val())
+    .filter(([id,v])=>v.channelId===channelId)
+    .forEach(([id,v])=>{
+      const card=document.createElement("div");
+      card.className="card";
+      card.onclick=()=>location.href=`player.html?id=${id}`;
+      card.innerHTML=`
+        <div class="thumb" style="background-image:url('${v.thumbnailBase64||""}')"></div>
+        <div class="card-body">
+          <div class="title">${v.title}</div>
+          <div class="desc">${v.description||""}</div>
+          <div class="meta">${v.views||0} vues</div>
+        </div>`;
+      grid.appendChild(card);
+    });
+}
+</script>
+
 </body>
 </html>
