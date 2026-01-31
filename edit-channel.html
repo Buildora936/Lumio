@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Modifier la chaîne – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+}
+header h1{font-size:18px}
+header button{
+  background:#202020;
+  color:white;
+  border:none;
+  padding:6px 12px;
+  border-radius:12px;
+}
+
+/* FORM */
+.container{
+  max-width:600px;
+  margin:20px auto;
+  background:#0f0f0f;
+  border-radius:18px;
+  padding:20px;
+}
+
+.preview{
+  display:flex;
+  gap:16px;
+  align-items:center;
+  margin-bottom:20px;
+}
+.preview img{
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  object-fit:cover;
+  background:#333;
+}
+
+label{
+  display:block;
+  margin-top:14px;
+  font-size:13px;
+  color:#aaa;
+}
+
+input,textarea{
+  width:100%;
+  margin-top:6px;
+  padding:10px;
+  border-radius:12px;
+  border:none;
+  background:#202020;
+  color:white;
+}
+textarea{resize:none;height:90px}
+
+button.save{
+  width:100%;
+  margin-top:20px;
+  background:#ff9800;
+  color:black;
+  font-weight:700;
+  border:none;
+  padding:12px;
+  border-radius:20px;
+  cursor:pointer;
+}
+
+.status{
+  margin-top:10px;
+  font-size:13px;
+  text-align:center;
+  color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <button onclick="history.back()"><i class="fa fa-arrow-left"></i></button>
+  <h1>Modifier la chaîne</h1>
+  <button onclick="location.href='mes-channel.html'">OK</button>
+</header>
+
+<div class="container">
+  <div class="preview">
+    <img id="photoPreview">
+    <div>
+      <strong id="channelNamePreview">...</strong>
+      <p style="font-size:12px;color:#aaa">Photo de profil</p>
+    </div>
+  </div>
+
+  <label>Nom de la chaîne</label>
+  <input id="nameInput">
+
+  <label>Description</label>
+  <textarea id="descInput"></textarea>
+
+  <label>Photo de profil</label>
+  <input type="file" id="photoInput" accept="image/*">
+
+  <label>Bannière</label>
+  <input type="file" id="bannerInput" accept="image/*">
+
+  <button class="save" id="saveBtn">Enregistrer</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get,update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+let channelId=null;
+let channelData=null;
+
+const toBase64=f=>new Promise(res=>{
+  const r=new FileReader();
+  r.onload=()=>res(r.result);
+  r.readAsDataURL(f);
+});
+
+onAuthStateChanged(auth,async user=>{
+  if(!user){location.href="auth.html";return;}
+
+  const uc=await get(ref(db,"userChannels/"+user.uid));
+  if(!uc.exists()){location.href="add-channel.html";return;}
+
+  channelId=uc.val();
+  const snap=await get(ref(db,"channels/"+channelId));
+  channelData=snap.val();
+
+  photoPreview.src=channelData.photoURL||"";
+  channelNamePreview.textContent=channelData.name;
+  nameInput.value=channelData.name||"";
+  descInput.value=channelData.description||"";
+});
+
+photoInput.onchange=e=>{
+  const f=e.target.files[0];
+  if(f) photoPreview.src=URL.createObjectURL(f);
+};
+
+saveBtn.onclick=async()=>{
+  if(!channelId) return;
+
+  status.textContent="Enregistrement...";
+  const updates={
+    name:nameInput.value.trim(),
+    description:descInput.value.trim()
+  };
+
+  if(photoInput.files[0])
+    updates.photoURL=await toBase64(photoInput.files[0]);
+
+  if(bannerInput.files[0])
+    updates.bannerBase64=await toBase64(bannerInput.files[0]);
+
+  await update(ref(db,"channels/"+channelId),updates);
+
+  status.textContent="✅ Modifications enregistrées";
+};
+</script>
+
+</body>
+</html>
