@@ -2,143 +2,223 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – MV</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MV – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-const container = document.getElementById("container");
-
-/* 🔁 Charger MV */
-onValue(ref(db, "shorts"), snap => {
-  container.innerHTML = "";
-  if (!snap.exists()) return;
-
-  Object.entries(snap.val())
-    .sort((a,b)=>b[1].createdAt-a[1].createdAt)
-    .forEach(([id, s]) => {
-      const el = document.createElement("section");
-      el.className = "short";
-
-      el.innerHTML = `
-        <video src="${s.videoBase64}" loop muted playsinline></video>
-
-        <div class="overlay">
-          <p>${s.description || ""}</p>
-        </div>
-
-        <div class="actions">
-          <button onclick="like('${id}')">
-            <i class="fa-solid fa-heart"></i>
-            <span>${s.likes || 0}</span>
-          </button>
-          <div>
-            <i class="fa-solid fa-eye"></i>
-            <span>${s.views || 0}</span>
-          </div>
-        </div>
-      `;
-
-      container.appendChild(el);
-
-      const video = el.querySelector("video");
-
-      const observer = new IntersectionObserver(entries=>{
-        entries.forEach(e=>{
-          if(e.isIntersecting){
-            video.play();
-            runTransaction(ref(db, "shorts/"+id+"/views"), v => (v||0)+1);
-          }else{
-            video.pause();
-          }
-        });
-      },{threshold:0.8});
-
-      observer.observe(el);
-    });
-});
-
-/* ❤️ Like */
-window.like = id => {
-  runTransaction(ref(db,"shorts/"+id+"/likes"), v => (v||0)+1);
-};
-</script>
-
 <style>
-*{box-sizing:border-box}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
 body{
-  margin:0;
-  background:black;
+  background:#000;
   color:white;
-  font-family:system-ui
+  overflow:hidden;
 }
 
-#container{
+/* FEED */
+.feed{
   height:100vh;
-  overflow-y:scroll;
+  width:100%;
+  overflow-y:auto;
   scroll-snap-type:y mandatory;
 }
-
-.short{
+.mv{
   position:relative;
   height:100vh;
+  width:100%;
   scroll-snap-align:start;
+  background:black;
 }
 
-.short video{
+/* VIDEO */
+.mv video{
   width:100%;
   height:100%;
   object-fit:cover;
 }
 
-.overlay{
-  position:absolute;
-  bottom:80px;
-  left:16px;
-  max-width:70%;
-  font-size:14px;
+/* SKELETON */
+.skeleton{
+  background:#111;
+  animation:pulse 1.2s infinite;
 }
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 
+/* RIGHT ACTIONS */
 .actions{
   position:absolute;
-  right:16px;
+  right:12px;
   bottom:120px;
   display:flex;
   flex-direction:column;
   gap:18px;
   align-items:center;
 }
-
-.actions button{
-  background:none;
-  border:none;
-  color:white;
-  font-size:22px;
+.actions i{
+  font-size:26px;
   cursor:pointer;
 }
 .actions span{
   font-size:12px;
+  color:#ccc;
+}
+
+/* INFO */
+.info{
+  position:absolute;
+  bottom:20px;
+  left:12px;
+  right:80px;
+}
+.info h3{font-size:16px;margin-bottom:4px}
+.info p{font-size:13px;color:#ccc}
+
+/* CHANNEL */
+.channel{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:6px;
+}
+.channel img{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+}
+.sub{
+  background:#ff9800;
+  color:black;
+  border:none;
+  border-radius:20px;
+  padding:4px 10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.subbed{
+  background:#eee;
 }
 </style>
 </head>
 
 <body>
 
-<div id="container"></div>
+<div class="feed" id="feed"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get, runTransaction, set, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+/* FIREBASE */
+const app = initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+let currentUser=null;
+onAuthStateChanged(auth,u=>currentUser=u);
+
+/* LOAD MVs */
+(async()=>{
+  const snap = await get(ref(db,"videos"));
+  if(!snap.exists()) return;
+
+  const mvs = Object.entries(snap.val())
+    .filter(([_,v])=>v.category==="MV" || v.type==="mv")
+    .sort((a,b)=>b[1].createdAt-a[1].createdAt);
+
+  mvs.forEach(([id,v])=>createMV(id,v));
+})();
+
+/* CREATE MV */
+function createMV(id,v){
+  const div=document.createElement("div");
+  div.className="mv skeleton";
+
+  div.innerHTML=`
+    <video playsinline muted loop></video>
+
+    <div class="actions">
+      <i class="fa-regular fa-thumbs-up" data-like></i>
+      <i class="fa-regular fa-bookmark" data-save></i>
+      <i class="fa-solid fa-share" data-share></i>
+    </div>
+
+    <div class="info">
+      <h3>${v.title}</h3>
+      <p>${v.description||""}</p>
+      <div class="channel">
+        <img src="${v.channelPhotoURL}">
+        <span>${v.channelName}</span>
+        <button class="sub">S’abonner</button>
+      </div>
+    </div>
+  `;
+
+  feed.appendChild(div);
+
+  const video = div.querySelector("video");
+  video.src = v.videoBase64 || v.videoURL;
+
+  video.onloadeddata=()=>{
+    div.classList.remove("skeleton");
+  };
+
+  /* AUTO PLAY ON VIEW */
+  const obs = new IntersectionObserver(e=>{
+    e.forEach(x=>{
+      if(x.isIntersecting){
+        video.play();
+        runTransaction(ref(db,"videos/"+id+"/views"),n=>(n||0)+1);
+      }else{
+        video.pause();
+      }
+    });
+  },{threshold:.6});
+  obs.observe(div);
+
+  /* LIKE */
+  div.querySelector("[data-like]").onclick=()=>{
+    if(!currentUser) return location.href="auth.html";
+    const r=ref(db,`likes/${id}/${currentUser.uid}`);
+    get(r).then(s=>s.exists()?remove(r):set(r,true));
+  };
+
+  /* SAVE */
+  div.querySelector("[data-save]").onclick=()=>{
+    if(!currentUser) return location.href="auth.html";
+    const r=ref(db,`saved/${currentUser.uid}/${id}`);
+    get(r).then(s=>s.exists()?remove(r):set(r,true));
+  };
+
+  /* SHARE */
+  div.querySelector("[data-share]").onclick=()=>{
+    navigator.share?.({title:v.title,url:`player.html?id=${id}`});
+  };
+
+  /* SUBSCRIBE */
+  const subBtn=div.querySelector(".sub");
+  subBtn.onclick=()=>{
+    if(!currentUser) return location.href="auth.html";
+    const r=ref(db,`subscriptions/${v.channelId}/${currentUser.uid}`);
+    get(r).then(s=>{
+      if(s.exists()){
+        remove(r);
+        subBtn.textContent="S’abonner";
+        subBtn.classList.remove("subbed");
+      }else{
+        set(r,true);
+        subBtn.textContent="Abonné";
+        subBtn.classList.add("subbed");
+      }
+    });
+  };
+}
+</script>
 
 </body>
 </html>
