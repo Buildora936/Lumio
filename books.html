@@ -2,65 +2,144 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio – Livres</title>
+<title>Livres – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const app = initializeApp({
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com"
-});
-
-const db = getDatabase(app);
-const grid = document.getElementById("grid");
-
-onValue(ref(db, "books"), snap => {
-  grid.innerHTML = "";
-  if (!snap.exists()) return;
-
-  Object.entries(snap.val()).forEach(([id, b]) => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.onclick = () => location.href = `book.html?id=${id}`;
-
-    card.innerHTML = `
-      <img src="${b.coverBase64}">
-      <h3>${b.title}</h3>
-      <p>${b.authorName}</p>
-      <span>$${b.price}</span>
-    `;
-    grid.appendChild(card);
-  });
-});
-</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-body{margin:0;background:#181818;color:white;font-family:system-ui}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
+header{
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:#0f0f0f;display:flex;align-items:center;
+  justify-content:space-between;padding:0 12px;z-index:100
+}
+header img{width:32px}
+
+/* CONTENT */
+main{margin-top:56px;padding:16px}
 .grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-  gap:16px;
-  padding:16px;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:16px
 }
+
+/* BOOK CARD */
 .card{
   background:#202020;
-  border-radius:12px;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid #262626;
+  cursor:pointer
+}
+.cover{
+  height:240px;
+  background:#2a2a2a;
+  background-size:cover;
+  background-position:center
+}
+.card-body{padding:10px}
+.title{font-weight:600;font-size:14px}
+.author{font-size:12px;color:#aaa}
+
+/* PUB */
+.ad-card{
+  grid-column:1/-1;
+  background:#181818;
+  border:1px solid #333;
+  border-radius:14px;
   padding:10px;
-  cursor:pointer;
+  text-align:center
 }
-.card img{
-  width:100%;
-  border-radius:8px;
-}
-span{color:#ff7f50;font-weight:600}
+
+/* SKELETON */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 </style>
 </head>
 
 <body>
-<h2 style="padding:16px">📚 Livres Lumio</h2>
-<div class="grid" id="grid"></div>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px">
+    <img src="logo_lumio.png">
+    <strong>Livres</strong>
+  </div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const db=getDatabase(app);
+const grid=document.getElementById("grid");
+
+/* Skeleton */
+for(let i=0;i<8;i++){
+  grid.innerHTML+=`
+    <div class="card skeleton">
+      <div class="cover"></div>
+      <div class="card-body">
+        <div class="title">&nbsp;</div>
+        <div class="author">&nbsp;</div>
+      </div>
+    </div>`;
+}
+
+/* Load books */
+(async()=>{
+  const snap=await get(ref(db,"books"));
+  if(!snap.exists()){grid.innerHTML="";return}
+
+  let count=0;
+  grid.innerHTML="";
+
+  /* PUB AVANT 1ER */
+  addAd();
+
+  Object.entries(snap.val()).forEach(([id,b])=>{
+    if(count>0 && count%6===0) addAd();
+
+    const card=document.createElement("div");
+    card.className="card";
+    card.onclick=()=>location.href=`book.html?id=${id}`;
+    card.innerHTML=`
+      <div class="cover" style="background-image:url('${b.coverBase64||""}')"></div>
+      <div class="card-body">
+        <div class="title">${b.title}</div>
+        <div class="author">${b.author||"Auteur"}</div>
+      </div>`;
+    grid.appendChild(card);
+    count++;
+  });
+})();
+
+function addAd(){
+  const ad=document.createElement("div");
+  ad.className="ad-card";
+  ad.innerHTML=`
+  <script>
+    atOptions={
+      'key':'34ced6a9c342f10844eedf343e137cfb',
+      'format':'iframe','height':250,'width':300,'params':{}
+    };
+  </script>
+  <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
+  grid.appendChild(ad);
+}
+</script>
+
 </body>
 </html>
