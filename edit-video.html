@@ -2,160 +2,99 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio Studio – Modifier la vidéo</title>
+<title>Éditer la vidéo – Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta name="theme-color" content="#181818">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-const id = new URLSearchParams(location.search).get("id");
-
-const titleInput = document.getElementById("title");
-const descInput = document.getElementById("description");
-const thumbPreview = document.getElementById("thumbPreview");
-const thumbInput = document.getElementById("thumb");
-const commentsToggle = document.getElementById("comments");
-const publicToggle = document.getElementById("public");
-
-onAuthStateChanged(auth, async user => {
-  if (!user || !id) {
-    location.href = "studio.html";
-    return;
-  }
-
-  const snap = await get(ref(db, "videos/" + id));
-  if (!snap.exists() || snap.val().creatorId !== user.uid) {
-    alert("Accès refusé");
-    location.href = "studio.html";
-    return;
-  }
-
-  const v = snap.val();
-
-  titleInput.value = v.title;
-  descInput.value = v.description || "";
-  thumbPreview.src = v.thumbnailBase64;
-  commentsToggle.checked = v.commentsEnabled;
-  publicToggle.checked = v.isPublic;
-
-  document.getElementById("stats").innerHTML = `
-    ${v.views || 0} vues • ${v.likes || 0} likes • ${v.dislikes || 0} dislikes
-  `;
-});
-
-thumbInput.onchange = () => {
-  const file = thumbInput.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => thumbPreview.src = reader.result;
-  reader.readAsDataURL(file);
-};
-
-window.save = async () => {
-  await update(ref(db, "videos/" + id), {
-    title: titleInput.value.trim(),
-    description: descInput.value.trim(),
-    thumbnailBase64: thumbPreview.src,
-    commentsEnabled: commentsToggle.checked,
-    isPublic: publicToggle.checked
-  });
-
-  alert("Modifications enregistrées");
-};
-</script>
-
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#181818;
-  color:white;
-}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
 header{
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:#0f0f0f;display:flex;align-items:center;
+  justify-content:space-between;padding:0 12px;z-index:100
 }
-header h1{font-size:18px}
-
-button{
-  background:#ff8800;
-  color:black;
-  border:none;
-  padding:10px 16px;
-  border-radius:20px;
-  font-weight:600;
-  cursor:pointer;
-}
-button:hover{background:#ffaa33}
-
-.container{
-  padding:16px;
-  max-width:720px;
-  margin:auto;
+.left{display:flex;align-items:center;gap:10px}
+.left img{width:32px}
+.right button{
+  background:#202020;color:white;
+  border:none;padding:8px 14px;
+  border-radius:20px;cursor:pointer
 }
 
-label{
-  display:block;
-  margin-top:16px;
-  font-size:13px;
-  color:#ccc;
-}
+/* LAYOUT */
+.main{margin-top:56px;padding:16px;max-width:900px;margin-inline:auto}
 
-input, textarea{
-  width:100%;
+/* CARD */
+.card{
   background:#202020;
-  border:none;
-  color:white;
-  padding:12px;
+  border-radius:18px;
+  padding:16px;
+  border:1px solid #262626;
+  margin-bottom:16px
+}
+.card h3{margin-bottom:10px}
+
+/* FORM */
+input,textarea,select{
+  width:100%;background:#181818;
+  border:1px solid #333;
+  color:white;padding:12px;
   border-radius:12px;
-  margin-top:6px;
-  font-size:14px;
+  margin-bottom:12px
 }
+textarea{min-height:100px;resize:none}
 
-textarea{min-height:120px;resize:vertical}
-
-.thumb{
-  margin-top:12px;
-}
-.thumb img{
-  width:100%;
-  max-width:320px;
-  border-radius:12px;
-  display:block;
-  background:#000;
-}
-
-.switch{
+/* THUMB */
+.thumb-preview{
+  width:100%;height:200px;
+  background:#2a2a2a;
+  border-radius:14px;
+  background-size:cover;
+  background-position:center;
+  margin-bottom:10px;
   display:flex;
   align-items:center;
-  gap:10px;
-  margin-top:12px;
+  justify-content:center;
+  color:#aaa;
+  font-size:14px
 }
 
-.stats{
-  margin-top:16px;
-  font-size:13px;
-  color:#aaa;
+/* TOGGLES */
+.toggle{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px
+}
+.toggle input{width:auto}
+
+/* ACTIONS */
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:16px
+}
+.actions button{
+  flex:1;
+  padding:12px;
+  border-radius:20px;
+  border:none;
+  font-weight:700;
+  cursor:pointer
+}
+.save{background:#ff9800;color:black}
+.delete{background:#f44336;color:white}
+
+/* SKELETON */
+.skeleton{animation:pulse 1.2s infinite}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
 }
 </style>
 </head>
@@ -163,37 +102,129 @@ textarea{min-height:120px;resize:vertical}
 <body>
 
 <header>
-  <h1>Modifier la vidéo</h1>
-  <button onclick="save()">Enregistrer</button>
+  <div class="left">
+    <img src="logo_lumio.png">
+    <strong>Éditer la vidéo</strong>
+  </div>
+  <div class="right">
+    <button onclick="history.back()"><i class="fa fa-arrow-left"></i></button>
+  </div>
 </header>
 
-<div class="container">
+<div class="main">
 
-  <div class="stats" id="stats"></div>
-
-  <label>Titre</label>
-  <input id="title" maxlength="100">
-
-  <label>Description</label>
-  <textarea id="description"></textarea>
-
-  <label>Miniature</label>
-  <div class="thumb">
-    <img id="thumbPreview">
-    <input type="file" id="thumb" accept="image/*">
+  <!-- THUMB -->
+  <div class="card">
+    <div class="thumb-preview" id="thumb">Miniature</div>
+    <input type="file" id="thumbInput" accept="image/*">
   </div>
 
-  <div class="switch">
-    <input type="checkbox" id="comments">
-    <label for="comments">Autoriser les commentaires</label>
+  <!-- INFOS -->
+  <div class="card">
+    <h3>Informations</h3>
+    <input id="title" placeholder="Titre de la vidéo">
+    <textarea id="description" placeholder="Description"></textarea>
+    <select id="category">
+      <option value="video">Vidéo</option>
+      <option value="MV">MV</option>
+      <option value="live">Live</option>
+    </select>
   </div>
 
-  <div class="switch">
-    <input type="checkbox" id="public">
-    <label for="public">Vidéo publique</label>
+  <!-- OPTIONS -->
+  <div class="card">
+    <h3>Options</h3>
+
+    <div class="toggle">
+      <span>Visibilité publique</span>
+      <input type="checkbox" id="public">
+    </div>
+
+    <div class="toggle">
+      <span>Monétisation</span>
+      <input type="checkbox" id="monetized">
+    </div>
+
+    <div class="toggle">
+      <span>Commentaires</span>
+      <input type="checkbox" id="comments">
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="actions">
+    <button class="save" onclick="save()">Enregistrer</button>
+    <button class="delete" onclick="remove()">Supprimer</button>
   </div>
 
 </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get,update,remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+const params=new URLSearchParams(location.search);
+const videoId=params.get("id");
+
+const titleInput=document.getElementById("title");
+const descInput=document.getElementById("description");
+const categoryInput=document.getElementById("category");
+const pubInput=document.getElementById("public");
+const monetInput=document.getElementById("monetized");
+const comInput=document.getElementById("comments");
+const thumb=document.getElementById("thumb");
+
+/* AUTH + LOAD */
+onAuthStateChanged(auth,async user=>{
+  if(!user){location.href="auth.html";return}
+
+  const snap=await get(ref(db,"videos/"+videoId));
+  if(!snap.exists()) return;
+
+  const v=snap.val();
+  titleInput.value=v.title||"";
+  descInput.value=v.description||"";
+  categoryInput.value=v.category||"video";
+  pubInput.checked=v.public!==false;
+  monetInput.checked=!!v.monetized;
+  comInput.checked=v.comments!==false;
+  if(v.thumbnailBase64){
+    thumb.style.backgroundImage=`url(${v.thumbnailBase64})`;
+    thumb.textContent="";
+  }
+});
+
+/* SAVE */
+window.save=async ()=>{
+  await update(ref(db,"videos/"+videoId),{
+    title:titleInput.value,
+    description:descInput.value,
+    category:categoryInput.value,
+    public:pubInput.checked,
+    monetized:monetInput.checked,
+    comments:comInput.checked,
+    updatedAt:Date.now()
+  });
+  alert("Vidéo mise à jour");
+};
+
+/* DELETE */
+window.remove=async ()=>{
+  if(!confirm("Supprimer cette vidéo ?")) return;
+  await remove(ref(db,"videos/"+videoId));
+  location.href="studio.html";
+};
+</script>
 
 </body>
 </html>
