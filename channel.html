@@ -69,9 +69,19 @@ body{background:#181818;color:white}
   background-size:cover;
   background-position:center;
 }
+.card.short .thumb{
+  height:220px;
+}
 .card-body{padding:10px}
 .title{font-weight:600;margin-bottom:6px}
-.desc{font-size:13px;color:#aaa;margin-bottom:4px}
+.desc{
+  font-size:13px;
+  color:#aaa;
+  margin-bottom:4px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
 .meta{font-size:12px;color:#888}
 
 /* SKELETON */
@@ -93,7 +103,7 @@ body{background:#181818;color:white}
   <button id="subBtn" class="subscribe-btn subscribe">S’abonner</button>
 </div>
 
-<!-- VIDEOS -->
+<!-- VIDEOS + SHORTS -->
 <div class="content">
   <div class="grid" id="grid"></div>
 </div>
@@ -199,6 +209,28 @@ onValue(ref(db,"videos"),snap=>{
           <div class="title">${v.title}</div>
           <div class="desc">${v.description||""}</div>
           <div class="meta">${v.views||0} vues</div>
+        </div>`;
+      grid.appendChild(card);
+    });
+});
+
+/* LOAD SHORTS (AJOUT – NE REMPLACE RIEN) */
+onValue(ref(db,"shorts"),snap=>{
+  if(!snap.exists()) return;
+
+  Object.entries(snap.val())
+    .filter(([id,s])=>s.channelId===channelId)
+    .forEach(([id,s])=>{
+      const card=document.createElement("div");
+      card.className="card short";
+      card.onclick=()=>location.href=`shorts.html?id=${id}`;
+
+      card.innerHTML=`
+        <div class="thumb" style="background-image:url('${s.thumbnailBase64||""}')"></div>
+        <div class="card-body">
+          <div class="title">${s.title}</div>
+          <div class="desc">${s.description||""}</div>
+          <div class="meta">${s.views||0} vues</div>
         </div>`;
       grid.appendChild(card);
     });
