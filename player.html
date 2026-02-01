@@ -264,7 +264,7 @@ async function loadShorts(){
   if(v.category!=="MV") return;
   const div=document.createElement("div");
   div.className="card short";
-  div.onclick=()=>location.href=`player.html?id=${c.key}`;
+  div.onclick=()=>location.href=`shorts.html?id=${c.key}`;
   div.innerHTML=`
    <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
    <div class="meta">${v.title}</div>`;
