@@ -2,222 +2,285 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>MV – Lumio</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Shorts – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{
-  background:#000;
-  color:white;
-  overflow:hidden;
-}
+body{background:#000;color:white;overflow:hidden}
 
-/* FEED */
-.feed{
+/* CONTAINER */
+#shortsContainer{
   height:100vh;
   width:100%;
-  overflow-y:auto;
+  overflow-y:scroll;
   scroll-snap-type:y mandatory;
 }
-.mv{
-  position:relative;
+
+/* SHORT */
+.short{
   height:100vh;
   width:100%;
+  position:relative;
   scroll-snap-align:start;
   background:black;
 }
 
-/* VIDEO */
-.mv video{
+video{
   width:100%;
   height:100%;
   object-fit:cover;
 }
 
-/* SKELETON */
-.skeleton{
-  background:#111;
-  animation:pulse 1.2s infinite;
+/* OVERLAY */
+.overlay{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  padding:16px;
+  background:linear-gradient(transparent,rgba(0,0,0,.7));
 }
-@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 
-/* RIGHT ACTIONS */
+/* CHANNEL */
+.channel{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.channel img{
+  width:36px;height:36px;border-radius:50%;
+}
+.subscribe{
+  margin-left:auto;
+  background:#ff9800;
+  border:none;
+  padding:6px 14px;
+  border-radius:20px;
+  font-weight:700;
+  cursor:pointer;
+}
+.subscribe.subbed{
+  background:white;
+  color:black;
+}
+
+/* DESCRIPTION */
+.desc{
+  font-size:14px;
+  margin-bottom:8px;
+}
+
+/* ACTIONS */
 .actions{
   position:absolute;
   right:12px;
   bottom:120px;
   display:flex;
   flex-direction:column;
-  gap:18px;
-  align-items:center;
+  gap:16px;
 }
-.actions i{
-  font-size:26px;
-  cursor:pointer;
-}
-.actions span{
-  font-size:12px;
-  color:#ccc;
-}
-
-/* INFO */
-.info{
-  position:absolute;
-  bottom:20px;
-  left:12px;
-  right:80px;
-}
-.info h3{font-size:16px;margin-bottom:4px}
-.info p{font-size:13px;color:#ccc}
-
-/* CHANNEL */
-.channel{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-top:6px;
-}
-.channel img{
-  width:32px;
-  height:32px;
-  border-radius:50%;
-}
-.sub{
-  background:#ff9800;
-  color:black;
+.actions button{
+  background:none;
   border:none;
-  border-radius:20px;
-  padding:4px 10px;
-  font-weight:700;
+  color:white;
+  font-size:22px;
   cursor:pointer;
 }
-.subbed{
-  background:#eee;
+.actions button.active{color:#ff9800}
+
+/* COMMENTS MODAL */
+#commentModal{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  height:60%;
+  background:#111;
+  border-radius:16px 16px 0 0;
+  transform:translateY(100%);
+  transition:.3s;
+  z-index:10;
+  display:flex;
+  flex-direction:column;
+}
+#commentModal.open{transform:translateY(0)}
+
+.comment-header{
+  padding:10px;
+  text-align:center;
+  font-weight:700;
+  border-bottom:1px solid #222;
+}
+.comment-list{
+  flex:1;
+  overflow-y:auto;
+  padding:10px;
+}
+.comment{
+  background:#202020;
+  padding:8px;
+  border-radius:10px;
+  margin-bottom:6px;
+  font-size:13px;
+}
+.comment-form{
+  display:flex;
+  gap:8px;
+  padding:10px;
+}
+.comment-form input{
+  flex:1;
+  background:#222;
+  border:none;
+  border-radius:10px;
+  padding:6px;
+  color:white;
+}
+.comment-form button{
+  background:#ff9800;
+  border:none;
+  padding:6px 12px;
+  border-radius:10px;
+  cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<div class="feed" id="feed"></div>
+<div id="shortsContainer"></div>
+
+<!-- COMMENTS MODAL -->
+<div id="commentModal">
+  <div class="comment-header">
+    Commentaires
+    <span style="float:right;cursor:pointer" onclick="closeComments()">✕</span>
+  </div>
+  <div class="comment-list" id="commentList"></div>
+  <div class="comment-form">
+    <input id="commentInput" placeholder="Ajouter un commentaire…">
+    <button onclick="sendComment()">Envoyer</button>
+  </div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get, runTransaction, set, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get,set,push,remove,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* FIREBASE */
-const app = initializeApp({
-  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
-  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId:"lumio-6efed"
+const app=initializeApp({
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
 });
-const db = getDatabase(app);
-const auth = getAuth(app);
+
+const auth=getAuth(app);
+const db=getDatabase(app);
 
 let currentUser=null;
+let currentShortId=null;
+
 onAuthStateChanged(auth,u=>currentUser=u);
 
-/* LOAD MVs */
+/* LOAD RANDOM SHORTS */
 (async()=>{
-  const snap = await get(ref(db,"videos"));
-  if(!snap.exists()) return;
+ const snap=await get(ref(db,"shorts"));
+ if(!snap.exists()) return;
 
-  const mvs = Object.entries(snap.val())
-    .filter(([_,v])=>v.category==="MV" || v.type==="mv")
-    .sort((a,b)=>b[1].createdAt-a[1].createdAt);
+ const shorts=Object.entries(snap.val());
+ shorts.sort(()=>Math.random()-0.5); // 🎲 aléatoire
 
-  mvs.forEach(([id,v])=>createMV(id,v));
-})();
-
-/* CREATE MV */
-function createMV(id,v){
-  const div=document.createElement("div");
-  div.className="mv skeleton";
-
-  div.innerHTML=`
-    <video playsinline muted loop></video>
+ shorts.forEach(([id,s])=>{
+   const div=document.createElement("div");
+   div.className="short";
+   div.innerHTML=`
+    <video src="${s.videoURL}" autoplay loop muted playsinline></video>
 
     <div class="actions">
-      <i class="fa-regular fa-thumbs-up" data-like></i>
-      <i class="fa-regular fa-bookmark" data-save></i>
-      <i class="fa-solid fa-share" data-share></i>
+      <button onclick="like('${id}',this)"><i class="fa fa-heart"></i></button>
+      <button onclick="openComments('${id}')"><i class="fa fa-comment"></i></button>
+      <button onclick="save('${id}',this)"><i class="fa fa-bookmark"></i></button>
     </div>
 
-    <div class="info">
-      <h3>${v.title}</h3>
-      <p>${v.description||""}</p>
+    <div class="overlay">
       <div class="channel">
-        <img src="${v.channelPhotoURL}">
-        <span>${v.channelName}</span>
-        <button class="sub">S’abonner</button>
+        <img src="${s.channelPhotoURL}">
+        <div>${s.channelName}</div>
+        <button class="subscribe" onclick="subscribe('${s.channelId}',this)">S’abonner</button>
+      </div>
+      <div class="desc">
+        ${s.description?.length>80?s.description.substr(0,80)+"...":s.description||""}
       </div>
     </div>
-  `;
+   `;
+   shortsContainer.appendChild(div);
+ });
+})();
 
-  feed.appendChild(div);
+/* INTERACTIONS */
+window.like=async(id,btn)=>{
+ if(!currentUser) return location.href="auth.html";
+ btn.classList.toggle("active");
+ await set(ref(db,`shortLikes/${id}/${currentUser.uid}`),true);
+};
 
-  const video = div.querySelector("video");
-  video.src = v.videoBase64 || v.videoURL;
+window.save=async(id,btn)=>{
+ if(!currentUser) return location.href="auth.html";
+ btn.classList.toggle("active");
+ await set(ref(db,`shortSaved/${currentUser.uid}/${id}`),true);
+};
 
-  video.onloadeddata=()=>{
-    div.classList.remove("skeleton");
-  };
+window.subscribe=async(cid,btn)=>{
+ if(!currentUser) return location.href="auth.html";
+ const r=ref(db,`subscriptions/${currentUser.uid}/${cid}`);
+ const snap=await get(r);
+ if(snap.exists()){
+   await remove(r);
+   btn.classList.remove("subbed");
+   btn.textContent="S’abonner";
+ }else{
+   await set(r,true);
+   btn.classList.add("subbed");
+   btn.textContent="Abonné";
+ }
+};
 
-  /* AUTO PLAY ON VIEW */
-  const obs = new IntersectionObserver(e=>{
-    e.forEach(x=>{
-      if(x.isIntersecting){
-        video.play();
-        runTransaction(ref(db,"videos/"+id+"/views"),n=>(n||0)+1);
-      }else{
-        video.pause();
-      }
-    });
-  },{threshold:.6});
-  obs.observe(div);
+/* COMMENTS */
+window.openComments=id=>{
+ currentShortId=id;
+ commentModal.classList.add("open");
+ loadComments();
+};
+window.closeComments=()=>commentModal.classList.remove("open");
 
-  /* LIKE */
-  div.querySelector("[data-like]").onclick=()=>{
-    if(!currentUser) return location.href="auth.html";
-    const r=ref(db,`likes/${id}/${currentUser.uid}`);
-    get(r).then(s=>s.exists()?remove(r):set(r,true));
-  };
-
-  /* SAVE */
-  div.querySelector("[data-save]").onclick=()=>{
-    if(!currentUser) return location.href="auth.html";
-    const r=ref(db,`saved/${currentUser.uid}/${id}`);
-    get(r).then(s=>s.exists()?remove(r):set(r,true));
-  };
-
-  /* SHARE */
-  div.querySelector("[data-share]").onclick=()=>{
-    navigator.share?.({title:v.title,url:`player.html?id=${id}`});
-  };
-
-  /* SUBSCRIBE */
-  const subBtn=div.querySelector(".sub");
-  subBtn.onclick=()=>{
-    if(!currentUser) return location.href="auth.html";
-    const r=ref(db,`subscriptions/${v.channelId}/${currentUser.uid}`);
-    get(r).then(s=>{
-      if(s.exists()){
-        remove(r);
-        subBtn.textContent="S’abonner";
-        subBtn.classList.remove("subbed");
-      }else{
-        set(r,true);
-        subBtn.textContent="Abonné";
-        subBtn.classList.add("subbed");
-      }
-    });
-  };
+function loadComments(){
+ const list=document.getElementById("commentList");
+ const r=ref(db,"shortComments/"+currentShortId);
+ onValue(r,snap=>{
+   list.innerHTML="";
+   snap.forEach(c=>{
+     const d=document.createElement("div");
+     d.className="comment";
+     d.textContent=c.val().text;
+     list.appendChild(d);
+   });
+ });
 }
+
+window.sendComment=async()=>{
+ if(!currentUser) return location.href="auth.html";
+ const text=commentInput.value.trim();
+ if(!text) return;
+ await push(ref(db,"shortComments/"+currentShortId),{
+   text,
+   uid:currentUser.uid,
+   createdAt:Date.now()
+ });
+ commentInput.value="";
+};
 </script>
 
 </body>
