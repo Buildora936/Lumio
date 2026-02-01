@@ -26,9 +26,19 @@ const db = getDatabase(app);
 
 let channelId = null;
 
+// Elements
+const subsElem = document.getElementById("subs");
+const blockedElem = document.getElementById("blocked");
+const panelElem = document.getElementById("panel");
+const ads = document.getElementById("ads");
+const donations = document.getElementById("donations");
+const saveBtn = document.getElementById("saveBtn");
+const certBtn = document.getElementById("certBtn");
+
 onAuthStateChanged(auth, async user => {
   if (!user) return location.href = "auth.html";
 
+  // Récupérer le channel
   const chSnap = await get(ref(db, "userChannels/" + user.uid));
   if (!chSnap.exists()) {
     alert("Créez une chaîne d'abord");
@@ -38,17 +48,20 @@ onAuthStateChanged(auth, async user => {
 
   // Vérifier abonnés
   const subSnap = await get(ref(db, "subscriptions/" + channelId));
-  const subs = subSnap.exists()
-    ? Object.keys(subSnap.val()).length
-    : 0;
-
-  document.getElementById("subs").textContent = subs;
+  const subs = subSnap.exists() ? Object.keys(subSnap.val()).length : 0;
+  subsElem.textContent = subs;
 
   if (subs < 1000) {
-    document.getElementById("blocked").style.display = "block";
-    document.getElementById("panel").style.display = "none";
+    blockedElem.style.display = "block";
+    panelElem.style.display = "none";
+    certBtn.style.display = "none";
     return;
   }
+
+  // Débloquer monétisation et certificat
+  blockedElem.style.display = "none";
+  panelElem.style.display = "block";
+  certBtn.style.display = "block";
 
   // Charger config existante
   const mSnap = await get(ref(db, "monetization/" + channelId));
@@ -59,7 +72,9 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+// Sauvegarder les options
 saveBtn.onclick = async () => {
+  if (!channelId) return;
   await set(ref(db, "monetization/" + channelId), {
     enabled: true,
     ads: ads.checked,
@@ -68,6 +83,14 @@ saveBtn.onclick = async () => {
     createdAt: Date.now()
   });
   alert("Monétisation enregistrée ✅");
+};
+
+// Bouton certificat
+certBtn.onclick = () => {
+  const message = encodeURIComponent(
+    "Bonjour Lumio, je souhaite recevoir mon certificat pour avoir atteint 1000 abonnés sur ma chaîne. 🎉"
+  );
+  window.open(`https://wa.me/50941040511?text=${message}`, "_blank");
 };
 </script>
 
@@ -84,6 +107,9 @@ header{
   display:flex;
   align-items:center;
   padding:0 16px;
+}
+header h3{
+  margin-left:12px;
 }
 main{
   max-width:700px;
@@ -122,6 +148,12 @@ button{
   background:#331111;
   padding:16px;
   border-radius:14px;
+  margin-bottom:16px;
+}
+#certBtn{
+  display:none;
+  background:#1a73e8;
+  margin-top:10px;
 }
 </style>
 </head>
@@ -129,9 +161,8 @@ button{
 <body>
 
 <header>
-  <i class="fa-solid fa-arrow-left"
-     onclick="history.back()"></i>
-  <h3 style="margin-left:12px">Monétisation</h3>
+  <i class="fa-solid fa-arrow-left" onclick="history.back()"></i>
+  <h3>Monétisation</h3>
 </header>
 
 <main>
@@ -140,7 +171,7 @@ button{
     👥 Abonnés actuels : <b id="subs">0</b> / 1000 requis
   </div>
 
-  <div id="blocked" class="blocked" style="display:none">
+  <div id="blocked" class="blocked">
     ❌ Vous devez atteindre <b>1000 abonnés</b> pour activer la monétisation.
   </div>
 
@@ -157,13 +188,11 @@ button{
       <input type="checkbox" id="donations">
     </div>
 
-    <button id="saveBtn">
-      Enregistrer la monétisation
-    </button>
+    <button id="saveBtn">Enregistrer la monétisation</button>
+
+    <button id="certBtn">Demander un certificat 🎓</button>
   </div>
-<div><button id="saveBtn">
-      demander un enlevement
-    </button></div>
+
 </main>
 
 </body>
