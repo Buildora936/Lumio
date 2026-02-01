@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio</title>
+<title>Recherche – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#181818">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -23,7 +23,7 @@ header{
 .left img{width:34px}
 .center{flex:1;display:flex;justify-content:center}
 .center input{
-  width:420px;max-width:60vw;
+  width:420px;max-width:70vw;
   padding:8px 16px;border-radius:20px;
   border:none;background:#202020;color:white
 }
@@ -78,6 +78,7 @@ button{
   overflow:hidden;border:1px solid #262626;
   cursor:pointer;position:relative
 }
+.card.short .thumb{height:220px}
 .thumb{
   height:140px;background:#2a2a2a;
   background-size:cover;background-position:center
@@ -94,9 +95,6 @@ button{
 }
 .badge.mv{background:#ff9800}
 .badge.live{background:#f44336}
-.verified{
-  color:#1da1f2;margin-left:4px;font-size:13px
-}
 
 /* CHANNEL ROW */
 .channel-row{
@@ -108,20 +106,10 @@ button{
 }
 .meta{font-size:12px;color:#aaa}
 
-/* PUB CARD */
-.ad-card{
-  background:#181818;
-  border:1px solid #333;
-  border-radius:14px;
-  padding:10px;
-  text-align:center
-}
-
 /* SKELETON */
 .skeleton{animation:pulse 1.2s infinite}
 @keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 
-/* MOBILE */
 @media(max-width:900px){
   .layout{flex-direction:column;margin-bottom:56px}
   .sidebar{
@@ -130,12 +118,12 @@ button{
     flex-direction:row;justify-content:space-around
   }
   .center{display:none}
-  #searchBtn{display:inline-flex}
 }
 </style>
 </head>
 
 <body>
+
 <header>
   <div class="left">
     <img src="logo_lumio.png">
@@ -145,43 +133,21 @@ button{
     <input id="searchInput" placeholder="Rechercher sur Lumio">
   </div>
   <div class="right">
-    <button id="searchBtn" style="display:none" onclick="location.href='search.html'">
-      <i class="fa fa-search"></i>
-    </button>
-    <button id="notifBtn" style="display:none" onclick="location.href='notification.html'">
-      <i class="fa fa-bell"></i>
-    </button>
-    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'">
-      <i class="fa fa-plus"></i>
-    </button>
-    <button id="startBtn" onclick="location.href='auth.html'">Start</button>
-    <button id="profileBtn" style="display:none" onclick="location.href='profile.html'">
-      <i class="fa fa-user"></i>
-    </button>
+    <button onclick="history.back()"><i class="fa fa-arrow-left"></i></button>
   </div>
 </header>
 
 <div class="layout">
 <nav class="sidebar">
   <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
-  <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
   <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
-  <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
-  <a href="book.html"><i class="fa fa-book"></i><span>Livre</span></a>
   <button onclick="toggleMoreMenu()"><i class="fa fa-ellipsis"></i><span>Plus</span></button>
 </nav>
 
 <div class="more-menu" id="moreMenu">
-  <a href="help.html">Centre d'aide</a>
-  <a href="notification.html">notification</a>
-  <a href="book.html">Livres</a>
-  <a href="library.html">library</a>
-  <a href="live.html">Lives</a>
-  <a href="profile.html">👤 Profil</a>
-  <a href="studio.html">🎬 Studio</a>
-  <a href="analytics.html">📊 Analytics</a>
-  <a href="monetization.html">💰 Monétisation</a>
-  <a href="settings.html">⚙️ Paramètres</a>
+  <a href="profile.html">Profil</a>
+  <a href="studio.html">Studio</a>
+  <a href="settings.html">Paramètres</a>
 </div>
 
 <main class="content">
@@ -189,116 +155,84 @@ button{
 </main>
 </div>
 
-<!-- PUB PRINCIPALE -->
-<div class="ad-card">
-<script>
-atOptions={
-  'key':'34ced6a9c342f10844eedf343e137cfb',
-  'format':'iframe','height':250,'width':300,'params':{}
-};
-</script>
-<script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
-</div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,onValue,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app=initializeApp({
+const app = initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain:"lumio-6efed.firebaseapp.com",
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
 });
-const auth=getAuth(app);
-const db=getDatabase(app);
-const grid=document.getElementById("grid");
+const db = getDatabase(app);
+const grid = document.getElementById("grid");
+const input = document.getElementById("searchInput");
 
-/* AUTH */
-onAuthStateChanged(auth,user=>{
-  if(user){
-    startBtn.style.display="none";
-    notifBtn.style.display="inline-flex";
-    uploadBtn.style.display="inline-flex";
-    profileBtn.style.display="inline-flex";
-    searchBtn.style.display="inline-flex";
-  }
-});
+let allItems=[];
 
-/* Skeleton */
-for(let i=0;i<8;i++){
-  grid.innerHTML+=`
-  <div class="card skeleton">
-    <div class="thumb"></div>
-    <div class="card-body">
-      <div class="title">&nbsp;</div>
-      <div class="meta">&nbsp;</div>
-    </div>
-  </div>`;
-}
+/* LOAD ALL CONTENT */
+(async()=>{
+  const [videos, shorts, lives, channels] = await Promise.all([
+    get(ref(db,"videos")),
+    get(ref(db,"shorts")),
+    get(ref(db,"lives")),
+    get(ref(db,"channels"))
+  ]);
 
-/* ⚡ CACHE */
-const cache = JSON.parse(localStorage.getItem("homeCache")||"null");
-if(cache){
-  render(cache);
-}
-
-/* VIDEOS + LIVES + BADGES + VERIFIED */
-(async function(){
-  const livesSnap = await get(ref(db,"lives"));
-  const videosSnap = await get(ref(db,"videos"));
-  const channelsSnap = await get(ref(db,"channels"));
-  
-  let items=[];
-  
-  /* 🔴 LIVES PRIORITAIRES */
-  if(livesSnap.exists()){
-    Object.entries(livesSnap.val()).forEach(([id,l])=>{
-      items.push({...l,id,type:"live",score:9999});
+  if(videos.exists()){
+    Object.entries(videos.val()).forEach(([id,v])=>{
+      allItems.push({...v,id,type:"video"});
     });
   }
-  
-  /* 🎬 VIDÉOS & MV */
-  if(videosSnap.exists()){
-    Object.entries(videosSnap.val()).forEach(([id,v])=>{
-      const score=(v.views||0)+(Date.now()-v.createdAt<86400000?500:0);
-      items.push({...v,id,type:v.category==="MV"?"mv":"video",score});
+
+  if(shorts.exists()){
+    Object.entries(shorts.val()).forEach(([id,s])=>{
+      allItems.push({...s,id,type:"short"});
     });
   }
-  
-  /* 🤖 TRI INTELLIGENT */
-  items.sort((a,b)=>b.score-a.score);
-  
-  /* ⚡ CACHE SAVE */
-  localStorage.setItem("homeCache",JSON.stringify(items));
-  
-  render(items,channelsSnap);
+
+  if(lives.exists()){
+    Object.entries(lives.val()).forEach(([id,l])=>{
+      allItems.push({...l,id,type:"live"});
+    });
+  }
+
+  render(allItems);
 })();
 
+/* SEARCH */
+input.oninput=()=>{
+  const q=input.value.toLowerCase();
+  const filtered=allItems.filter(i=>
+    i.title?.toLowerCase().includes(q) ||
+    i.channelName?.toLowerCase().includes(q)
+  );
+  render(filtered);
+};
+
 /* RENDER */
-function render(items,channelsSnap){
+function render(items){
   grid.innerHTML="";
   items.forEach(item=>{
-    const ch=channelsSnap?.val()?.[item.channelId]||{};
-    const badge=item.type==="live"?"LIVE":item.type==="mv"?"MV":"";
-    const badgeClass=item.type==="mv"?"mv":item.type==="live"?"live":"";
-    const verified=ch.verified?`<i class="fa fa-check-circle verified"></i>`:"";
+    const badge=item.type==="short"?"MV":item.type==="live"?"LIVE":"";
+    const badgeClass=item.type==="short"?"mv":item.type==="live"?"live":"";
 
     const card=document.createElement("div");
-    card.className="card";
+    card.className="card "+(item.type==="short"?"short":"");
     card.onclick=()=>location.href=
-      item.type==="live"?`live.html?id=${item.id}`:`player.html?id=${item.id}`;
+      item.type==="short"
+        ?`shorts.html?id=${item.id}`
+        :item.type==="live"
+        ?`live.html?id=${item.id}`
+        :`player.html?id=${item.id}`;
 
     card.innerHTML=`
       ${badge?`<div class="badge ${badgeClass}">${badge}</div>`:""}
       <div class="thumb" style="background-image:url('${item.thumbnailBase64||""}')"></div>
       <div class="card-body">
-        <div class="title">${item.title}</div>
-        <div class="channel-row">
-          <img src="${ch.photoURL||v.channelPhoto||'default-channel.png'}">
-          <div class="meta">${ch.name||item.channelName||"Chaîne"} ${verified}</div>
-        </div>
+        <div class="title">${item.title||""}</div>
+        <div class="meta">${item.channelName||""}</div>
       </div>`;
     grid.appendChild(card);
   });
@@ -311,4 +245,3 @@ window.toggleMoreMenu=()=>{
 
 </body>
 </html>
- 
