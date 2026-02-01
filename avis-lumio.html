@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Avis sur Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#181818">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:#181818;color:white}
+
+/* HEADER */
+header{
+  height:56px;
+  background:#0f0f0f;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 14px;
+}
+header img{width:34px}
+header h1{font-size:18px}
+
+/* CONTAINER */
+.container{
+  max-width:700px;
+  margin:auto;
+  padding:16px;
+}
+
+/* FORM */
+.form{
+  background:#202020;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:16px;
+}
+.form textarea{
+  width:100%;
+  min-height:90px;
+  background:#181818;
+  border:none;
+  border-radius:10px;
+  padding:10px;
+  color:white;
+  resize:none;
+}
+.form button{
+  margin-top:10px;
+  background:#ff9800;
+  border:none;
+  color:black;
+  padding:10px 16px;
+  border-radius:20px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+/* COMMENT */
+.comment{
+  background:#202020;
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:12px;
+}
+.comment .author{
+  font-weight:600;
+  margin-bottom:4px;
+}
+.comment .date{
+  font-size:12px;
+  color:#aaa;
+  margin-top:6px;
+}
+
+/* PUB */
+.ad-card{
+  background:#181818;
+  border:1px solid #333;
+  border-radius:14px;
+  padding:10px;
+  margin:16px 0;
+  text-align:center;
+}
+
+/* SKELETON */
+.skeleton{
+  animation:pulse 1.2s infinite;
+}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <img src="logo_lumio.png">
+  <h1>Avis sur Lumio</h1>
+</header>
+
+<div class="container">
+
+  <!-- FORM -->
+  <div class="form">
+    <textarea id="message" placeholder="Votre avis sur Lumio..."></textarea>
+    <button onclick="sendAvis()">Publier</button>
+  </div>
+
+  <!-- PUB -->
+  <div class="ad-card">
+    <script>
+      atOptions={
+        'key':'34ced6a9c342f10844eedf343e137cfb',
+        'format':'iframe',
+        'height':250,
+        'width':300,
+        'params':{}
+      };
+    </script>
+    <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>
+  </div>
+
+  <!-- COMMENTS -->
+  <div id="comments"></div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,push,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+
+const auth=getAuth(app);
+const db=getDatabase(app);
+const commentsDiv=document.getElementById("comments");
+
+let currentUser=null;
+
+/* AUTH */
+onAuthStateChanged(auth,u=>currentUser=u);
+
+/* SEND */
+window.sendAvis=()=>{
+  const msg=message.value.trim();
+  if(!msg) return;
+
+  push(ref(db,"avis-lumio"),{
+    message:msg,
+    author:currentUser?.displayName||"Anonyme",
+    uid:currentUser?.uid||null,
+    createdAt:Date.now()
+  });
+
+  message.value="";
+};
+
+/* LOAD */
+onValue(ref(db,"avis-lumio"),snap=>{
+  commentsDiv.innerHTML="";
+  const data=snap.val()||{};
+  Object.values(data)
+    .sort((a,b)=>b.createdAt-a.createdAt)
+    .forEach(a=>{
+      const div=document.createElement("div");
+      div.className="comment";
+      div.innerHTML=`
+        <div class="author">${a.author}</div>
+        <div>${a.message}</div>
+        <div class="date">${new Date(a.createdAt).toLocaleString()}</div>
+      `;
+      commentsDiv.appendChild(div);
+    });
+});
+</script>
+
+</body>
+</html>
