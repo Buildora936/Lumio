@@ -2,207 +2,249 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lecture vidéo – Lumio</title>
+<title>Lecture – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui;}
-body{background:#181818;color:white;}
+*{box-sizing:border-box;font-family:system-ui}
+body{margin:0;background:#181818;color:white}
 
-header{
-  height:56px;background:#0f0f0f;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;
-}
-header h1{font-size:18px}
-header button{background:#202020;color:white;border:none;padding:6px 12px;border-radius:12px;}
+main{max-width:1100px;margin:auto;padding:16px}
 
-/* LECTEUR */
-.video-container{
-  max-width:900px;margin:60px auto 20px auto;
-  padding:0 16px;
+/* VIDEO */
+.video-box{
+  width:100%;
+  background:black;
+  border-radius:16px;
+  overflow:hidden;
 }
 video{
-  width:100%;border-radius:14px;background:#000;
+  width:100%;
+  max-height:65vh;
+  background:black;
 }
 
-/* INFOS VIDEO */
-.video-info{
-  margin-top:12px;padding:10px;
-  background:#0f0f0f;border-radius:14px;
-}
-.video-info h2{font-size:18px;margin-bottom:6px;}
-.video-info p{font-size:14px;color:#aaa;margin-bottom:6px;}
+/* INFOS */
+.video-info{margin-top:12px}
+.title{font-size:20px;font-weight:700}
 
-/* CHANNEL ROW */
-.channel-row{
-  display:flex;align-items:center;gap:12px;margin-bottom:10px;
+/* CHANNEL */
+.channel{
+  display:flex;align-items:center;gap:12px;
+  margin:12px 0;
 }
-.channel-row img{width:40px;height:40px;border-radius:50%;object-fit:cover;}
-.channel-row .name{font-weight:600;font-size:14px;}
-.subscribe-btn{
-  margin-left:auto;padding:8px 14px;
-  border:none;border-radius:20px;
+.channel img{
+  width:48px;height:48px;border-radius:50%
+}
+.subscribe{
+  margin-left:auto;
+  background:#ff9800;
+  border:none;
+  padding:8px 16px;
+  border-radius:20px;
   font-weight:700;
   cursor:pointer;
-  background:#ff9800;color:black;
-  transition:0.3s;
 }
-.subscribe-btn.subscribed{background:#fff;color:black;}
+.subscribe.subbed{
+  background:white;
+  color:black;
+}
 
 /* ACTIONS */
 .actions{
-  display:flex;gap:16px;margin-top:10px;
+  display:flex;gap:18px;margin:12px 0
 }
 .actions button{
-  background:#202020;color:white;
-  border:none;padding:8px 12px;border-radius:12px;
-  cursor:pointer;display:flex;align-items:center;gap:6px;
+  background:none;border:none;
+  color:white;cursor:pointer;
+  font-size:18px;
+}
+
+/* LAYOUT */
+.layout{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:16px;
+}
+
+/* LISTS */
+.list h3{margin:8px 0}
+.card{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+  cursor:pointer;
+}
+.thumb{
+  width:160px;
+  height:90px;
+  background:#333;
+  border-radius:10px;
+  background-size:cover;
+}
+.meta{font-size:13px;color:#aaa}
+
+/* SHORTS */
+.short .thumb{
+  width:100px;
+  height:180px;
 }
 
 /* SKELETON */
 .skeleton{
-  background:#222;
-  border-radius:14px;
-  height:20px;
-  margin-bottom:6px;
   animation:pulse 1.2s infinite;
+  background:#2a2a2a;
 }
-@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
 
-/* PUB CARD */
-.ad-card{
-  background:#181818;border:1px solid #333;
-  border-radius:14px;padding:10px;text-align:center;margin:16px 0;
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
 }
 </style>
 </head>
+
 <body>
 
-<header>
-  <button onclick="history.back()"><i class="fa fa-arrow-left"></i></button>
-  <h1>Lecture vidéo</h1>
-  <button onclick="location.href='index.html'">Accueil</button>
-</header>
+<main>
+<div class="layout">
 
-<div class="video-container">
-  <!-- Skeleton loading -->
-  <div id="videoSkeleton" class="skeleton" style="height:360px;"></div>
-  <div class="video-info" id="infoSkeleton">
-    <div class="skeleton" style="width:60%"></div>
-    <div class="skeleton" style="width:40%"></div>
-    <div class="skeleton" style="width:30%"></div>
+<!-- LEFT -->
+<div>
+  <div class="video-box skeleton" id="videoSkeleton"></div>
+
+  <div class="video-info">
+    <div class="title skeleton" style="height:22px;width:70%"></div>
+
+    <div class="channel">
+      <img id="chImg" class="skeleton">
+      <div>
+        <div id="chName" class="skeleton" style="width:120px;height:14px"></div>
+      </div>
+      <button id="subBtn" class="subscribe">S’abonner</button>
+    </div>
+
+    <div class="actions">
+      <button id="likeBtn"><i class="fa fa-thumbs-up"></i></button>
+      <button id="dislikeBtn"><i class="fa fa-thumbs-down"></i></button>
+      <button id="favBtn"><i class="fa fa-heart"></i></button>
+      <button id="shareBtn"><i class="fa fa-share"></i></button>
+      <button id="laterBtn"><i class="fa fa-clock"></i></button>
+    </div>
   </div>
 </div>
 
+<!-- RIGHT -->
+<div>
+  <div class="list" id="nextList">
+    <h3>À regarder ensuite</h3>
+  </div>
+
+  <div class="list" id="shortList">
+    <h3>Shorts</h3>
+  </div>
+</div>
+
+</div>
+</main>
+
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,get,update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import {
+ getAuth,onAuthStateChanged
+} from
+"https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import {
+ getDatabase,ref,get,set,remove
+} from
+"https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app=initializeApp({
-  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
-  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId:"lumio-6efed"
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
 });
+
 const auth=getAuth(app);
 const db=getDatabase(app);
 
-let videoId=(new URLSearchParams(location.search)).get("id");
+const id=new URLSearchParams(location.search).get("id");
 let currentUser=null;
+let channelId=null;
 
-// Auth
-onAuthStateChanged(auth,user=>{
-  if(user) currentUser=user;
-});
+/* AUTH */
+onAuthStateChanged(auth,u=>currentUser=u);
 
-// Utils Base64 → URL
-const base64ToBlobURL=base64=>{
-  const [header,data]=base64.split(",");
-  const mime=header.match(/:(.*?);/)[1];
-  const binary=atob(data);
-  const array=Uint8Array.from(binary,c=>c.charCodeAt(0));
-  return URL.createObjectURL(new Blob([array],{type:mime}));
-};
+/* LOAD VIDEO */
+(async()=>{
+ const snap=await get(ref(db,"videos/"+id));
+ if(!snap.exists()) return;
 
-(async function(){
-  const snap=await get(ref(db,"videos/"+videoId));
-  if(!snap.exists()){alert("Vidéo introuvable");return;}
-  const v=snap.val();
+ const v=snap.val();
+ channelId=v.channelId;
 
-  // VIDEO
-  const videoEl=document.createElement("video");
-  videoEl.src=base64ToBlobURL(v.videoURL);
-  videoEl.controls=true;
-  videoEl.autoplay=true;
-  videoEl.playsInline=true;
+ // video
+ const video=document.createElement("video");
+ video.controls=true;
+ video.src=v.videoURL;
+ document.getElementById("videoSkeleton").replaceWith(video);
 
-  const container=document.querySelector(".video-container");
-  document.getElementById("videoSkeleton").remove();
-  container.prepend(videoEl);
+ // title
+ document.querySelector(".title").textContent=v.title;
+ document.querySelector(".title").classList.remove("skeleton");
 
-  // INFOS VIDEO
-  const infoDiv=document.createElement("div");
-  infoDiv.className="video-info";
-  infoDiv.innerHTML=`
-    <h2>${v.title}</h2>
-    <p>${v.description||""}</p>
-    <div class="channel-row">
-      <img src="${v.channelPhotoURL||'default-channel.png'}">
-      <span class="name">${v.channelName||"Chaîne"}</span>
-      <button id="subscribeBtn" class="subscribe-btn">S'abonner</button>
-    </div>
-    <div class="actions">
-      <button id="likeBtn"><i class="fa fa-thumbs-up"></i> ${v.likes||0}</button>
-      <button id="dislikeBtn"><i class="fa fa-thumbs-down"></i></button>
-      <button id="favBtn"><i class="fa fa-star"></i></button>
-      <button id="shareBtn"><i class="fa fa-share"></i></button>
-    </div>
-  `;
-  document.getElementById("infoSkeleton").remove();
-  container.appendChild(infoDiv);
+ // channel
+ const ch=await get(ref(db,"channels/"+channelId));
+ const c=ch.val();
+ chImg.src=c.photoURL;
+ chName.textContent=c.name;
+ chImg.classList.remove("skeleton");
+ chName.classList.remove("skeleton");
 
-  // SUBSCRIBE
-  const subBtn=document.getElementById("subscribeBtn");
-  const subRef=ref(db,"subscriptions/"+(currentUser?.uid||"")+"/"+v.channelId);
-  if(currentUser){
-    const s=await get(subRef);
-    if(s.exists()) subBtn.classList.add("subscribed"),subBtn.textContent="Abonné";
-  }
-
-  subBtn.onclick=async()=>{
-    if(!currentUser){alert("Connecte-toi !");return;}
-    const path="subscriptions/"+currentUser.uid+"/"+v.channelId;
-    if(subBtn.classList.contains("subscribed")){
-      await update(ref(db,path),null);
-      subBtn.classList.remove("subscribed");
-      subBtn.textContent="S'abonner";
-    }else{
-      await update(ref(db,path),true);
-      subBtn.classList.add("subscribed");
-      subBtn.textContent="Abonné";
-    }
-  };
-
-  // LIKE / DISLIKE
-  const likeBtn=document.getElementById("likeBtn");
-  likeBtn.onclick=async()=>{
-    if(!currentUser){alert("Connecte-toi !");return;}
-    const likeRef=ref(db,"videoLikes/"+videoId+"/"+currentUser.uid);
-    const snap=await get(likeRef);
-    if(snap.exists()){
-      await update(likeRef,null);
-      v.likes--;likeBtn.textContent=`${v.likes}`;
-    }else{
-      await update(likeRef,true);
-      v.likes++;likeBtn.textContent=`${v.likes}`;
-    }
-  };
-
+ loadSubscribe();
+ loadNext();
+ loadShorts();
 })();
-</script>
 
-</body>
-</html>
+/* SUBSCRIBE */
+async function loadSubscribe(){
+ if(!currentUser) return;
+ const sRef=ref(db,`subscriptions/${currentUser.uid}/${channelId}`);
+ const snap=await get(sRef);
+ if(snap.exists()){
+   subBtn.classList.add("subbed");
+   subBtn.textContent="Abonné";
+ }
+ subBtn.onclick=async()=>{
+  if(!currentUser) return location.href="auth.html";
+  if(subBtn.classList.contains("subbed")){
+    await remove(sRef);
+    subBtn.classList.remove("subbed");
+    subBtn.textContent="S’abonner";
+  }else{
+    await set(sRef,true);
+    subBtn.classList.add("subbed");
+    subBtn.textContent="Abonné";
+  }
+ };
+}
+
+/* NEXT VIDEOS */
+async function loadNext(){
+ const snap=await get(ref(db,"videos"));
+ snap.forEach(c=>{
+  if(c.key===id) return;
+  const v=c.val();
+  const div=document.createElement("div");
+  div.className="card";
+  div.onclick=()=>location.href=`player.html?id=${c.key}`;
+  div.innerHTML=`
+   <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></
