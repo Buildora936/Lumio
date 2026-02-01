@@ -5,7 +5,6 @@
 <title>Publier MV – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Font Awesome pour icônes -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
@@ -26,186 +25,214 @@ const app = initializeApp({
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let channelId = null;
-let channelName = "";
-let channelPhotoURL = "";
+let channelId=null, channelName="", channelPhotoURL="";
 
-onAuthStateChanged(auth, async user => {
-  if (!user){
-    location.href = "auth.html";
-    return;
-  }
+onAuthStateChanged(auth, async user=>{
+  if(!user){ location.href="auth.html"; return; }
+
+  const uc = await get(ref(db,"userChannels/"+user.uid));
+  if(!uc.exists()){ location.href="add-channel.html"; return; }
+
+  channelId = uc.val();
+
+  const ch = await get(ref(db,"channels/"+channelId));
+  const c = ch.val();
+  channelName = c.name;
+  channelPhotoURL = c.photoURL;
+});
+
+// base64 AVEC PROGRESSION
+const toBase64Progress = (file, cb)=>new Promise((res,rej)=>{
+  const r=new FileReader();
+  r.onprogress=e=>{
+    if(e.lengthComputable){
+      cb(Math.round((e.loaded/e.total)*100));
+    }
+  };
+  r.onload=()=>res(r.result);
+  r.onerror=e=>rej(e);
+  r.readAsDataURL(file);
+});
+
+window.onload=()=>{
+ const form=document.getElementById("uploadForm");
+ const bar=document.getElementById("bar");
+ const status=document.getElementById("status");
+ const btn=document.getElementById("submitBtn");
+
+ form.onsubmit=async e=>{
+  e.preventDefault();
+
+  const title=titleInput.value.trim();
+  const description=descriptionInput.value.trim();
+  const video=videoInput.files[0];
+  const thumb=thumbnailInput.files[0];
+  const allowComments=comments.checked;
+
+  if(!title||!video||!thumb){ alert("Champs manquants"); return; }
+
+  btn.disabled=true;
+  status.textContent="Encodage du short…";
 
   try{
-    // ✅ récupérer le channel via userChannels (architecture correcte)
-    const userChannelSnap = await get(ref(db, "userChannels/" + user.uid));
-    if(!userChannelSnap.exists()){
-      location.href = "add-channel.html";
-      return;
-    }
+    let vProgress=0, tProgress=0;
 
-    channelId = userChannelSnap.val();
+    const videoBase64 = await toBase64Progress(video,p=>{
+      vProgress=p;
+      bar.style.width=((vProgress+tProgress)/2)+"%";
+    });
 
-    // ✅ récupérer infos du channel
-    const channelSnap = await get(ref(db, "channels/" + channelId));
-    if(!channelSnap.exists()) throw new Error("Chaîne introuvable");
+    status.textContent="Encodage de la miniature…";
 
-    const channel = channelSnap.val();
-    channelName = channel.name;
-    channelPhotoURL = channel.photoURL;
+    const thumbBase64 = await toBase64Progress(thumb,p=>{
+      tProgress=p;
+      bar.style.width=((vProgress+tProgress)/2)+"%";
+    });
+
+    status.textContent="Publication sur Lumio…";
+    bar.style.width="90%";
+
+    const refShort=push(ref(db,"shorts"));
+
+    await set(refShort,{
+      type:"short",
+      title,
+      description,
+      videoURL: videoBase64,
+      thumbnailBase64: thumbBase64,
+
+      channelId,
+      channelName,
+      channelPhotoURL,
+
+      allowComments,
+      createdAt:Date.now(),
+      views:0,
+      likes:0
+    });
+
+    await set(ref(db,`channels/${channelId}/shorts/${refShort.key}`),true);
+
+    bar.style.width="100%";
+    status.textContent="Short publié avec succès ✔";
+
+    setTimeout(()=>location.href="index.html",1200);
 
   }catch(err){
     console.error(err);
     alert(err.message);
+    btn.disabled=false;
   }
-});
-
-// util base64
-const toBase64 = file => new Promise((res, rej)=>{
-  const r = new FileReader();
-  r.onload = ()=>res(r.result);
-  r.onerror = e=>rej(e);
-  r.readAsDataURL(file);
-});
-
-window.onload = ()=>{
-  const form = document.getElementById("uploadForm");
-
-  form.onsubmit = async e =>{
-    e.preventDefault();
-
-    const title = document.getElementById("title").value.trim();
-    const description = document.getElementById("description").value.trim();
-    const video = document.getElementById("video").files[0];
-    const thumb = document.getElementById("thumbnail").files[0];
-    const allowComments = document.getElementById("comments").checked;
-
-    if(!title || !video || !thumb){
-      alert("Champs manquants");
-      return;
-    }
-
-    try{
-      const videoBase64 = await toBase64(video);
-      const thumbBase64 = await toBase64(thumb);
-
-      const refVid = push(ref(db,"videos"));
-
-      await set(refVid,{
-        type: "mv",
-        title,
-        description,
-        videoBase64,
-        thumbnailBase64: thumbBase64,
-
-        // ✅ infos channel embarquées
-        channelId,
-        channelName,
-        channelPhotoURL,
-
-        category: "MV",
-        allowComments,
-        createdAt: Date.now(),
-        views: 0,
-        likes: 0
-      });
-
-      // référence dans la chaîne (utile plus tard)
-      await set(ref(db,`channels/${channelId}/videos/${refVid.key}`), true);
-
-      alert("MV publié avec succès !");
-      location.href = "index.html";
-
-    }catch(err){
-      console.error(err);
-      alert(err.message);
-    }
-  };
+ };
 };
 </script>
 
 <style>
 *{box-sizing:border-box}
 body{
-  margin:0;
-  font-family:system-ui,-apple-system,BlinkMacSystemFont;
-  background:#181818;
-  color:white;
+ margin:0;
+ font-family:system-ui;
+ background:#181818;
+ color:white;
 }
 
 /* HEADER */
 header{
-  position:fixed; top:0; left:0; right:0; height:56px;
-  background:#0f0f0f; display:flex; align-items:center; justify-content:space-between;
-  padding:0 16px; z-index:10;
+ position:fixed;top:0;left:0;right:0;height:56px;
+ background:#0f0f0f;
+ display:flex;align-items:center;justify-content:space-between;
+ padding:0 16px;z-index:10;
 }
-header h1{font-size:20px; font-weight:600;}
-header button{background:#202020; color:white; border:none; padding:6px 12px; border-radius:12px; cursor:pointer;}
+header h1{font-size:20px}
+header button{
+ background:#202020;color:white;border:none;
+ padding:6px 12px;border-radius:12px;
+}
 
 /* CONTENT */
 main{
-  margin-top:72px;
-  padding:16px;
-  max-width:600px;
-  margin-left:auto;
-  margin-right:auto;
+ margin-top:72px;
+ padding:16px;
+ max-width:600px;
+ margin:auto;
 }
 
-form{display:flex; flex-direction:column; gap:16px;}
-label{font-weight:600;}
-input, textarea{
-  padding:8px;
-  border-radius:10px;
-  border:none;
-  outline:none;
-  width:100%;
-  background:#222;
-  color:white;
+form{display:flex;flex-direction:column;gap:16px}
+label{font-weight:600}
+input,textarea{
+ padding:8px;border-radius:10px;
+ border:none;background:#222;color:white;
 }
-textarea{resize:none; height:100px;}
+textarea{height:100px;resize:none}
+
 button.submit-btn{
-  background:#ff8800;
-  color:white;
-  border:none;
-  padding:12px;
-  border-radius:20px;
-  font-weight:600;
-  cursor:pointer;
+ background:#ff8800;
+ color:white;border:none;
+ padding:12px;border-radius:20px;
+ font-weight:600;
+ cursor:pointer;
 }
-button.submit-btn:hover{background:#ffa633;}
+button.submit-btn:disabled{
+ opacity:.6;cursor:not-allowed;
+}
+
+/* PROGRESS */
+.progress{
+ height:8px;
+ background:#222;
+ border-radius:20px;
+ overflow:hidden;
+ margin-top:10px;
+}
+.progress div{
+ height:100%;
+ width:0%;
+ background:#ff8800;
+ transition:.2s;
+}
+.status{
+ font-size:13px;
+ margin-top:6px;
+ color:#aaa;
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>Publier un MV</h1>
-  <button onclick="location.href='index.html'">
-    <i class="fa-solid fa-arrow-left"></i>
-  </button>
+ <h1>Publier un MV</h1>
+ <button onclick="location.href='index.html'">
+  <i class="fa-solid fa-arrow-left"></i>
+ </button>
 </header>
 
 <main>
-  <form id="uploadForm">
-    <label for="title">Titre</label>
-    <input id="title" type="text" placeholder="Titre du MV" required>
+ <form id="uploadForm">
 
-    <label for="description">Description</label>
-    <textarea id="description" placeholder="Description du MV"></textarea>
+  <label>Titre</label>
+  <input id="titleInput" placeholder="Titre du short">
 
-    <label for="thumbnail">Thumbnail (image)</label>
-    <input id="thumbnail" type="file" accept="image/*" required>
+  <label>Description</label>
+  <textarea id="descriptionInput" placeholder="Description du short"></textarea>
 
-    <label for="video">Vidéo (MP4 depuis la galerie)</label>
-    <input id="video" type="file" accept="video/*" required>
+  <label>Thumbnail</label>
+  <input id="thumbnailInput" type="file" accept="image/*">
 
-    <label>
-      <input id="comments" type="checkbox" checked>
-      Autoriser les commentaires
-    </label>
+  <label>Vidéo verticale (Short)</label>
+  <input id="videoInput" type="file" accept="video/*">
 
-    <button class="submit-btn" type="submit">Publier</button>
-  </form>
+  <label>
+   <input id="comments" type="checkbox" checked>
+   Autoriser les commentaires
+  </label>
+
+  <button id="submitBtn" class="submit-btn">Publier</button>
+
+  <div class="progress"><div id="bar"></div></div>
+  <div class="status" id="status"></div>
+
+ </form>
 </main>
 
 </body>
