@@ -142,12 +142,12 @@ video{
 
 <!-- RIGHT -->
 <div>
+ <div class="list" id="shortList">
+    <h3>Shorts</h3>
+  </div>
+  
   <div class="list" id="nextList">
     <h3>À regarder ensuite</h3>
-  </div>
-
-  <div class="list" id="shortList">
-    <h3>Shorts</h3>
   </div>
 </div>
 
@@ -247,4 +247,31 @@ async function loadNext(){
   div.className="card";
   div.onclick=()=>location.href=`player.html?id=${c.key}`;
   div.innerHTML=`
-   <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></
+   <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+   <div>
+    <div>${v.title}</div>
+    <div class="meta">${v.channelName}</div>
+   </div>`;
+  nextList.appendChild(div);
+ });
+}
+
+/* SHORTS */
+async function loadShorts(){
+ const snap=await get(ref(db,"videos"));
+ snap.forEach(c=>{
+  const v=c.val();
+  if(v.category!=="MV") return;
+  const div=document.createElement("div");
+  div.className="card short";
+  div.onclick=()=>location.href=`player.html?id=${c.key}`;
+  div.innerHTML=`
+   <div class="thumb" style="background-image:url('${v.thumbnailBase64}')"></div>
+   <div class="meta">${v.title}</div>`;
+  shortList.appendChild(div);
+ });
+}
+</script>
+
+</body>
+</html>
