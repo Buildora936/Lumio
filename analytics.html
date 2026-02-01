@@ -21,9 +21,12 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+const CPM = 1.3; // $1.30 / 1000 vues
+const TAX_PER_MONTH = 0.5; // Taxe mensuelle pour utilisateur monétisé
+
 onAuthStateChanged(auth, async user => {
   if(!user){
-    location.href = "login.html";
+    location.href = "auth.html";
     return;
   }
 
@@ -34,7 +37,7 @@ onAuthStateChanged(auth, async user => {
   const likesSnap = await get(ref(db, "likes"));
   const subsSnap = await get(ref(db, "subscriptions"));
   const donationsSnap = await get(ref(db, "donations"));
-  const booksSnap = await get(ref(db, "booksSales"));
+  const monetizedSnap = await get(ref(db, "monetizedUsers"));
 
   let totalViews = 0;
   let totalVideos = 0;
@@ -44,10 +47,11 @@ onAuthStateChanged(auth, async user => {
 
   let pubRevenue = 0;
   let donationRevenue = 0;
-  let booksRevenue = 0;
+  let tax = 0;
 
   const videoTable = document.getElementById("videoTable");
 
+  // ✅ Parcourir vidéos
   if(videosSnap.exists()){
     Object.entries(videosSnap.val()).forEach(([id,v])=>{
       if(v.channelId === uid){
@@ -60,9 +64,9 @@ onAuthStateChanged(auth, async user => {
         totalLikes += likes;
         totalComments += comments;
 
-        // PUB: 60% créateur
-        const pub = (v.views || 0) * 0.002 * 0.6;
-        pubRevenue += pub;
+        // Pub revenue avec CPM
+        const videoRevenue = (v.views || 0) * (CPM / 1000);
+        pubRevenue += videoRevenue;
 
         const row = document.createElement("tr");
         row.innerHTML = `
@@ -70,35 +74,35 @@ onAuthStateChanged(auth, async user => {
           <td>${v.views || 0}</td>
           <td>${likes}</td>
           <td>${comments}</td>
-          <td>$${pub.toFixed(2)}</td>
+          <td>$${videoRevenue.toFixed(2)}</td>
         `;
         videoTable.appendChild(row);
       }
     });
   }
 
+  // ✅ Abonnés
   if(subsSnap.exists() && subsSnap.val()[uid]){
     totalSubs = Object.keys(subsSnap.val()[uid]).length;
   }
 
+  // ✅ Donations
   if(donationsSnap.exists()){
     Object.values(donationsSnap.val()).forEach(d=>{
       if(d.channelId === uid){
-        donationRevenue += d.amount * 0.9;
+        donationRevenue += d.amount * 0.9; // 10% fee
       }
     });
   }
 
-  if(booksSnap.exists()){
-    Object.values(booksSnap.val()).forEach(b=>{
-      if(b.channelId === uid){
-        booksRevenue += 0.99;
-      }
-    });
+  // ✅ Taxe mensuelle
+  if(monetizedSnap.exists() && monetizedSnap.val()[uid]){
+    tax = TAX_PER_MONTH;
   }
 
-  const totalRevenue = pubRevenue + donationRevenue + booksRevenue;
+  const totalRevenue = pubRevenue + donationRevenue - tax;
 
+  // Affichage stats
   document.getElementById("views").innerText = totalViews;
   document.getElementById("videos").innerText = totalVideos;
   document.getElementById("subs").innerText = totalSubs;
@@ -108,7 +112,7 @@ onAuthStateChanged(auth, async user => {
 
   document.getElementById("revPub").innerText = "$" + pubRevenue.toFixed(2);
   document.getElementById("revDon").innerText = "$" + donationRevenue.toFixed(2);
-  document.getElementById("revBooks").innerText = "$" + booksRevenue.toFixed(2);
+  document.getElementById("tax").innerText = "-$" + tax.toFixed(2);
 });
 </script>
 
@@ -124,6 +128,7 @@ header{
   font-size:22px;
   font-weight:600;
 }
+
 .stats{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
@@ -181,13 +186,13 @@ th{
   <div class="card"><span>Abonnés</span><h2 id="subs">0</h2></div>
   <div class="card"><span>Likes</span><h2 id="likes">0</h2></div>
   <div class="card"><span>Commentaires</span><h2 id="comments">0</h2></div>
-  <div class="card"><span>Revenus</span><h2 id="revenue">$0</h2></div>
+  <div class="card"><span>Revenus totaux</span><h2 id="revenue">$0</h2></div>
 </div>
 
 <div class="revenue">
-  <div>📺 Pub : <b id="revPub">$0</b></div>
-  <div>❤️ Dons : <b id="revDon">$0</b></div>
-  <div>📚 Livres : <b id="revBooks">$0</b></div>
+  <div>📺 Revenus CPM : <b id="revPub">$0</b></div>
+  <div>❤️ Revenus dons : <b id="revDon">$0</b></div>
+  <div>💰 Taxe mensuelle : <b id="tax">-$0</b></div>
 </div>
 
 <table>
@@ -197,7 +202,7 @@ th{
       <th>Vues</th>
       <th>Likes</th>
       <th>Commentaires</th>
-      <th>Revenu</th>
+      <th>Revenu pub</th>
     </tr>
   </thead>
   <tbody id="videoTable"></tbody>
