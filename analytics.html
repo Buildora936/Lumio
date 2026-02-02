@@ -21,98 +21,84 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const CPM = 1.3; // $1.30 / 1000 vues
-const TAX_PER_MONTH = 0.5; // Taxe mensuelle pour utilisateur monétisé
-
 onAuthStateChanged(auth, async user => {
   if(!user){
-    location.href = "auth.html";
+    location.href="auth.html";
     return;
   }
 
   const uid = user.uid;
 
   const videosSnap = await get(ref(db, "videos"));
-  const commentsSnap = await get(ref(db, "comments"));
   const likesSnap = await get(ref(db, "likes"));
+  const commentsSnap = await get(ref(db, "comments"));
   const subsSnap = await get(ref(db, "subscriptions"));
-  const donationsSnap = await get(ref(db, "donations"));
-  const monetizedSnap = await get(ref(db, "monetizedUsers"));
+  const mSnap = await get(ref(db, "monetization/" + uid));
 
   let totalViews = 0;
   let totalVideos = 0;
   let totalLikes = 0;
   let totalComments = 0;
   let totalSubs = 0;
-
+  let revenue = 0;
   let pubRevenue = 0;
-  let donationRevenue = 0;
-  let tax = 0;
+
+  // Vérifier abonnés
+  if(subsSnap.exists() && subsSnap.val()[uid]){
+    totalSubs = Object.keys(subsSnap.val()[uid]).length;
+  }
+
+  // Vérifier monétisation
+  const monetized = mSnap.exists() && mSnap.val().enabled && totalSubs >= 1000;
 
   const videoTable = document.getElementById("videoTable");
 
-  // ✅ Parcourir vidéos
   if(videosSnap.exists()){
-    Object.entries(videosSnap.val()).forEach(([id,v])=>{
+    Object.entries(videosSnap.val()).forEach(([id, v])=>{
       if(v.channelId === uid){
         totalVideos++;
         totalViews += v.views || 0;
 
-        const likes = likesSnap.exists() && likesSnap.val()[id] ? Object.keys(likesSnap.val()[id]).length : 0;
+        const likes = likesSnap.exists() && likesSnap.val()[id] && likesSnap.val()[id][uid] ? Object.keys(likesSnap.val()[id]).length : 0;
         const comments = commentsSnap.exists() && commentsSnap.val()[id] ? Object.keys(commentsSnap.val()[id]).length : 0;
 
         totalLikes += likes;
         totalComments += comments;
 
-        // Pub revenue avec CPM
-        const videoRevenue = (v.views || 0) * (CPM / 1000);
-        pubRevenue += videoRevenue;
+        if(monetized){
+          // 1,3$/1000 vues
+          const rev = ((v.views || 0)/1000) * 1.3;
+          pubRevenue += rev;
 
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${v.title}</td>
-          <td>${v.views || 0}</td>
-          <td>${likes}</td>
-          <td>${comments}</td>
-          <td>$${videoRevenue.toFixed(2)}</td>
-        `;
-        videoTable.appendChild(row);
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${v.title}</td>
+            <td>${v.views || 0}</td>
+            <td>${likes}</td>
+            <td>${comments}</td>
+            <td>$${rev.toFixed(2)}</td>
+          `;
+          videoTable.appendChild(row);
+        }
       }
     });
   }
 
-  // ✅ Abonnés
-  if(subsSnap.exists() && subsSnap.val()[uid]){
-    totalSubs = Object.keys(subsSnap.val()[uid]).length;
-  }
+  revenue = monetized ? (pubRevenue - 0.5) : 0; // taxe mensuelle 0,5$
+  if(revenue < 0) revenue = 0;
 
-  // ✅ Donations
-  if(donationsSnap.exists()){
-    Object.values(donationsSnap.val()).forEach(d=>{
-      if(d.channelId === uid){
-        donationRevenue += d.amount * 0.9; // 10% fee
-      }
-    });
-  }
-
-  // ✅ Taxe mensuelle
-  if(monetizedSnap.exists() && monetizedSnap.val()[uid]){
-    tax = TAX_PER_MONTH;
-  }
-
-  const totalRevenue = pubRevenue + donationRevenue - tax;
-
-  // Affichage stats
   document.getElementById("views").innerText = totalViews;
   document.getElementById("videos").innerText = totalVideos;
   document.getElementById("subs").innerText = totalSubs;
   document.getElementById("likes").innerText = totalLikes;
   document.getElementById("comments").innerText = totalComments;
-  document.getElementById("revenue").innerText = "$" + totalRevenue.toFixed(2);
 
-  document.getElementById("revPub").innerText = "$" + pubRevenue.toFixed(2);
-  document.getElementById("revDon").innerText = "$" + donationRevenue.toFixed(2);
-  document.getElementById("tax").innerText = "-$" + tax.toFixed(2);
+  if(monetized){
+    document.getElementById("revenue").innerText = "$" + revenue.toFixed(2);
+    document.getElementById("revenuePanel").style.display = "flex";
+  } else {
+    document.getElementById("revenuePanel").style.display = "none";
+  }
 });
 </script>
 
@@ -128,7 +114,6 @@ header{
   font-size:22px;
   font-weight:600;
 }
-
 .stats{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
@@ -186,13 +171,11 @@ th{
   <div class="card"><span>Abonnés</span><h2 id="subs">0</h2></div>
   <div class="card"><span>Likes</span><h2 id="likes">0</h2></div>
   <div class="card"><span>Commentaires</span><h2 id="comments">0</h2></div>
-  <div class="card"><span>Revenus totaux</span><h2 id="revenue">$0</h2></div>
 </div>
 
-<div class="revenue">
-  <div>📺 Revenus CPM : <b id="revPub">$0</b></div>
-  <div>❤️ Revenus dons : <b id="revDon">$0</b></div>
-  <div>💰 Taxe mensuelle : <b id="tax">-$0</b></div>
+<div class="revenue" id="revenuePanel" style="display:none;">
+  <div>📺 Vues : <b id="revPub">$0</b></div>
+  <div>💰 Revenu total : <b id="revenue">$0</b></div>
 </div>
 
 <table>
@@ -202,7 +185,7 @@ th{
       <th>Vues</th>
       <th>Likes</th>
       <th>Commentaires</th>
-      <th>Revenu pub</th>
+      <th>Revenu</th>
     </tr>
   </thead>
   <tbody id="videoTable"></tbody>
