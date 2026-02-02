@@ -24,29 +24,54 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 let currentUser = null;
+let channelId = null;
 let balance = 0;
+
+const balanceElem = document.getElementById("balance");
+const payoutForm = document.getElementById("payoutForm");
+const eligibilityMsg = document.getElementById("eligibilityMsg");
 
 onAuthStateChanged(auth, async user => {
   if(!user){
     alert("Connectez-vous pour accéder aux paiements.");
-    location.href="login.html";
+    location.href="auth.html";
     return;
   }
   currentUser = user;
-  loadBalance();
-});
 
-async function loadBalance(){
+  // Récupérer le channel
+  const chSnap = await get(ref(db, "userChannels/" + user.uid));
+  if (!chSnap.exists()) {
+    alert("Créez une chaîne d'abord");
+    location.href = "add-channel.html";
+    return;
+  }
+  channelId = chSnap.val();
+
+  // Vérifier le nombre d'abonnés
+  const subSnap = await get(ref(db, "subscriptions/" + channelId));
+  const subs = subSnap.exists() ? Object.keys(subSnap.val()).length : 0;
+
+  if (subs < 1000) {
+    payoutForm.style.display = "none";
+    eligibilityMsg.style.display = "block";
+  } else {
+    payoutForm.style.display = "block";
+    eligibilityMsg.style.display = "none";
+  }
+
+  // Charger le solde réel
   const snap = await get(ref(db, "creatorBalances/" + currentUser.uid));
   if(snap.exists()){
     balance = snap.val().balance || 0;
   }else{
     balance = 0;
   }
-  document.getElementById("balance").innerText = balance.toFixed(2) + " $";
-}
+  balanceElem.innerText = balance.toFixed(2) + " $";
+});
 
-document.getElementById("payoutForm").addEventListener("submit", async e=>{
+// Soumettre une demande de payout
+payoutForm.addEventListener("submit", async e => {
   e.preventDefault();
 
   const amount = parseFloat(document.getElementById("amount").value);
@@ -57,7 +82,6 @@ document.getElementById("payoutForm").addEventListener("submit", async e=>{
     alert("Montant invalide.");
     return;
   }
-
   if(!method || !info){
     alert("Veuillez remplir tous les champs.");
     return;
@@ -67,6 +91,7 @@ document.getElementById("payoutForm").addEventListener("submit", async e=>{
   const payoutRef = push(ref(db, "payoutRequests"));
   await set(payoutRef,{
     uid: currentUser.uid,
+    channelId,
     amount,
     method,
     info,
@@ -75,13 +100,10 @@ document.getElementById("payoutForm").addEventListener("submit", async e=>{
   });
 
   balance -= amount;
-  await set(ref(db,"creatorBalances/"+currentUser.uid),{
-    balance
-  });
+  await set(ref(db,"creatorBalances/"+currentUser.uid),{ balance });
 
   alert("Demande de paiement envoyée avec succès ! Vous allez être redirigé vers WhatsApp pour confirmation.");
 
-  // Redirection vers WhatsApp et Gmail
   const message = encodeURIComponent(
     `Bonjour Lumio,\n\nJe souhaite recevoir mon paiement de ${amount}$ via ${method}.\nDétails: ${info}\n\nMerci.`
   );
@@ -147,6 +169,13 @@ button{
   color:#aaa;
   font-size:14px;
 }
+#eligibilityMsg{
+  display:none;
+  background:#331111;
+  padding:16px;
+  border-radius:14px;
+  margin-bottom:20px;
+}
 </style>
 </head>
 
@@ -164,7 +193,11 @@ button{
 <div class="card">
   <h3>💰 Solde disponible</h3>
   <div class="balance" id="balance">0.00 $</div>
-  <p class="notice">Minimum de retrait conseillé : 10$</p>
+  <p class="notice">Minimum de retrait conseillé : 200$+</p>
+</div>
+
+<div id="eligibilityMsg">
+  ❌ Vous n'avez pas encore 1000 abonnés, impossible de faire un virement tant que vous n'êtes pas éligible.
 </div>
 
 <div class="card">
@@ -177,7 +210,7 @@ button{
       <option value="">Méthode de paiement</option>
       <option value="unibank">Unibank</option>
       <option value="songebank">Songebank</option>
-      <option value="bank_international1">Paypal</option>
+      <option value="paypal">Paypal</option>
       <option value="wise">Wise</option>
       <option value="payoneer">Payoneer</option>
     </select>
