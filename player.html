@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Lecture – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
@@ -12,46 +13,155 @@ body{margin:0;background:#181818;color:white}
 main{max-width:1100px;margin:auto;padding:16px}
 
 /* VIDEO */
-.video-box{position:relative;background:black;border-radius:16px;overflow:hidden}
-video{width:100%;max-height:65vh;background:black}
-.controls{
-  position:absolute;bottom:10px;left:10px;right:10px;
-  display:flex;align-items:center;gap:10px;
+.video-box{
+  position:relative;
+  background:black;
+  border-radius:16px;
+  overflow:hidden;
 }
-.controls button{background:#000a;border:none;color:white;padding:6px 10px;border-radius:8px}
+video{
+  width:100%;
+  max-height:65vh;
+  background:black;
+}
+.custom-controls{
+  position:absolute;
+  bottom:10px;
+  left:10px;
+  display:flex;
+  gap:10px;
+}
+.custom-controls button{
+  background:#000c;
+  border:none;
+  color:white;
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+}
 
 /* INFOS */
 .title{font-size:20px;font-weight:700;margin-top:12px}
-.description{font-size:14px;color:#ccc}
+.description{font-size:14px;color:#ccc;margin-top:4px}
 
 /* CHANNEL */
-.channel{display:flex;align-items:center;gap:12px;margin:12px 0}
-.channel img{width:48px;height:48px;border-radius:50%}
-.subscribe{margin-left:auto;background:#ff9800;border:none;padding:8px 16px;border-radius:20px;font-weight:700}
+.channel{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:14px 0;
+}
+.channel img{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+}
+.subscribe{
+  margin-left:auto;
+  background:#ff9800;
+  border:none;
+  padding:8px 16px;
+  border-radius:20px;
+  font-weight:700;
+}
 .subscribe.subbed{background:white;color:black}
 
 /* ACTIONS */
-.actions{display:flex;gap:18px;margin:12px 0}
-.actions button{background:none;border:none;color:white;font-size:18px;cursor:pointer}
+.actions{
+  display:flex;
+  gap:20px;
+  margin:14px 0;
+}
+.actions button{
+  background:none;
+  border:none;
+  color:white;
+  font-size:18px;
+  cursor:pointer;
+}
 .actions button.active{color:#ff9800}
 
 /* LAYOUT */
-.layout{display:grid;grid-template-columns:2fr 1fr;gap:16px}
-@media(max-width:900px){.layout{grid-template-columns:1fr}}
-
-/* LISTS */
-.card{display:flex;gap:8px;margin-bottom:10px;cursor:pointer}
-.thumb{width:160px;height:90px;background:#333;border-radius:10px;background-size:cover;background-position:center}
-.short .thumb{width:100px;height:180px}
+.layout{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:16px;
+}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+}
 
 /* COMMENTS */
-.comment-form{display:flex;gap:8px}
-.comment-form input{flex:1;background:#222;border:none;border-radius:10px;padding:6px;color:white}
-.comment{background:#202020;padding:8px;border-radius:10px;margin-bottom:6px;font-size:13px}
+.comments{
+  margin-top:20px;
+}
+.comment-form{
+  display:flex;
+  gap:8px;
+}
+.comment-form textarea{
+  flex:1;
+  background:#222;
+  border:none;
+  border-radius:12px;
+  padding:10px;
+  color:white;
+  resize:none;
+  min-height:40px;
+  max-height:120px;
+  overflow:auto;
+}
+.comment-form button{
+  background:#ff9800;
+  border:none;
+  border-radius:12px;
+  padding:0 16px;
+  font-weight:700;
+}
+.comment-list{
+  margin-top:12px;
+  max-height:260px;
+  overflow-y:auto;
+}
+.comment{
+  background:#202020;
+  padding:8px 10px;
+  border-radius:12px;
+  margin-bottom:6px;
+  font-size:13px;
+  word-break:break-word;
+}
+
+/* LISTS */
+.card{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+  cursor:pointer;
+}
+.thumb{
+  width:160px;
+  height:90px;
+  background:#333;
+  border-radius:10px;
+  background-size:cover;
+  background-position:center;
+}
+.short .thumb{
+  width:100px;
+  height:180px;
+}
 
 /* SKELETON */
-.skeleton{background:#2a2a2a;animation:pulse 1.2s infinite}
-@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
+.skeleton{
+  background:#2a2a2a;
+  animation:pulse 1.2s infinite;
+}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
 </style>
 </head>
 
@@ -63,8 +173,8 @@ video{width:100%;max-height:65vh;background:black}
 <div>
   <div class="video-box skeleton" id="videoBox"></div>
 
-  <div class="title skeleton" id="title"></div>
-  <div class="description skeleton" id="desc"></div>
+  <div class="title skeleton" id="title" style="width:70%"></div>
+  <div class="description skeleton" id="desc" style="width:90%"></div>
 
   <div class="channel">
     <img id="chImg" class="skeleton">
@@ -81,11 +191,13 @@ video{width:100%;max-height:65vh;background:black}
 
   <div class="comments">
     <h3>Commentaires</h3>
+
     <div class="comment-form">
-      <input id="commentInput" placeholder="Ajouter un commentaire">
+      <textarea id="commentInput" placeholder="Ajouter un commentaire..."></textarea>
       <button id="commentBtn">Publier</button>
     </div>
-    <div id="commentList"></div>
+
+    <div class="comment-list" id="commentList"></div>
   </div>
 </div>
 
@@ -123,20 +235,29 @@ onAuthStateChanged(auth,u=>currentUser=u);
 /* LOAD VIDEO */
 (async()=>{
  const snap=await get(ref(db,"videos/"+id));
+ if(!snap.exists()) return;
+
  const v=snap.val();
 
  /* VIDEO */
  const video=document.createElement("video");
  video.src=v.videoUrl;
+ video.preload="metadata";
  video.disablePictureInPicture=true;
- video.controls=false;
  video.oncontextmenu=e=>e.preventDefault();
 
  const controls=document.createElement("div");
- controls.className="controls";
+ controls.className="custom-controls";
  controls.innerHTML=`<button id="playBtn">▶</button>`;
+
  controls.querySelector("#playBtn").onclick=()=>{
-   video.paused?video.play():video.pause();
+  if(video.paused){
+    video.play();
+    controls.querySelector("#playBtn").textContent="⏸";
+  }else{
+    video.pause();
+    controls.querySelector("#playBtn").textContent="▶";
+  }
  };
 
  const box=document.getElementById("videoBox");
@@ -146,7 +267,7 @@ onAuthStateChanged(auth,u=>currentUser=u);
  /* INFOS */
  title.textContent=v.title;
  title.classList.remove("skeleton");
- desc.textContent=v.description;
+ desc.textContent=v.description || "";
  desc.classList.remove("skeleton");
 
  /* CHANNEL */
@@ -167,24 +288,21 @@ async function loadSubscribe(cid){
  if(!currentUser) return;
  const r=ref(db,`subscriptions/${cid}/${currentUser.uid}`);
  if((await get(r)).exists()){
-   subBtn.classList.add("subbed");
-   subBtn.textContent="Abonné";
+  subBtn.classList.add("subbed");
+  subBtn.textContent="Abonné";
  }
  subBtn.onclick=async()=>{
   if(!currentUser) return location.href="auth.html";
-  subBtn.classList.toggle("subbed");
-  subBtn.textContent=subBtn.classList.contains("subbed")?"Abonné":"S’abonner";
-  await set(r,subBtn.classList.contains("subbed"));
+  const sub=subBtn.classList.toggle("subbed");
+  subBtn.textContent=sub?"Abonné":"S’abonner";
+  await sub?set(r,true):remove(r);
  };
 }
 
-/* LIKE UI INSTANT */
-likeBtn.onclick=()=>{
- likeBtn.classList.toggle("active");
- if(currentUser) set(ref(db,`videos/${id}/likes/${currentUser.uid}`),true);
-};
-favBtn.onclick=()=>favBtn.classList.toggle("active");
+/* ACTIONS instant */
+likeBtn.onclick=()=>likeBtn.classList.toggle("active");
 dislikeBtn.onclick=()=>dislikeBtn.classList.toggle("active");
+favBtn.onclick=()=>favBtn.classList.toggle("active");
 
 /* COMMENTS */
 function loadComments(){
@@ -194,7 +312,7 @@ function loadComments(){
   s.forEach(c=>{
    const d=document.createElement("div");
    d.className="comment";
-   d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b>: ${c.val().text}`;
+   d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b><br>${c.val().text}`;
    commentList.appendChild(d);
   });
  });
@@ -203,10 +321,10 @@ function loadComments(){
   if(!currentUser) return location.href="auth.html";
   const t=commentInput.value.trim();
   if(!t) return;
-  const div=document.createElement("div");
-  div.className="comment";
-  div.innerHTML=`<b>Moi</b>: ${t}`;
-  commentList.prepend(div);
+  const d=document.createElement("div");
+  d.className="comment";
+  d.innerHTML=`<b>Moi</b><br>${t}`;
+  commentList.prepend(d);
   commentInput.value="";
   await push(r,{text:t,createdAt:Date.now()});
  };
@@ -229,7 +347,7 @@ async function loadShorts(){
  const snap=await get(ref(db,"shorts"));
  snap.forEach(c=>{
   const v=c.val();
-  const d=document.createElement("card");
+  const d=document.createElement("div");
   d.className="card short";
   d.onclick=()=>location.href=`shorts.html?id=${c.key}`;
   d.innerHTML=`<div class="thumb" style="background-image:url('${v.thumbUrl}')"></div>`;
