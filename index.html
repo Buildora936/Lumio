@@ -67,52 +67,58 @@ button{
 /* SHORTS */
 .shorts-row{
   display:flex;
-  gap:12px;
+  gap:10px;
   overflow-x:auto;
-  padding-bottom:10px;
-  margin-bottom:16px
+  padding-bottom:8px;
+  margin-bottom:16px;
+  scroll-behavior:smooth;
 }
 .short-card{
-  min-width:140px;
+  min-width:100px;           
   aspect-ratio:9/16;
-  border-radius:12px;
+  border-radius:10px;
   background:#222;
   position:relative;
   background-size:cover;
   background-position:center;
-  cursor:pointer
+  cursor:pointer;
+  flex-shrink:0;
+  transition:transform 0.2s;
 }
+.short-card:hover{transform:scale(1.05);}
 .short-overlay{
   position:absolute;
   bottom:0;
   left:0;
   right:0;
-  padding:8px;
+  padding:6px;
   background:linear-gradient(to top,rgba(0,0,0,.8),transparent);
-  font-size:12px
+  font-size:11px
 }
 
 /* VIDEOS GRID */
 .grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-  gap:14px
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); 
+  gap:12px
 }
 .card{
   background:#202020;
-  border-radius:12px;
+  border-radius:10px;
   overflow:hidden;
-  cursor:pointer
+  cursor:pointer;
+  transition:transform 0.2s;
 }
+.card:hover{transform:scale(1.02);}
 .thumb{
   aspect-ratio:16/9;
   background:#333;
   background-size:cover;
   background-position:center
 }
-.card-body{padding:8px}
-.title{font-size:14px;font-weight:600}
-.meta{font-size:12px;color:#aaa}
+.card-body{padding:6px}
+.title{font-size:13px;font-weight:600} 
+.meta{font-size:11px;color:#aaa}
 
 /* SKELETON */
 .skeleton{animation:pulse 1.2s infinite}
@@ -140,11 +146,8 @@ button{
   <div class="center">
     <input placeholder="Rechercher sur Lumio">
   </div>
-  <div class="right">
-    <button id="searchBtn"><i class="fa fa-search"></i></button>
-    <button id="notifBtn"><i class="fa fa-bell"></i></button>
-    <button id="uploadBtn"><i class="fa fa-plus"></i></button>
-    <button id="profileBtn"><i class="fa fa-user"></i></button>
+  <div class="right" id="headerRight">
+    <!-- boutons seront injectés selon auth -->
   </div>
 </header>
 
@@ -165,11 +168,8 @@ button{
   <a href="contact.html">nous contacter?</a>                
    <a href="avis-lumio.html">evaluer lumio</a>                
   <a href="help.html">Centre d'aide</a>                
-  <a href="notification.html">notification</a>                
-  <a href="book.html">Livres</a>                
   <a href="library.html">library</a>                
-  <a href="live.html">Lives</a>                
-  <a href="profile.html">👤 Profil</a>                
+  <a href="live.html">Lives</a>                              
   <a href="studio.html">🎬 Studio</a>                
   <a href="analytics.html">📊 Analytics</a>                
   <a href="monetization.html">💰 Monétisation</a>                
@@ -189,19 +189,48 @@ button{
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app=initializeApp({
+/* Firebase */
+const app = initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
 });
-const db=getDatabase(app);
+const db = getDatabase(app);
+const auth = getAuth(app);
 
 const grid=document.getElementById("grid");
 const shortsRow=document.getElementById("shortsRow");
+const headerRight=document.getElementById("headerRight");
 
-/* LOAD SHORTS FIRST */
+/* CHECK AUTH */
+onAuthStateChanged(auth,user=>{
+  headerRight.innerHTML=""; // reset
+
+  if(user){
+    // connecté -> montrer tous les boutons
+    headerRight.innerHTML=`
+      <button id="searchBtn"><i class="fa fa-search"></i></button>
+      <button id="notifBtn"><i class="fa fa-bell"></i></button>
+      <button id="uploadBtn"><i class="fa fa-plus"></i></button>
+      <button id="profileBtn"><i class="fa fa-user"></i></button>
+    `;
+    document.getElementById("searchBtn").onclick = ()=>location.href="search.html";
+    document.getElementById("notifBtn").onclick = ()=>location.href="notification.html";
+    document.getElementById("uploadBtn").onclick = ()=>location.href="upload.html";
+    document.getElementById("profileBtn").onclick = ()=>location.href="profile.html";
+  } else {
+    // pas connecté -> montrer bouton start
+    const startBtn = document.createElement("button");
+    startBtn.textContent="Start";
+    startBtn.onclick=()=>location.href="auth.html";
+    headerRight.appendChild(startBtn);
+  }
+});
+
+/* LOAD SHORTS */
 (async()=>{
   const snap=await get(ref(db,"shorts"));
   Object.entries(snap.val()||{}).forEach(([id,s])=>{
