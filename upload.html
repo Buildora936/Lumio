@@ -20,10 +20,9 @@ body{
   padding:20px;
   background:#0f0f0f;
   border-radius:16px;
-  box-shadow:0 0 20px #000;
 }
-h2{text-align:center; color:#ff9800;}
-input, select, textarea, button{
+h2{text-align:center;color:#ff9800}
+input,select,textarea,button{
   width:100%;
   margin:8px 0;
   padding:12px;
@@ -32,185 +31,147 @@ input, select, textarea, button{
   background:#1f1f1f;
   color:white;
 }
-textarea{resize:none;}
+textarea{resize:none}
 button{
   background:#ff9800;
   color:black;
   font-weight:700;
   cursor:pointer;
-  transition:0.3s;
 }
-button:hover{background:#e68a00;}
-label{font-size:14px; margin-top:8px; display:block;}
-.options label{display:block; margin:6px 0;}
 .progress{
   width:100%;
+  height:20px;
   background:#202020;
   border-radius:10px;
   overflow:hidden;
-  margin-top:10px;
-  height:20px;
 }
 .bar{
-  width:0%;
   height:100%;
+  width:0%;
   background:#ff9800;
-  transition:width 0.5s ease;
 }
-.error{color:#ff5555; text-align:center; font-size:14px; margin-top:8px;}
-.channel-info{margin-bottom:15px;}
+.error{color:#ff5555;text-align:center}
 </style>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-/* Firebase config */
+/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
   databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId: "lumio-6efed"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-/* Utils */
-function toBase64(file){
-  return new Promise((res, rej)=>{
-    const r = new FileReader();
-    r.onload = ()=>res(r.result);
-    r.onerror = e=>rej(e);
-    r.readAsDataURL(file);
-  });
+/* Supabase */
+const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function updateProgress(p){
+  document.getElementById("progressBar").style.width = p + "%";
 }
 
-function updateProgress(percent){
-  document.getElementById("progressBar").style.width = percent+"%";
-}
+let currentUser=null, channelId=null, channelName="", channelPhotoURL="";
 
-window.onload = ()=>{
-  let currentUser = null;
-  let channelId = null;
-  let channelName = "";
-  let channelPhotoURL = "";
+onAuthStateChanged(auth, async user=>{
+  if(!user) return location.href="auth.html";
+  currentUser=user;
 
-  const channelBox = document.getElementById("channelNameBox");
-  const form = document.getElementById("uploadForm");
-  const errorBox = document.getElementById("error");
+  const chIdSnap = await get(ref(db,"userChannels/"+user.uid));
+  if(!chIdSnap.exists()) return location.href="add-channel.html";
 
-  /* 🔥 Détection rapide du channel */
-  onAuthStateChanged(auth, async user=>{
-    if(!user){
-      alert("Connecte-toi pour publier une vidéo");
-      location.href="auth.html";
-      return;
-    }
+  channelId = chIdSnap.val();
+  const chSnap = await get(ref(db,"channels/"+channelId));
+  const ch = chSnap.val();
 
-    currentUser = user;
+  channelName = ch.name;
+  channelPhotoURL = ch.photoURL;
+  document.getElementById("channelNameBox").textContent = channelName;
+});
 
-    try{
-      // 1. récupérer channelId via userChannels
-      const userChannelSnap = await get(ref(db, "userChannels/" + user.uid));
-      if(!userChannelSnap.exists()){
-        channelBox.textContent = "Aucune chaîne trouvée";
-        alert("Crée une chaîne avant de publier");
-        location.href="add-channel.html";
-        return;
-      }
+/* Upload */
+document.getElementById("uploadForm").onsubmit = async e=>{
+  e.preventDefault();
+  updateProgress(0);
 
-      channelId = userChannelSnap.val();
+  const title = titleInput.value.trim();
+  const desc = descInput.value.trim();
+  const category = categoryInput.value;
+  const language = languageInput.value;
+  const tags = tagsInput.value.split(",").map(t=>t.trim()).filter(Boolean);
+  const visibility = visibilityInput.value;
 
-      // 2. récupérer les infos du channel
-      const channelSnap = await get(ref(db, "channels/" + channelId));
-      if(!channelSnap.exists()){
-        throw new Error("Chaîne introuvable");
-      }
+  const thumb = thumbInput.files[0];
+  const video = videoInput.files[0];
 
-      const channel = channelSnap.val();
-      channelName = channel.name;
-      channelPhotoURL = channel.photoURL;
+  if(!title || !thumb || !video){
+    error.textContent="Champs requis manquants";
+    return;
+  }
 
-      channelBox.textContent = channelName;
+  try{
+    const videoRef = push(ref(db,"videos"));
+    const videoId = videoRef.key;
 
-    }catch(err){
-      console.error(err);
-      errorBox.textContent = err.message;
-    }
-  });
+    updateProgress(20);
 
-  /* Publication vidéo */
-  form.onsubmit = async e=>{
-    e.preventDefault();
-    if(!currentUser || !channelId) return;
+    /* Upload thumbnail */
+    const thumbPath = `${channelId}/${videoId}.jpg`;
+    await supabase.storage.from("thumbnails")
+      .upload(thumbPath, thumb, { upsert:true });
 
-    errorBox.textContent = "";
-    updateProgress(0);
+    const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/thumbnails/${thumbPath}`;
 
-    const title = document.getElementById("titleInput").value.trim();
-    const desc = document.getElementById("descInput").value.trim();
-    const category = document.getElementById("categoryInput").value;
-    const language = document.getElementById("languageInput").value;
-    const tags = document.getElementById("tagsInput").value
-      .split(",").map(t=>t.trim()).filter(Boolean);
+    updateProgress(50);
 
-    const visibility = document.getElementById("visibilityInput").value;
-    const thumb = document.getElementById("thumbInput").files[0];
-    const videoFile = document.getElementById("videoInput").files[0];
+    /* Upload video */
+    const videoPath = `${channelId}/${videoId}.mp4`;
+    await supabase.storage.from("videos")
+      .upload(videoPath, video, { upsert:true });
 
-    const commentsEnabled = document.getElementById("commentsInput").checked;
-    const likesEnabled = document.getElementById("likesInput").checked;
-    const shareEnabled = document.getElementById("shareInput").checked;
-    const monetEnabled = document.getElementById("monetInput").checked;
-    const donationEnabled = document.getElementById("donationInput").checked;
+    const videoUrl = `${SUPABASE_URL}/storage/v1/object/public/videos/${videoPath}`;
 
-    if(!title || !category || !thumb || !videoFile){
-      return errorBox.textContent="Tous les champs obligatoires doivent être remplis";
-    }
+    updateProgress(80);
 
-    try{
-      const thumbBase64 = await toBase64(thumb);
-      updateProgress(30);
+    await set(videoRef,{
+      title,
+      description:desc,
+      channelId,
+      channelName,
+      channelPhotoURL,
+      category,
+      language,
+      tags,
+      visibility,
+      thumbUrl,
+      videoUrl,
+      commentsEnabled:commentsInput.checked,
+      likesEnabled:likesInput.checked,
+      shareEnabled:shareInput.checked,
+      monetEnabled:monetInput.checked,
+      donationEnabled:donationInput.checked,
+      views:0,
+      createdAt:Date.now()
+    });
 
-      const videoBase64 = await toBase64(videoFile);
-      updateProgress(70);
+    updateProgress(100);
+    alert("Vidéo publiée !");
+    location.href=`player.html?id=${videoId}`;
 
-      const videoRef = push(ref(db,"videos"));
-      const videoId = videoRef.key;
-
-      await set(videoRef,{
-        title,
-        description: desc,
-        channelId,
-        channelName,          // ✅ ajouté
-        channelPhotoURL,      // ✅ ajouté
-        category,
-        language,
-        tags,
-        visibility,
-        thumbnailBase64: thumbBase64,
-        videoURL: videoBase64,
-        commentsEnabled,
-        likesEnabled,
-        shareEnabled,
-        monetEnabled,
-        donationEnabled,
-        createdAt: Date.now(),
-        views: 0
-      });
-
-      updateProgress(100);
-      alert("Vidéo publiée avec succès !");
-      location.href = `player.html?id=${videoId}`;
-
-    }catch(err){
-      console.error(err);
-      errorBox.textContent = err.message;
-    }
-  };
+  }catch(err){
+    console.error(err);
+    error.textContent=err.message;
+  }
 };
 </script>
 </head>
@@ -218,22 +179,17 @@ window.onload = ()=>{
 <body>
 <div class="container">
 <h2>Publier une vidéo</h2>
-
-<div class="channel-info">
-Chaîne active : <b id="channelNameBox">...</b>
-</div>
+<div>Chaîne : <b id="channelNameBox">...</b></div>
 
 <form id="uploadForm">
-<input id="titleInput" placeholder="Titre de la vidéo *" required>
-<textarea id="descInput" placeholder="Description (optionnel)"></textarea>
+<input id="titleInput" placeholder="Titre *">
+<textarea id="descInput" placeholder="Description"></textarea>
 
-<select id="categoryInput" required>
+<select id="categoryInput">
   <option value="">Catégorie *</option>
   <option value="education">Éducation</option>
   <option value="music">Musique</option>
-  <option value="movies">Films</option>
   <option value="gaming">Gaming</option>
-  <option value="general">Général</option>
 </select>
 
 <select id="languageInput">
@@ -241,7 +197,7 @@ Chaîne active : <b id="channelNameBox">...</b>
   <option value="en">English</option>
 </select>
 
-<input id="tagsInput" placeholder="Tags (séparés par des virgules)">
+<input id="tagsInput" placeholder="Tags">
 
 <select id="visibilityInput">
   <option value="public">Publique</option>
@@ -249,26 +205,18 @@ Chaîne active : <b id="channelNameBox">...</b>
   <option value="private">Privée</option>
 </select>
 
-<label>Thumbnail *</label>
-<input type="file" id="thumbInput" accept="image/*" required>
+<input type="file" id="thumbInput" accept="image/*">
+<input type="file" id="videoInput" accept="video/*">
 
-<label>Vidéo *</label>
-<input type="file" id="videoInput" accept="video/*" required>
+<label><input type="checkbox" id="commentsInput" checked> Commentaires</label>
+<label><input type="checkbox" id="likesInput" checked> Likes</label>
+<label><input type="checkbox" id="shareInput" checked> Partage</label>
+<label><input type="checkbox" id="monetInput" checked> Monétisation</label>
+<label><input type="checkbox" id="donationInput" checked> Dons</label>
 
-<div class="options">
-  <label><input type="checkbox" id="commentsInput" checked> Autoriser commentaires</label>
-  <label><input type="checkbox" id="likesInput" checked> Autoriser likes/dislikes</label>
-  <label><input type="checkbox" id="shareInput" checked> Autoriser partage</label>
-  <label><input type="checkbox" id="monetInput" checked> Vidéo monétisable</label>
-  <label><input type="checkbox" id="donationInput" checked> Autoriser dons</label>
-</div>
+<button type="submit">Publier</button>
 
-<button type="submit">Publier la vidéo</button>
-
-<div class="progress">
-  <div class="bar" id="progressBar"></div>
-</div>
-
+<div class="progress"><div class="bar" id="progressBar"></div></div>
 <div class="error" id="error"></div>
 </form>
 </div>
