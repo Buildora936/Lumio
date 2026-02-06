@@ -8,25 +8,30 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{background:#181818;color:#fff}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#181818;color:white}
 
 /* HEADER */
 header{
-  position:fixed;top:0;left:0;right:0;height:56px;
-  background:#0f0f0f;display:flex;align-items:center;
-  justify-content:space-between;padding:0 12px;z-index:100
+  position:fixed;top:0;left:0;right:0;
+  height:56px;background:#0f0f0f;
+  display:flex;align-items:center;
+  justify-content:space-between;
+  padding:0 12px;z-index:100
 }
-.left{display:flex;align-items:center;gap:8px}
-.left img{width:32px}
+.left{display:flex;align-items:center;gap:10px}
+.left img{width:34px}
+.center{flex:1;display:flex;justify-content:center}
 .center input{
   width:420px;max-width:60vw;
-  background:#202020;border:none;
-  padding:8px 16px;border-radius:20px;color:white
+  padding:8px 16px;border-radius:20px;
+  border:none;background:#202020;color:white
 }
-.right button{
-  background:#202020;border:none;
-  color:white;padding:8px 12px;border-radius:20px
+.right{display:flex;gap:10px}
+button{
+  background:#202020;color:white;
+  border:none;padding:8px 12px;
+  border-radius:20px;cursor:pointer
 }
 
 /* LAYOUT */
@@ -37,88 +42,86 @@ header{
   width:80px;background:#0f0f0f;
   display:flex;flex-direction:column;align-items:center
 }
-.sidebar a{
+.sidebar a,.sidebar button{
   width:100%;padding:12px 0;
-  text-decoration:none;color:#aaa;
-  display:flex;flex-direction:column;
-  align-items:center;font-size:11px
+  background:none;border:none;
+  color:#aaa;text-decoration:none;
+  font-size:11px;display:flex;
+  flex-direction:column;align-items:center;gap:6px
 }
-.sidebar a:hover{background:#1f1f1f;color:white}
 .sidebar i{font-size:20px}
 
+/* MORE MENU */
+.more-menu{
+  position:fixed;left:80px;top:56px;
+  width:160px;background:#111;
+  display:none;flex-direction:column;z-index:200
+}
+.more-menu.open{display:flex}
+.more-menu a{padding:12px;color:#aaa;text-decoration:none}
+.more-menu a:hover{background:#222;color:white}
+
 /* CONTENT */
-.content{flex:1;padding:14px}
+.content{flex:1;padding:16px}
 
 /* SHORTS */
-.shorts-title{font-weight:600;margin:8px 0}
 .shorts-row{
-  display:flex;gap:10px;
-  overflow-x:auto;padding-bottom:10px
+  display:flex;
+  gap:12px;
+  overflow-x:auto;
+  padding-bottom:10px;
+  margin-bottom:16px
 }
 .short-card{
-  min-width:160px;
-  height:284px;
+  min-width:140px;
+  aspect-ratio:9/16;
   border-radius:12px;
   background:#222;
-  overflow:hidden;
   position:relative;
-  flex-shrink:0;
+  background-size:cover;
+  background-position:center;
   cursor:pointer
 }
-.short-card img{
-  width:100%;height:100%;
-  object-fit:cover
-}
-.short-badge{
-  position:absolute;top:8px;left:8px;
-  background:#ff9800;
-  padding:4px 6px;
-  font-size:11px;border-radius:6px
+.short-overlay{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  padding:8px;
+  background:linear-gradient(to top,rgba(0,0,0,.8),transparent);
+  font-size:12px
 }
 
 /* VIDEOS GRID */
-.videos-grid{
+.grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-  gap:14px;margin-top:10px
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:14px
 }
-.video-card{
+.card{
   background:#202020;
-  border-radius:14px;
-  overflow:hidden;cursor:pointer
+  border-radius:12px;
+  overflow:hidden;
+  cursor:pointer
 }
-.video-thumb{
-  width:100%;
+.thumb{
   aspect-ratio:16/9;
-  background:#2a2a2a
+  background:#333;
+  background-size:cover;
+  background-position:center
 }
-.video-thumb img{
-  width:100%;height:100%;
-  object-fit:cover
-}
-.video-body{padding:8px}
-.video-title{
-  font-size:14px;
-  font-weight:600;
-  margin-bottom:4px
-}
-.video-meta{
-  font-size:12px;color:#aaa
-}
+.card-body{padding:8px}
+.title{font-size:14px;font-weight:600}
+.meta{font-size:12px;color:#aaa}
 
 /* SKELETON */
 .skeleton{animation:pulse 1.2s infinite}
-@keyframes pulse{
-  0%{opacity:.6}
-  50%{opacity:.3}
-  100%{opacity:.6}
-}
+@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
 
-/* MOBILE */
 @media(max-width:900px){
-  .layout{flex-direction:column}
+  .layout{flex-direction:column;margin-bottom:56px}
   .sidebar{
-    position:fixed;bottom:0;
+    position:fixed;bottom:0;left:0;
     width:100%;height:56px;
     flex-direction:row;justify-content:space-around
   }
@@ -138,75 +141,103 @@ header{
     <input placeholder="Rechercher sur Lumio">
   </div>
   <div class="right">
-    <button onclick="location.href='auth.html'">Start</button>
+    <button id="searchBtn"><i class="fa fa-search"></i></button>
+    <button id="notifBtn"><i class="fa fa-bell"></i></button>
+    <button id="uploadBtn"><i class="fa fa-plus"></i></button>
+    <button id="profileBtn"><i class="fa fa-user"></i></button>
   </div>
 </header>
 
 <div class="layout">
-  <nav class="sidebar">
-    <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
-    <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
-    <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
-    <a href="profile.html"><i class="fa fa-user"></i><span>Profil</span></a>
-  </nav>
 
-  <main class="content">
+<nav class="sidebar">
+  <a href="index.html"><i class="fa fa-house"></i><span>Accueil</span></a>
+  <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
+  <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
+  <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
+  <a href="book.html"><i class="fa fa-book"></i><span>Livre</span></a>
+  <button onclick="toggleMoreMenu()"><i class="fa fa-ellipsis"></i><span>Plus</span></button>
+</nav>
 
-    <div class="shorts-title">MV</div>
-    <div class="shorts-row" id="shortsRow"></div>
+<div class="more-menu" id="moreMenu">
+   <a href="regles-communautaires.html">règles caummunautaires</a>                
+  <a href="droits-auteur.html">droits d'auteur</a>                
+  <a href="contact.html">nous contacter?</a>                
+   <a href="avis-lumio.html">evaluer lumio</a>                
+  <a href="help.html">Centre d'aide</a>                
+  <a href="notification.html">notification</a>                
+  <a href="book.html">Livres</a>                
+  <a href="library.html">library</a>                
+  <a href="live.html">Lives</a>                
+  <a href="profile.html">👤 Profil</a>                
+  <a href="studio.html">🎬 Studio</a>                
+  <a href="analytics.html">📊 Analytics</a>                
+  <a href="monetization.html">💰 Monétisation</a>                
+  <a href="settings.html">⚙️ Paramètres</a>     
+</div>
 
-    <div class="videos-grid" id="videosGrid"></div>
+<main class="content">
 
-  </main>
+  <!-- SHORTS -->
+  <div class="shorts-row" id="shortsRow"></div>
+
+  <!-- VIDEOS -->
+  <div class="grid" id="grid"></div>
+
+</main>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app = initializeApp({
+const app=initializeApp({
   apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
 });
+const db=getDatabase(app);
 
-const db = getDatabase(app);
-const shortsRow = document.getElementById("shortsRow");
-const videosGrid = document.getElementById("videosGrid");
+const grid=document.getElementById("grid");
+const shortsRow=document.getElementById("shortsRow");
 
-/* LOAD FAST */
+/* LOAD SHORTS FIRST */
 (async()=>{
-  const snap = await get(ref(db,"videos"));
-  const videos = snap.val() || {};
-
-  Object.entries(videos).forEach(([id,v])=>{
-    if(v.category === "MV"){
-      const s=document.createElement("div");
-      s.className="short-card";
-      s.onclick=()=>location.href=`shorts.html?id=${id}`;
-      s.innerHTML=`
-        <span class="short-badge">MV</span>
-        <img loading="lazy" src="${v.thumbnailURL || v.thumbnailBase64 || ''}">
-      `;
-      shortsRow.appendChild(s);
-    }else{
-      const c=document.createElement("div");
-      c.className="video-card";
-      c.onclick=()=>location.href=`player.html?id=${id}`;
-      c.innerHTML=`
-        <div class="video-thumb">
-          <img loading="lazy" src="${v.thumbnailURL || v.thumbnailBase64 || ''}">
-        </div>
-        <div class="video-body">
-          <div class="video-title">${v.title || ''}</div>
-          <div class="video-meta">${v.views || 0} vues</div>
-        </div>
-      `;
-      videosGrid.appendChild(c);
-    }
+  const snap=await get(ref(db,"shorts"));
+  Object.entries(snap.val()||{}).forEach(([id,s])=>{
+    const div=document.createElement("div");
+    div.className="short-card";
+    div.style.backgroundImage=`url('${s.thumbnail}')`;
+    div.onclick=()=>location.href=`shorts.html?id=${id}`;
+    div.innerHTML=`
+      <div class="short-overlay">
+        <div>${s.channelName}</div>
+        <div>${s.views||0} vues</div>
+      </div>`;
+    shortsRow.appendChild(div);
   });
 })();
+
+/* LOAD VIDEOS */
+(async()=>{
+  const snap=await get(ref(db,"videos"));
+  Object.entries(snap.val()||{}).forEach(([id,v])=>{
+    const card=document.createElement("div");
+    card.className="card";
+    card.onclick=()=>location.href=`player.html?id=${id}`;
+    card.innerHTML=`
+      <div class="thumb" style="background-image:url('${v.thumbnail}')"></div>
+      <div class="card-body">
+        <div class="title">${v.title}</div>
+        <div class="meta">${v.channelName} • ${v.views||0} vues</div>
+      </div>`;
+    grid.appendChild(card);
+  });
+})();
+
+window.toggleMoreMenu=()=>{
+  document.getElementById("moreMenu").classList.toggle("open");
+};
 </script>
 
 </body>
