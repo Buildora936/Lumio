@@ -107,7 +107,7 @@ video{width:100%;max-height:65vh;background:black}
  <div class="list" id="shortList">
     <h3>Shorts</h3>
   </div>
-        
+          
   <div class="list" id="nextList">
     <h3>À regarder ensuite</h3>
   </div>
@@ -146,16 +146,20 @@ onAuthStateChanged(auth,u=>currentUser=u);
  const v=snap.val();
  channelId=v.channelId;
 
- // video
+ // video (streaming direct)
  const video=document.createElement("video");
  video.controls=true;
- video.preload="metadata"; // optimisation
- video.src=v.videoBase64 || v.videoURL;
+ video.preload="metadata"; // ne charge pas toute la vidéo
+ video.src=v.videoURL;       // URL directe depuis Firebase Storage
+ video.poster=v.thumbnailBase64 || ""; // mini aperçu
+ video.style.background="black";
  document.getElementById("videoSkeleton").replaceWith(video);
 
  // title & description
- document.querySelector(".title").textContent=v.title;
- document.querySelector(".title").classList.remove("skeleton");
+ const titleEl=document.querySelector(".title");
+ titleEl.textContent=v.title;
+ titleEl.classList.remove("skeleton");
+
  const desc=document.querySelector(".description");
  desc.textContent=v.description;
  desc.classList.remove("skeleton");
@@ -163,6 +167,8 @@ onAuthStateChanged(auth,u=>currentUser=u);
  // channel
  const ch=await get(ref(db,"channels/"+channelId));
  const c=ch.val();
+ const chImg=document.getElementById("chImg");
+ const chName=document.getElementById("chName");
  chImg.src=c.photoURL;
  chName.textContent=c.name;
  chImg.classList.remove("skeleton");
@@ -179,6 +185,7 @@ async function loadSubscribe(){
  if(!currentUser) return;
  const sRef=ref(db,`subscriptions/${currentUser.uid}/${channelId}`);
  const snap=await get(sRef);
+ const subBtn=document.getElementById("subBtn");
  if(snap.exists()){
    subBtn.classList.add("subbed");
    subBtn.textContent="Abonné";
@@ -198,8 +205,10 @@ async function loadSubscribe(){
 }
 
 /* LIKE/DISLIKE/FAVORIS */
+const likeBtn=document.getElementById("likeBtn");
+const dislikeBtn=document.getElementById("dislikeBtn");
+const favBtn=document.getElementById("favBtn");
 const likeRef=ref(db,"videos/"+id+"/likes");
-const dislikeRef=ref(db,"videos/"+id+"/dislikes");
 
 likeBtn.onclick=async()=>{
  if(!currentUser) return location.href="auth.html";
@@ -216,6 +225,7 @@ favBtn.onclick=()=>{favBtn.classList.toggle("active");};
 /* NEXT VIDEOS */
 async function loadNext(){
  const snap=await get(ref(db,"videos"));
+ const nextList=document.getElementById("nextList");
  snap.forEach(c=>{
   if(c.key===id || c.val().category==="MV") return;
   const v=c.val();
@@ -235,6 +245,7 @@ async function loadNext(){
 /* SHORTS */
 async function loadShorts(){
  const snap=await get(ref(db,"shorts"));
+ const shortList=document.getElementById("shortList");
  snap.forEach(c=>{
   const v=c.val();
   const div=document.createElement("div");
@@ -268,7 +279,11 @@ async function loadComments(){
    const text=document.getElementById("commentInput").value.trim();
    if(!text) return;
    const userSnap=await get(ref(db,"users/"+currentUser.uid));
-   await push(commentsRef,{text,userName:userSnap.exists()?userSnap.val().name:"Anonyme",createdAt:Date.now()});
+   await push(commentsRef,{
+     text,
+     userName:userSnap.exists()?userSnap.val().name:"Anonyme",
+     createdAt:Date.now()
+   });
    document.getElementById("commentInput").value="";
  };
 }
