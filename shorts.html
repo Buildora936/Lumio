@@ -72,6 +72,8 @@ video{
 .desc{
   font-size:14px;
   margin-bottom:8px;
+  max-height:60px;
+  overflow:hidden;
 }
 
 /* ACTIONS */
@@ -118,6 +120,8 @@ video{
   overflow-y:auto;
   padding:10px;
 }
+.comment-list::-webkit-scrollbar{width:6px}
+.comment-list::-webkit-scrollbar-thumb{background:#555;border-radius:3px}
 .comment{
   background:#202020;
   padding:8px;
@@ -137,6 +141,7 @@ video{
   border-radius:10px;
   padding:6px;
   color:white;
+  max-length:200px;
 }
 .comment-form button{
   background:#ff9800;
@@ -249,6 +254,9 @@ window.subscribe=async(cid,btn)=>{
 };
 
 /* COMMENTS */
+const commentModal=document.getElementById("commentModal");
+const commentInput=document.getElementById("commentInput");
+
 window.openComments=id=>{
  currentShortId=id;
  commentModal.classList.add("open");
@@ -264,7 +272,7 @@ function loadComments(){
    snap.forEach(c=>{
      const d=document.createElement("div");
      d.className="comment";
-     d.textContent=c.val().text;
+     d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b>: ${c.val().text}`;
      list.appendChild(d);
    });
  });
@@ -274,8 +282,10 @@ window.sendComment=async()=>{
  if(!currentUser) return location.href="auth.html";
  const text=commentInput.value.trim();
  if(!text) return;
+ const userSnap=await get(ref(db,"users/"+currentUser.uid));
  await push(ref(db,"shortComments/"+currentShortId),{
    text,
+   userName:userSnap.exists()?userSnap.val().name:"Anonyme",
    uid:currentUser.uid,
    createdAt:Date.now()
  });
