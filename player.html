@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Lecture – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
@@ -13,155 +12,65 @@ body{margin:0;background:#181818;color:white}
 main{max-width:1100px;margin:auto;padding:16px}
 
 /* VIDEO */
-.video-box{
-  position:relative;
-  background:black;
-  border-radius:16px;
-  overflow:hidden;
-}
-video{
-  width:100%;
-  max-height:65vh;
-  background:black;
-}
-.custom-controls{
-  position:absolute;
-  bottom:10px;
-  left:10px;
-  display:flex;
-  gap:10px;
-}
-.custom-controls button{
-  background:#000c;
-  border:none;
-  color:white;
-  padding:8px 12px;
-  border-radius:10px;
-  cursor:pointer;
-}
+.video-box{position:relative;background:black;border-radius:16px;overflow:hidden}
+video{width:100%;max-height:65vh;background:black}
 
-/* INFOS */
+/* CONTROLS (YouTube-like) */
+.controls{
+  position:absolute;left:0;right:0;bottom:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.7));
+  padding:8px;
+}
+.progress{
+  height:4px;background:#444;cursor:pointer;margin-bottom:6px;
+}
+.progress-bar{height:100%;width:0%;background:#ff9800}
+.ctrl-row{display:flex;align-items:center;gap:12px}
+.ctrl-row button{background:none;border:none;color:white;font-size:16px;cursor:pointer}
+.volume{width:80px}
+
+/* INFO */
 .title{font-size:20px;font-weight:700;margin-top:12px}
-.description{font-size:14px;color:#ccc;margin-top:4px}
+.description{font-size:14px;color:#ccc}
 
 /* CHANNEL */
-.channel{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin:14px 0;
-}
-.channel img{
-  width:48px;
-  height:48px;
-  border-radius:50%;
-}
-.subscribe{
-  margin-left:auto;
-  background:#ff9800;
-  border:none;
-  padding:8px 16px;
-  border-radius:20px;
-  font-weight:700;
-}
+.channel{display:flex;align-items:center;gap:12px;margin:12px 0}
+.channel img{width:48px;height:48px;border-radius:50%}
+.subscribe{margin-left:auto;background:#ff9800;border:none;padding:8px 16px;border-radius:20px;font-weight:700}
 .subscribe.subbed{background:white;color:black}
 
 /* ACTIONS */
-.actions{
-  display:flex;
-  gap:20px;
-  margin:14px 0;
-}
-.actions button{
-  background:none;
-  border:none;
-  color:white;
-  font-size:18px;
-  cursor:pointer;
-}
+.actions{display:flex;gap:18px;margin:12px 0}
+.actions button{background:none;border:none;color:white;font-size:18px;cursor:pointer}
 .actions button.active{color:#ff9800}
 
 /* LAYOUT */
-.layout{
-  display:grid;
-  grid-template-columns:2fr 1fr;
-  gap:16px;
-}
-@media(max-width:900px){
-  .layout{grid-template-columns:1fr}
-}
+.layout{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
 
 /* COMMENTS */
-.comments{
-  margin-top:20px;
-}
-.comment-form{
-  display:flex;
-  gap:8px;
-}
-.comment-form textarea{
-  flex:1;
-  background:#222;
-  border:none;
-  border-radius:12px;
-  padding:10px;
-  color:white;
-  resize:none;
-  min-height:40px;
-  max-height:120px;
-  overflow:auto;
-}
-.comment-form button{
-  background:#ff9800;
-  border:none;
-  border-radius:12px;
-  padding:0 16px;
-  font-weight:700;
+.comments{margin-top:16px}
+.comment-form{display:flex;gap:8px;margin-bottom:8px}
+.comment-form input{
+  flex:1;background:#222;border:none;border-radius:20px;
+  padding:8px 12px;color:white
 }
 .comment-list{
-  margin-top:12px;
   max-height:260px;
   overflow-y:auto;
 }
 .comment{
   background:#202020;
-  padding:8px 10px;
-  border-radius:12px;
+  padding:8px 12px;
+  border-radius:14px;
   margin-bottom:6px;
   font-size:13px;
-  word-break:break-word;
 }
 
-/* LISTS */
-.card{
-  display:flex;
-  gap:8px;
-  margin-bottom:10px;
-  cursor:pointer;
-}
-.thumb{
-  width:160px;
-  height:90px;
-  background:#333;
-  border-radius:10px;
-  background-size:cover;
-  background-position:center;
-}
-.short .thumb{
-  width:100px;
-  height:180px;
-}
-
-/* SKELETON */
-.skeleton{
-  background:#2a2a2a;
-  animation:pulse 1.2s infinite;
-}
-@keyframes pulse{
-  0%{opacity:.6}
-  50%{opacity:.3}
-  100%{opacity:.6}
-}
+/* LIST */
+.card{display:flex;gap:8px;margin-bottom:10px;cursor:pointer}
+.thumb{width:160px;height:90px;border-radius:10px;background-size:cover;background-position:center}
+.short .thumb{width:100px;height:180px}
 </style>
 </head>
 
@@ -171,14 +80,29 @@ video{
 
 <!-- LEFT -->
 <div>
-  <div class="video-box skeleton" id="videoBox"></div>
+  <div class="video-box">
+    <video id="video" playsinline></video>
 
-  <div class="title skeleton" id="title" style="width:70%"></div>
-  <div class="description skeleton" id="desc" style="width:90%"></div>
+    <div class="controls">
+      <div class="progress" id="progress">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="ctrl-row">
+        <button id="playBtn"><i class="fa fa-play"></i></button>
+        <button id="rewind"><i class="fa fa-rotate-left"></i></button>
+        <button id="forward"><i class="fa fa-rotate-right"></i></button>
+        <input type="range" class="volume" id="volume" min="0" max="1" step="0.01">
+        <button id="fullscreen"><i class="fa fa-expand"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="title" id="title"></div>
+  <div class="description" id="desc"></div>
 
   <div class="channel">
-    <img id="chImg" class="skeleton">
-    <div id="chName" class="skeleton" style="width:120px;height:14px"></div>
+    <img id="chImg">
+    <div id="chName"></div>
     <button id="subBtn" class="subscribe">S’abonner</button>
   </div>
 
@@ -191,23 +115,21 @@ video{
 
   <div class="comments">
     <h3>Commentaires</h3>
-
     <div class="comment-form">
-      <textarea id="commentInput" placeholder="Ajouter un commentaire..."></textarea>
-      <button id="commentBtn">Publier</button>
+      <input id="commentInput" placeholder="Ajouter un commentaire">
+      <button id="commentBtn">Envoyer</button>
     </div>
-
     <div class="comment-list" id="commentList"></div>
   </div>
 </div>
 
 <!-- RIGHT -->
 <div>
-  <h3>Shorts</h3>
-  <div id="shortList"></div>
-
   <h3>À regarder ensuite</h3>
   <div id="nextList"></div>
+
+  <h3>Shorts</h3>
+  <div id="shortList"></div>
 </div>
 
 </div>
@@ -216,7 +138,7 @@ video{
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,get,set,push,remove,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,set,push,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -224,85 +146,53 @@ const app=initializeApp({
  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
  projectId:"lumio-6efed"
 });
-
 const auth=getAuth(app);
 const db=getDatabase(app);
+
 const id=new URLSearchParams(location.search).get("id");
 let currentUser=null;
-
 onAuthStateChanged(auth,u=>currentUser=u);
+
+const video=document.getElementById("video");
+video.oncontextmenu=e=>e.preventDefault();
 
 /* LOAD VIDEO */
 (async()=>{
  const snap=await get(ref(db,"videos/"+id));
- if(!snap.exists()) return;
-
  const v=snap.val();
 
- /* VIDEO */
- const video=document.createElement("video");
  video.src=v.videoUrl;
- video.preload="metadata";
- video.disablePictureInPicture=true;
- video.oncontextmenu=e=>e.preventDefault();
 
- const controls=document.createElement("div");
- controls.className="custom-controls";
- controls.innerHTML=`<button id="playBtn">▶</button>`;
-
- controls.querySelector("#playBtn").onclick=()=>{
-  if(video.paused){
-    video.play();
-    controls.querySelector("#playBtn").textContent="⏸";
-  }else{
-    video.pause();
-    controls.querySelector("#playBtn").textContent="▶";
-  }
- };
-
- const box=document.getElementById("videoBox");
- box.classList.remove("skeleton");
- box.append(video,controls);
-
- /* INFOS */
  title.textContent=v.title;
- title.classList.remove("skeleton");
- desc.textContent=v.description || "";
- desc.classList.remove("skeleton");
+ desc.textContent=v.description;
 
- /* CHANNEL */
  const ch=await get(ref(db,"channels/"+v.channelId));
  chImg.src=ch.val().photoURL;
  chName.textContent=ch.val().name;
- chImg.classList.remove("skeleton");
- chName.classList.remove("skeleton");
 
- loadSubscribe(v.channelId);
  loadComments();
- loadNext();
- loadShorts();
 })();
 
-/* SUBSCRIBE */
-async function loadSubscribe(cid){
- if(!currentUser) return;
- const r=ref(db,`subscriptions/${cid}/${currentUser.uid}`);
- if((await get(r)).exists()){
-  subBtn.classList.add("subbed");
-  subBtn.textContent="Abonné";
- }
- subBtn.onclick=async()=>{
-  if(!currentUser) return location.href="auth.html";
-  const sub=subBtn.classList.toggle("subbed");
-  subBtn.textContent=sub?"Abonné":"S’abonner";
-  await sub?set(r,true):remove(r);
- };
-}
+/* CONTROLS */
+playBtn.onclick=()=> video.paused?video.play():video.pause();
+video.onplay=()=>playBtn.innerHTML='<i class="fa fa-pause"></i>';
+video.onpause=()=>playBtn.innerHTML='<i class="fa fa-play"></i>';
 
-/* ACTIONS instant */
+video.ontimeupdate=()=>{
+ progressBar.style.width=(video.currentTime/video.duration*100)+"%";
+};
+progress.onclick=e=>{
+ video.currentTime=(e.offsetX/progress.offsetWidth)*video.duration;
+};
+volume.oninput=e=>video.volume=e.target.value;
+rewind.onclick=()=>video.currentTime-=10;
+forward.onclick=()=>video.currentTime+=10;
+fullscreen.onclick=()=>video.requestFullscreen();
+
+/* INTERACTIONS */
 likeBtn.onclick=()=>likeBtn.classList.toggle("active");
-dislikeBtn.onclick=()=>dislikeBtn.classList.toggle("active");
 favBtn.onclick=()=>favBtn.classList.toggle("active");
+dislikeBtn.onclick=()=>dislikeBtn.classList.toggle("active");
 
 /* COMMENTS */
 function loadComments(){
@@ -328,31 +218,6 @@ function loadComments(){
   commentInput.value="";
   await push(r,{text:t,createdAt:Date.now()});
  };
-}
-
-/* NEXT & SHORTS */
-async function loadNext(){
- const snap=await get(ref(db,"videos"));
- snap.forEach(c=>{
-  if(c.key===id) return;
-  const v=c.val();
-  const d=document.createElement("div");
-  d.className="card";
-  d.onclick=()=>location.href=`player.html?id=${c.key}`;
-  d.innerHTML=`<div class="thumb" style="background-image:url('${v.thumbUrl}')"></div><div>${v.title}</div>`;
-  nextList.appendChild(d);
- });
-}
-async function loadShorts(){
- const snap=await get(ref(db,"shorts"));
- snap.forEach(c=>{
-  const v=c.val();
-  const d=document.createElement("div");
-  d.className="card short";
-  d.onclick=()=>location.href=`shorts.html?id=${c.key}`;
-  d.innerHTML=`<div class="thumb" style="background-image:url('${v.thumbUrl}')"></div>`;
-  shortList.appendChild(d);
- });
 }
 </script>
 </body>
