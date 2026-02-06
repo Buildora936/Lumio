@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-*{box-sizing:border-box}
+*{box-sizing:border-box;}
 body{
   margin:0;
   font-family:system-ui;
@@ -21,7 +21,7 @@ body{
   background:#0f0f0f;
   border-radius:16px;
 }
-h2{text-align:center;color:#ff9800}
+h2{text-align:center;color:#ff9800;}
 input,select,textarea,button{
   width:100%;
   margin:8px 0;
@@ -31,7 +31,7 @@ input,select,textarea,button{
   background:#1f1f1f;
   color:white;
 }
-textarea{resize:none}
+textarea{resize:none;}
 button{
   background:#ff9800;
   color:black;
@@ -50,32 +50,25 @@ button{
   width:0%;
   background:#ff9800;
 }
-.error{color:#ff5555;text-align:center}
+.error{color:#ff5555;text-align:center;}
 </style>
-
-<!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-/* Firebase */
+/* Firebase config */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
   databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId: "lumio-6efed"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
-
-/* Supabase */
-const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 function updateProgress(p){
   document.getElementById("progressBar").style.width = p + "%";
@@ -99,7 +92,17 @@ onAuthStateChanged(auth, async user=>{
   document.getElementById("channelNameBox").textContent = channelName;
 });
 
-/* Upload */
+/* Convert file to Base64 */
+function toBase64(file){
+  return new Promise((res,rej)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>res(reader.result);
+    reader.onerror = e=>rej(e);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Upload form */
 document.getElementById("uploadForm").onsubmit = async e=>{
   e.preventDefault();
   updateProgress(0);
@@ -125,27 +128,15 @@ document.getElementById("uploadForm").onsubmit = async e=>{
 
     updateProgress(20);
 
-    /* Upload thumbnail */
-    const thumbPath = `${channelId}/${videoId}.jpg`;
-    await supabase.storage.from("thumbnails")
-      .upload(thumbPath, thumb, { upsert:true });
-
-    const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/thumbnails/${thumbPath}`;
-
+    const thumbBase64 = await toBase64(thumb);
     updateProgress(50);
 
-    /* Upload video */
-    const videoPath = `${channelId}/${videoId}.mp4`;
-    await supabase.storage.from("videos")
-      .upload(videoPath, video, { upsert:true });
-
-    const videoUrl = `${SUPABASE_URL}/storage/v1/object/public/videos/${videoPath}`;
-
+    const videoBase64 = await toBase64(video);
     updateProgress(80);
 
     await set(videoRef,{
       title,
-      description:desc,
+      description: desc,
       channelId,
       channelName,
       channelPhotoURL,
@@ -153,21 +144,20 @@ document.getElementById("uploadForm").onsubmit = async e=>{
       language,
       tags,
       visibility,
-      thumbUrl,
-      videoUrl,
-      commentsEnabled:commentsInput.checked,
-      likesEnabled:likesInput.checked,
-      shareEnabled:shareInput.checked,
-      monetEnabled:monetInput.checked,
-      donationEnabled:donationInput.checked,
-      views:0,
-      createdAt:Date.now()
+      thumbnailBase64: thumbBase64,
+      videoURL: videoBase64,
+      commentsEnabled: commentsInput.checked,
+      likesEnabled: likesInput.checked,
+      shareEnabled: shareInput.checked,
+      monetEnabled: monetInput.checked,
+      donationEnabled: donationInput.checked,
+      views: 0,
+      createdAt: Date.now()
     });
 
     updateProgress(100);
     alert("Vidéo publiée !");
     location.href=`player.html?id=${videoId}`;
-
   }catch(err){
     console.error(err);
     error.textContent=err.message;
@@ -182,8 +172,8 @@ document.getElementById("uploadForm").onsubmit = async e=>{
 <div>Chaîne : <b id="channelNameBox">...</b></div>
 
 <form id="uploadForm">
-<input id="titleInput" placeholder="Titre *">
-<textarea id="descInput" placeholder="Description"></textarea>
+<input id="titleInput" placeholder="Titre de la vidéo *">
+<textarea id="descInput" placeholder="Description (optionnel)"></textarea>
 
 <select id="categoryInput">
   <option value="">Catégorie *</option>
@@ -197,7 +187,7 @@ document.getElementById("uploadForm").onsubmit = async e=>{
   <option value="en">English</option>
 </select>
 
-<input id="tagsInput" placeholder="Tags">
+<input id="tagsInput" placeholder="Tags (séparés par des virgules)">
 
 <select id="visibilityInput">
   <option value="public">Publique</option>
@@ -205,14 +195,16 @@ document.getElementById("uploadForm").onsubmit = async e=>{
   <option value="private">Privée</option>
 </select>
 
+<label>Thumbnail *</label>
 <input type="file" id="thumbInput" accept="image/*">
+<label>Vidéo *</label>
 <input type="file" id="videoInput" accept="video/*">
 
-<label><input type="checkbox" id="commentsInput" checked> Commentaires</label>
-<label><input type="checkbox" id="likesInput" checked> Likes</label>
-<label><input type="checkbox" id="shareInput" checked> Partage</label>
-<label><input type="checkbox" id="monetInput" checked> Monétisation</label>
-<label><input type="checkbox" id="donationInput" checked> Dons</label>
+<label><input type="checkbox" id="commentsInput" checked> Autoriser commentaires</label>
+<label><input type="checkbox" id="likesInput" checked> Autoriser likes/dislikes</label>
+<label><input type="checkbox" id="shareInput" checked> Autoriser partage</label>
+<label><input type="checkbox" id="monetInput" checked> Vidéo monétisable</label>
+<label><input type="checkbox" id="donationInput" checked> Autoriser dons</label>
 
 <button type="submit">Publier</button>
 
