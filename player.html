@@ -139,6 +139,7 @@ video{width:100%;max-height:65vh;background:black}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase,ref,get,set,push,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -146,8 +147,10 @@ const app=initializeApp({
  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
  projectId:"lumio-6efed"
 });
+
 const auth=getAuth(app);
 const db=getDatabase(app);
+const storage=getStorage(app);
 
 const id=new URLSearchParams(location.search).get("id");
 let currentUser=null;
@@ -156,34 +159,34 @@ onAuthStateChanged(auth,u=>currentUser=u);
 const video=document.getElementById("video");
 video.oncontextmenu=e=>e.preventDefault();
 
-/* LOAD VIDEO */
+/* LOAD VIDEO + THUMBNAIL */
 (async()=>{
  const snap=await get(ref(db,"videos/"+id));
  const v=snap.val();
 
- video.src=v.videoUrl;
+ const videoUrl = await getDownloadURL(sRef(storage,v.videoPath));
+ const thumbUrl = await getDownloadURL(sRef(storage,v.thumbnailPath));
 
- title.textContent=v.title;
- desc.textContent=v.description;
+ video.src = videoUrl;
+ document.getElementById("title").textContent = v.title;
+ document.getElementById("desc").textContent = v.description;
 
- const ch=await get(ref(db,"channels/"+v.channelId));
- chImg.src=ch.val().photoURL;
- chName.textContent=ch.val().name;
+ const chSnap = await get(ref(db,"channels/"+v.channelId));
+ const c = chSnap.val();
+ chImg.src = c.photoURL;
+ chName.textContent = c.name;
 
  loadComments();
+ loadNext();
+ loadShorts();
 })();
 
 /* CONTROLS */
 playBtn.onclick=()=> video.paused?video.play():video.pause();
 video.onplay=()=>playBtn.innerHTML='<i class="fa fa-pause"></i>';
 video.onpause=()=>playBtn.innerHTML='<i class="fa fa-play"></i>';
-
-video.ontimeupdate=()=>{
- progressBar.style.width=(video.currentTime/video.duration*100)+"%";
-};
-progress.onclick=e=>{
- video.currentTime=(e.offsetX/progress.offsetWidth)*video.duration;
-};
+video.ontimeupdate=()=> progressBar.style.width=(video.currentTime/video.duration*100)+"%";
+progress.onclick=e=> video.currentTime=(e.offsetX/progress.offsetWidth)*video.duration;
 volume.oninput=e=>video.volume=e.target.value;
 rewind.onclick=()=>video.currentTime-=10;
 forward.onclick=()=>video.currentTime+=10;
@@ -191,10 +194,10 @@ fullscreen.onclick=()=>video.requestFullscreen();
 
 /* INTERACTIONS */
 likeBtn.onclick=()=>likeBtn.classList.toggle("active");
-favBtn.onclick=()=>favBtn.classList.toggle("active");
 dislikeBtn.onclick=()=>dislikeBtn.classList.toggle("active");
+favBtn.onclick=()=>favBtn.classList.toggle("active");
 
-/* COMMENTS */
+/* COMMENTS (WhatsApp-like) */
 function loadComments(){
  const r=ref(db,"comments/"+id);
  onValue(r,s=>{
@@ -202,7 +205,7 @@ function loadComments(){
   s.forEach(c=>{
    const d=document.createElement("div");
    d.className="comment";
-   d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b><br>${c.val().text}`;
+   d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b>: ${c.val().text}`;
    commentList.appendChild(d);
   });
  });
@@ -213,11 +216,43 @@ function loadComments(){
   if(!t) return;
   const d=document.createElement("div");
   d.className="comment";
-  d.innerHTML=`<b>Moi</b><br>${t}`;
+  d.innerHTML=`<b>Moi</b>: ${t}`;
   commentList.prepend(d);
   commentInput.value="";
-  await push(r,{text:t,createdAt:Date.now()});
+  await push(r,{text:t,userName:"Moi",createdAt:Date.now()});
  };
+}
+
+/* NEXT + SHORTS */
+async function loadNext(){
+ const snap=await get(ref(db,"videos"));
+ snap.forEach(c=>{
+  if(c.key===id) return;
+  const v=c.val();
+  const div=document.createElement("div");
+  div.className="card";
+  div.onclick=()=>location.href=`player.html?id=${c.key}`;
+  getDownloadURL(sRef(storage,v.thumbnailPath)).then(url=>{
+    div.innerHTML=`<div class="thumb" style="background-image:url('${url}')"></div>
+                     <div><div>${v.title}</div><div>${v.channelName}</div></div>`;
+  });
+  nextList.appendChild(div);
+ });
+}
+
+async function loadShorts(){
+ const snap=await get(ref(db,"shorts"));
+ snap.forEach(c=>{
+  const v=c.val();
+  const div=document.createElement("div");
+  div.className="card short";
+  div.onclick=()=>location.href=`shorts.html?id=${c.key}`;
+  getDownloadURL(sRef(storage,v.thumbnailPath)).then(url=>{
+    div.innerHTML=`<div class="thumb" style="background-image:url('${url}')"></div>
+                     <div class="meta">${v.title}</div>`;
+  });
+  shortList.appendChild(div);
+ });
 }
 </script>
 </body>
