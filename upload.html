@@ -53,6 +53,9 @@ button{
 .error{color:#ff5555;text-align:center;}
 </style>
 
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
@@ -70,9 +73,11 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-function updateProgress(p){
-  document.getElementById("progressBar").style.width = p + "%";
-}
+/* Supabase config */
+const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, channelId=null, channelName="", channelPhotoURL="";
 
@@ -92,17 +97,19 @@ onAuthStateChanged(auth, async user=>{
   document.getElementById("channelNameBox").textContent = channelName;
 });
 
-/* Convert file to Base64 */
-function toBase64(file){
-  return new Promise((res,rej)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>res(reader.result);
-    reader.onerror = e=>rej(e);
-    reader.readAsDataURL(file);
-  });
+function updateProgress(p){
+  document.getElementById("progressBar").style.width = p + "%";
 }
 
-/* Upload form */
+/* Upload file to Supabase */
+async function uploadFile(file, folder){
+  const filename = `${Date.now()}_${file.name}`;
+  const { data, error } = await supabase.storage.from(folder).upload(filename, file, { upsert: true });
+  if(error) throw error;
+  return `${SUPABASE_URL}/storage/v1/object/public/${folder}/${filename}`;
+}
+
+/* Form submit */
 document.getElementById("uploadForm").onsubmit = async e=>{
   e.preventDefault();
   updateProgress(0);
@@ -126,13 +133,11 @@ document.getElementById("uploadForm").onsubmit = async e=>{
     const videoRef = push(ref(db,"videos"));
     const videoId = videoRef.key;
 
-    updateProgress(20);
-
-    const thumbBase64 = await toBase64(thumb);
+    updateProgress(10);
+    const thumbURL = await uploadFile(thumb, "thumbnails");
     updateProgress(50);
-
-    const videoBase64 = await toBase64(video);
-    updateProgress(80);
+    const videoURL = await uploadFile(video, "videos");
+    updateProgress(90);
 
     await set(videoRef,{
       title,
@@ -144,8 +149,8 @@ document.getElementById("uploadForm").onsubmit = async e=>{
       language,
       tags,
       visibility,
-      thumbnailBase64: thumbBase64,
-      videoURL: videoBase64,
+      thumbnailURL: thumbURL,
+      videoURL: videoURL,
       commentsEnabled: commentsInput.checked,
       likesEnabled: likesInput.checked,
       shareEnabled: shareInput.checked,
