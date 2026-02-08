@@ -10,50 +10,71 @@
 <style>
 *{box-sizing:border-box;font-family:system-ui}
 body{margin:0;background:#181818;color:white}
-main{max-width:1100px;margin:auto;padding:16px}
+main{max-width:1200px;margin:auto;padding:16px}
 
 /* ================= VIDEO ================= */
 .video-box{
-  width:100%;
+  position:sticky;
+  top:12px;
+  z-index:10;
   background:black;
   border-radius:16px;
   overflow:hidden;
-  position:relative;
 }
 video{
   width:100%;
-  max-height:65vh;
+  max-height:70vh;
   background:black;
 }
 
-/* CONTROLS */
+/* TITLE OVER VIDEO */
+.video-title-overlay{
+  position:absolute;
+  bottom:55px;
+  left:16px;
+  right:16px;
+  font-size:18px;
+  font-weight:700;
+  text-shadow:0 2px 8px black;
+}
+
+/* ================= CONTROLS ================= */
 .controls{
   position:absolute;
-  bottom:0;
-  left:0;
-  right:0;
-  padding:10px;
+  bottom:10px;
+  left:10px;
+  right:10px;
   display:flex;
   align-items:center;
   gap:10px;
-  background:linear-gradient(transparent,rgba(0,0,0,.7));
 }
 .controls button{
-  background:none;
+  background:rgba(0,0,0,.6);
   border:none;
   color:white;
-  font-size:18px;
+  padding:6px 10px;
+  border-radius:8px;
   cursor:pointer;
 }
-.controls input[type=range]{
+.progress{
   flex:1;
+  height:6px;
+  background:#333;
+  border-radius:10px;
+  cursor:pointer;
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:#ff9800;
+  border-radius:10px;
 }
 
-/* ================= INFO ================= */
-.title{font-size:20px;font-weight:700;margin-top:10px}
+/* ================= INFOS ================= */
+.video-info{margin-top:12px}
 .description{font-size:14px;color:#ccc}
 
-/* CHANNEL */
+/* ================= CHANNEL ================= */
 .channel{
   display:flex;
   align-items:center;
@@ -72,11 +93,11 @@ video{
 }
 .subscribe.subbed{background:white;color:black}
 
-/* ACTIONS */
+/* ================= ACTIONS ================= */
 .actions{
   display:flex;
-  gap:16px;
-  margin:10px 0;
+  gap:18px;
+  margin:12px 0;
 }
 .actions button{
   background:none;
@@ -87,7 +108,7 @@ video{
 }
 .actions button.active{color:#ff9800}
 
-/* LAYOUT */
+/* ================= LAYOUT ================= */
 .layout{
   display:grid;
   grid-template-columns:2fr 1fr;
@@ -105,20 +126,27 @@ video{
   width:160px;
   height:90px;
   border-radius:10px;
-  background:#333 center/cover;
+  background:#333 center/cover no-repeat;
 }
 
-/* SHORTS */
+/* ================= SHORTS ================= */
 .shortList{
   display:flex;
+  flex-direction:column;
   gap:10px;
-  overflow-x:auto;
 }
-.shortThumb{
-  width:110px;
-  height:190px;
-  border-radius:10px;
-  background:#333 center/cover;
+.shortCard{
+  position:relative;
+  display:flex;
+  gap:8px;
+  cursor:pointer;
+}
+.shortCard .thumb{
+  width:90px;
+  height:160px;
+}
+.shortOverlay{
+  font-size:12px;
 }
 
 /* ================= COMMENTS ================= */
@@ -135,13 +163,8 @@ video{
 .comment-form button{
   background:#ff9800;
   border:none;
-  padding:8px 12px;
+  padding:8px 14px;
   border-radius:10px;
-}
-.comment-list{
-  max-height:220px;
-  overflow-y:auto;
-  margin-top:10px;
 }
 .comment{
   background:#202020;
@@ -152,8 +175,15 @@ video{
 }
 
 /* ================= SKELETON ================= */
-.skeleton{background:#2a2a2a;animation:pulse 1.2s infinite}
-@keyframes pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
+.skeleton{
+  background:#2a2a2a;
+  animation:pulse 1.2s infinite
+}
+@keyframes pulse{
+  0%{opacity:.6}
+  50%{opacity:.3}
+  100%{opacity:.6}
+}
 
 @media(max-width:900px){
   .layout{grid-template-columns:1fr}
@@ -169,27 +199,31 @@ video{
 <div>
   <div class="video-box skeleton" id="videoBox"></div>
 
-  <div class="title skeleton" id="titleBox" style="width:70%;height:22px"></div>
-  <div class="description skeleton" id="descBox" style="width:90%;height:16px"></div>
+  <div class="video-info">
+    <div class="description skeleton" id="descBox"></div>
 
-  <div class="channel">
-    <img id="chImg" class="skeleton">
-    <div id="chName" class="skeleton" style="width:120px;height:14px"></div>
-    <button id="subBtn" class="subscribe">S’abonner</button>
-  </div>
-
-  <div class="actions">
-    <button id="likeBtn"><i class="fa fa-thumbs-up"></i></button>
-    <button id="favBtn"><i class="fa fa-heart"></i></button>
-  </div>
-
-  <div class="comments">
-    <h3>Commentaires</h3>
-    <div class="comment-form">
-      <input id="commentInput" placeholder="Ajouter un commentaire">
-      <button id="commentBtn">Publier</button>
+    <div class="channel">
+      <img id="chImg" class="skeleton">
+      <div id="chName" class="skeleton" style="width:120px;height:14px"></div>
+      <button id="subBtn" class="subscribe">S’abonner</button>
     </div>
-    <div class="comment-list" id="commentList"></div>
+
+    <div class="actions">
+      <button id="likeBtn"><i class="fa fa-thumbs-up"></i></button>
+      <button id="dislikeBtn"><i class="fa fa-thumbs-down"></i></button>
+      <button id="favBtn"><i class="fa fa-heart"></i></button>
+      <button id="shareBtn"><i class="fa fa-share"></i></button>
+      <button id="reportBtn"><i class="fa fa-flag"></i></button>
+    </div>
+
+    <div class="comments">
+      <h3>Commentaires</h3>
+      <div class="comment-form">
+        <input id="commentInput" placeholder="Ajouter un commentaire">
+        <button id="commentBtn">Publier</button>
+      </div>
+      <div id="commentList"></div>
+    </div>
   </div>
 </div>
 
@@ -208,7 +242,7 @@ video{
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,get,set,push,onValue,remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,set,push,onValue,update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -220,106 +254,110 @@ const auth=getAuth(app);
 const db=getDatabase(app);
 
 const id=new URLSearchParams(location.search).get("id");
-let currentUser=null, channelId=null;
+let currentUser=null;
+let watchTime=0;
+let nextVideoId=null;
 
 onAuthStateChanged(auth,u=>currentUser=u);
 
-/* ================= LOAD VIDEO ================= */
+/* LOAD VIDEO */
 (async()=>{
  const snap=await get(ref(db,"videos/"+id));
  if(!snap.exists()) return;
  const v=snap.val();
- channelId=v.channelId;
 
- videoBox.classList.remove("skeleton");
+ const box=document.getElementById("videoBox");
+ box.classList.remove("skeleton");
 
  const video=document.createElement("video");
  video.src=v.videoURL;
- video.poster=v.thumbnailURL;
- video.controls=false;
+ video.preload="metadata";
  video.playsInline=true;
+
+ const title=document.createElement("div");
+ title.className="video-title-overlay";
+ title.textContent=v.title;
 
  const controls=document.createElement("div");
  controls.className="controls";
  controls.innerHTML=`
-   <button id="playBtn"><i class="fa fa-play"></i></button>
-   <input type="range" id="seek" value="0">
-   <button id="muteBtn"><i class="fa fa-volume-up"></i></button>
-   <button id="fsBtn"><i class="fa fa-expand"></i></button>
+  <button id="playBtn"><i class="fa fa-play"></i></button>
+  <div class="progress"><div class="progress-bar" id="pbar"></div></div>
+  <button id="muteBtn"><i class="fa fa-volume-up"></i></button>
+  <button id="fsBtn"><i class="fa fa-expand"></i></button>
  `;
 
- videoBox.append(video,controls);
+ box.append(video,title,controls);
 
- /* CONTROLS LOGIC */
  playBtn.onclick=()=>video.paused?video.play():video.pause();
  muteBtn.onclick=()=>video.muted=!video.muted;
  fsBtn.onclick=()=>video.requestFullscreen();
 
- video.ontimeupdate=()=>seek.value=(video.currentTime/video.duration)*100;
- seek.oninput=()=>video.currentTime=(seek.value/100)*video.duration;
+ video.ontimeupdate=()=>{
+   pbar.style.width=(video.currentTime/video.duration*100)+"%";
+   watchTime=Math.floor(video.currentTime);
+   if(currentUser)
+     update(ref(db,`watchTime/${id}/${currentUser.uid}`),{watchTime});
+ };
 
- titleBox.textContent=v.title;
- descBox.textContent=v.description||"";
- titleBox.classList.remove("skeleton");
+ video.onended=()=>{
+   if(nextVideoId) location.href=`player.html?id=${nextVideoId}`;
+ };
+
+ descBox.textContent=v.description;
  descBox.classList.remove("skeleton");
 
- const ch=await get(ref(db,"channels/"+channelId));
- chImg.src=ch.val().photoURL;
- chName.textContent=ch.val().name;
- chImg.classList.remove("skeleton");
- chName.classList.remove("skeleton");
-
- loadSubscribe();
  loadComments();
  loadNext();
  loadShorts();
 })();
 
-/* ================= SUBSCRIBE ================= */
-async function loadSubscribe(){
- if(!currentUser) return;
- const r=ref(db,`subscriptions/${currentUser.uid}/${channelId}`);
- const snap=await get(r);
- if(snap.exists()){
-   subBtn.classList.add("subbed");
-   subBtn.textContent="Abonné";
- }
- subBtn.onclick=async()=>{
-   snap.exists()?await remove(r):await set(r,true);
-   subBtn.classList.toggle("subbed");
-   subBtn.textContent=subBtn.classList.contains("subbed")?"Abonné":"S’abonner";
- };
-}
-
-/* ================= COMMENTS REALTIME ================= */
+/* COMMENTS REALTIME */
 function loadComments(){
  const r=ref(db,"comments/"+id);
  onValue(r,s=>{
   commentList.innerHTML="";
   s.forEach(c=>{
-   const d=document.createElement("div");
-   d.className="comment";
-   d.textContent=c.val().text;
-   commentList.appendChild(d);
+    const d=document.createElement("div");
+    d.className="comment";
+    d.textContent=c.val().text;
+    commentList.appendChild(d);
   });
  });
  commentBtn.onclick=async()=>{
   if(!currentUser) return location.href="auth.html";
-  const t=commentInput.value.trim();
-  if(!t) return;
+  const text=commentInput.value.trim();
+  if(!text) return;
   commentInput.value="";
-  await push(r,{text:t,createdAt:Date.now()});
+  await push(r,{text,createdAt:Date.now()});
  };
 }
 
-/* ================= NEXT ================= */
+/* LIKE / DISLIKE / FAV */
+likeBtn.onclick=()=>{
+ likeBtn.classList.toggle("active");
+ if(currentUser) set(ref(db,`likes/${id}/${currentUser.uid}`),true);
+};
+favBtn.onclick=()=>{
+ favBtn.classList.toggle("active");
+ if(currentUser) set(ref(db,`favorites/${id}/${currentUser.uid}`),true);
+};
+reportBtn.onclick=()=>{
+ if(currentUser) push(ref(db,"reports"),{video:id,user:currentUser.uid});
+ alert("Vidéo signalée");
+};
+
+/* NEXT VIDEOS */
 async function loadNext(){
  const snap=await get(ref(db,"videos"));
+ let first=true;
  snap.forEach(c=>{
   if(c.key===id) return;
+  if(first){ nextVideoId=c.key; first=false; }
   const v=c.val();
   const d=document.createElement("div");
-  d.className="card";
+  d.className="card skeleton";
+  setTimeout(()=>d.classList.remove("skeleton"),600);
   d.onclick=()=>location.href=`player.html?id=${c.key}`;
   d.innerHTML=`
    <div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
@@ -329,14 +367,21 @@ async function loadNext(){
  });
 }
 
-/* ================= SHORTS ================= */
+/* SHORTS */
 async function loadShorts(){
  const snap=await get(ref(db,"shorts"));
  snap.forEach(c=>{
   const v=c.val();
   const d=document.createElement("div");
+  d.className="shortCard skeleton";
+  setTimeout(()=>d.classList.remove("skeleton"),500);
   d.onclick=()=>location.href="shorts.html";
-  d.innerHTML=`<div class="shortThumb" style="background-image:url('${v.thumbnailURL}')"></div>`;
+  d.innerHTML=`
+    <div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
+    <div class="shortOverlay">
+      <b>${v.title}</b><br>${v.channelName}
+    </div>
+  `;
   shortList.appendChild(d);
  });
 }
