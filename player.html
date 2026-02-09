@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lecture – Lumio</title>
+<title>Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -27,15 +27,11 @@ video{
   background:black;
 }
 
-/* TITLE OVER VIDEO */
-.video-title-overlay{
-  position:absolute;
-  bottom:55px;
-  left:16px;
-  right:16px;
-  font-size:18px;
+/* ================= TITLE ================= */
+.video-title{
+  font-size:20px;
   font-weight:700;
-  text-shadow:0 2px 8px black;
+  margin:12px 0 6px;
 }
 
 /* ================= CONTROLS ================= */
@@ -71,7 +67,7 @@ video{
 }
 
 /* ================= INFOS ================= */
-.video-info{margin-top:12px}
+.video-info{margin-top:6px}
 .description{font-size:14px;color:#ccc}
 
 /* ================= CHANNEL ================= */
@@ -145,9 +141,7 @@ video{
   width:90px;
   height:160px;
 }
-.shortOverlay{
-  font-size:12px;
-}
+.shortOverlay{font-size:12px}
 
 /* ================= COMMENTS ================= */
 .comments{margin-top:20px}
@@ -198,6 +192,9 @@ video{
 <!-- LEFT -->
 <div>
   <div class="video-box skeleton" id="videoBox"></div>
+
+  <!-- TITLE BELOW VIDEO -->
+  <div class="video-title skeleton" id="videoTitle"></div>
 
   <div class="video-info">
     <div class="description skeleton" id="descBox"></div>
@@ -255,16 +252,19 @@ const db=getDatabase(app);
 
 const id=new URLSearchParams(location.search).get("id");
 let currentUser=null;
-let watchTime=0;
 let nextVideoId=null;
 
 onAuthStateChanged(auth,u=>currentUser=u);
 
-/* LOAD VIDEO */
 (async()=>{
  const snap=await get(ref(db,"videos/"+id));
  if(!snap.exists()) return;
  const v=snap.val();
+
+ document.title = v.title + " – Lumio";
+
+ videoTitle.textContent = v.title;
+ videoTitle.classList.remove("skeleton");
 
  const box=document.getElementById("videoBox");
  box.classList.remove("skeleton");
@@ -273,10 +273,6 @@ onAuthStateChanged(auth,u=>currentUser=u);
  video.src=v.videoURL;
  video.preload="metadata";
  video.playsInline=true;
-
- const title=document.createElement("div");
- title.className="video-title-overlay";
- title.textContent=v.title;
 
  const controls=document.createElement("div");
  controls.className="controls";
@@ -287,22 +283,13 @@ onAuthStateChanged(auth,u=>currentUser=u);
   <button id="fsBtn"><i class="fa fa-expand"></i></button>
  `;
 
- box.append(video,title,controls);
+ box.append(video,controls);
 
  playBtn.onclick=()=>video.paused?video.play():video.pause();
  muteBtn.onclick=()=>video.muted=!video.muted;
  fsBtn.onclick=()=>video.requestFullscreen();
 
- video.ontimeupdate=()=>{
-   pbar.style.width=(video.currentTime/video.duration*100)+"%";
-   watchTime=Math.floor(video.currentTime);
-   if(currentUser)
-     update(ref(db,`watchTime/${id}/${currentUser.uid}`),{watchTime});
- };
-
- video.onended=()=>{
-   if(nextVideoId) location.href=`player.html?id=${nextVideoId}`;
- };
+ video.ontimeupdate=()=>pbar.style.width=(video.currentTime/video.duration*100)+"%";
 
  descBox.textContent=v.description;
  descBox.classList.remove("skeleton");
@@ -312,7 +299,7 @@ onAuthStateChanged(auth,u=>currentUser=u);
  loadShorts();
 })();
 
-/* COMMENTS REALTIME */
+/* COMMENTS */
 function loadComments(){
  const r=ref(db,"comments/"+id);
  onValue(r,s=>{
@@ -333,21 +320,7 @@ function loadComments(){
  };
 }
 
-/* LIKE / DISLIKE / FAV */
-likeBtn.onclick=()=>{
- likeBtn.classList.toggle("active");
- if(currentUser) set(ref(db,`likes/${id}/${currentUser.uid}`),true);
-};
-favBtn.onclick=()=>{
- favBtn.classList.toggle("active");
- if(currentUser) set(ref(db,`favorites/${id}/${currentUser.uid}`),true);
-};
-reportBtn.onclick=()=>{
- if(currentUser) push(ref(db,"reports"),{video:id,user:currentUser.uid});
- alert("Vidéo signalée");
-};
-
-/* NEXT VIDEOS */
+/* NEXT */
 async function loadNext(){
  const snap=await get(ref(db,"videos"));
  let first=true;
