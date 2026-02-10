@@ -162,18 +162,18 @@ button{
   <button onclick="toggleMoreMenu()"><i class="fa fa-ellipsis"></i><span>Plus</span></button>
 </nav>
 
-<div class="more-menu" id="moreMenu">
-   <a href="regles-communautaires.html">règles caummunautaires</a>                
+<div class="more-menu" id="moreMenu">                             
+  <a href="studio.html">🎬 Studio</a>                
+  <a href="analytics.html">📊 Analytics</a>                
+  <a href="monetization.html">💰 Monétisation</a>                
+  <a href="settings.html">⚙️ Paramètres</a>
+  <a href="regles-communautaires.html">règles caummunautaires</a>                
   <a href="droits-auteur.html">droits d'auteur</a>                
   <a href="contact.html">nous contacter?</a>                
    <a href="avis-lumio.html">evaluer lumio</a>                
   <a href="help.html">Centre d'aide</a>                
   <a href="library.html">library</a>                
-  <a href="live.html">Lives</a>                              
-  <a href="studio.html">🎬 Studio</a>                
-  <a href="analytics.html">📊 Analytics</a>                
-  <a href="monetization.html">💰 Monétisation</a>                
-  <a href="settings.html">⚙️ Paramètres</a>     
+  <a href="live.html">Lives</a>    
 </div>
 
 <main class="content">
@@ -236,7 +236,7 @@ onAuthStateChanged(auth,user=>{
   Object.entries(snap.val()||{}).forEach(([id,s])=>{
     const div=document.createElement("div");
     div.className="short-card";
-    div.style.backgroundImage=`url('${s.thumbnail}')`;
+    div.style.backgroundImage=`url('${s.thumbnailURL}')`;
     div.onclick=()=>location.href=`shorts.html?id=${id}`;
     div.innerHTML=`
       <div class="short-overlay">
