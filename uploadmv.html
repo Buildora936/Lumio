@@ -2,238 +2,198 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Publier MV – Lumio</title>
+<title>Publier un Short – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<script type="module">
-import { initializeApp } from
- "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, push, set }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const app = initializeApp({
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-});
-
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-let channelId=null, channelName="", channelPhotoURL="";
-
-onAuthStateChanged(auth, async user=>{
-  if(!user){ location.href="auth.html"; return; }
-
-  const uc = await get(ref(db,"userChannels/"+user.uid));
-  if(!uc.exists()){ location.href="add-channel.html"; return; }
-
-  channelId = uc.val();
-
-  const ch = await get(ref(db,"channels/"+channelId));
-  const c = ch.val();
-  channelName = c.name;
-  channelPhotoURL = c.photoURL;
-});
-
-// base64 AVEC PROGRESSION
-const toBase64Progress = (file, cb)=>new Promise((res,rej)=>{
-  const r=new FileReader();
-  r.onprogress=e=>{
-    if(e.lengthComputable){
-      cb(Math.round((e.loaded/e.total)*100));
-    }
-  };
-  r.onload=()=>res(r.result);
-  r.onerror=e=>rej(e);
-  r.readAsDataURL(file);
-});
-
-window.onload=()=>{
- const form=document.getElementById("uploadForm");
- const bar=document.getElementById("bar");
- const status=document.getElementById("status");
- const btn=document.getElementById("submitBtn");
-
- form.onsubmit=async e=>{
-  e.preventDefault();
-
-  const title=titleInput.value.trim();
-  const description=descriptionInput.value.trim();
-  const video=videoInput.files[0];
-  const thumb=thumbnailInput.files[0];
-  const allowComments=comments.checked;
-
-  if(!title||!video||!thumb){ alert("Champs manquants"); return; }
-
-  btn.disabled=true;
-  status.textContent="Encodage du short…";
-
-  try{
-    let vProgress=0, tProgress=0;
-
-    const videoBase64 = await toBase64Progress(video,p=>{
-      vProgress=p;
-      bar.style.width=((vProgress+tProgress)/2)+"%";
-    });
-
-    status.textContent="Encodage de la miniature…";
-
-    const thumbBase64 = await toBase64Progress(thumb,p=>{
-      tProgress=p;
-      bar.style.width=((vProgress+tProgress)/2)+"%";
-    });
-
-    status.textContent="Publication sur Lumio…";
-    bar.style.width="90%";
-
-    const refShort=push(ref(db,"shorts"));
-
-    await set(refShort,{
-      type:"short",
-      title,
-      description,
-      videoURL: videoBase64,
-      thumbnailBase64: thumbBase64,
-
-      channelId,
-      channelName,
-      channelPhotoURL,
-
-      allowComments,
-      createdAt:Date.now(),
-      views:0,
-      likes:0
-    });
-
-    await set(ref(db,`channels/${channelId}/shorts/${refShort.key}`),true);
-
-    bar.style.width="100%";
-    status.textContent="Short publié avec succès ✔";
-
-    setTimeout(()=>location.href="index.html",1200);
-
-  }catch(err){
-    console.error(err);
-    alert(err.message);
-    btn.disabled=false;
-  }
- };
-};
-</script>
-
 <style>
 *{box-sizing:border-box}
 body{
- margin:0;
- font-family:system-ui;
- background:#181818;
- color:white;
+  margin:0;
+  font-family:system-ui;
+  background:#181818;
+  color:white;
 }
-
-/* HEADER */
-header{
- position:fixed;top:0;left:0;right:0;height:56px;
- background:#0f0f0f;
- display:flex;align-items:center;justify-content:space-between;
- padding:0 16px;z-index:10;
+.container{
+  max-width:600px;
+  margin:40px auto;
+  padding:20px;
+  background:#0f0f0f;
+  border-radius:16px;
 }
-header h1{font-size:20px}
-header button{
- background:#202020;color:white;border:none;
- padding:6px 12px;border-radius:12px;
+h2{text-align:center;color:#ff9800}
+input,textarea,button{
+  width:100%;
+  margin:8px 0;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  background:#1f1f1f;
+  color:white;
 }
-
-/* CONTENT */
-main{
- margin-top:72px;
- padding:16px;
- max-width:600px;
- margin:auto;
+textarea{resize:none;height:100px}
+button{
+  background:#ff9800;
+  color:black;
+  font-weight:700;
+  cursor:pointer;
 }
-
-form{display:flex;flex-direction:column;gap:16px}
-label{font-weight:600}
-input,textarea{
- padding:8px;border-radius:10px;
- border:none;background:#222;color:white;
-}
-textarea{height:100px;resize:none}
-
-button.submit-btn{
- background:#ff8800;
- color:white;border:none;
- padding:12px;border-radius:20px;
- font-weight:600;
- cursor:pointer;
-}
-button.submit-btn:disabled{
- opacity:.6;cursor:not-allowed;
-}
-
-/* PROGRESS */
 .progress{
- height:8px;
- background:#222;
- border-radius:20px;
- overflow:hidden;
- margin-top:10px;
+  width:100%;
+  height:18px;
+  background:#202020;
+  border-radius:10px;
+  overflow:hidden;
 }
-.progress div{
- height:100%;
- width:0%;
- background:#ff8800;
- transition:.2s;
+.bar{
+  height:100%;
+  width:0%;
+  background:#ff9800;
 }
-.status{
- font-size:13px;
- margin-top:6px;
- color:#aaa;
-}
+.error{color:#ff5555;text-align:center}
 </style>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script type="module">
+/* ================= FIREBASE ================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const firebaseConfig={
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+};
+
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
+const auth=getAuth(app);
+
+/* ================= SUPABASE ================= */
+const SUPABASE_URL="https://ymcrkbcsuloijemdbqzy.supabase.co";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
+const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* ================= STATE ================= */
+let currentUser=null, channelId=null, channelName="", channelPhotoURL="";
+
+const bar=document.getElementById("progressBar");
+const errorBox=document.getElementById("error");
+const setProgress=p=>bar.style.width=p+"%";
+
+/* ================= AUTH ================= */
+onAuthStateChanged(auth,async user=>{
+  if(!user) return location.href="auth.html";
+  currentUser=user;
+
+  const uc=await get(ref(db,"userChannels/"+user.uid));
+  if(!uc.exists()) return location.href="add-channel.html";
+
+  channelId=uc.val();
+  const ch=await get(ref(db,"channels/"+channelId));
+  const c=ch.val();
+
+  channelName=c.name;
+  channelPhotoURL=c.photoURL;
+  channelNameBox.textContent=channelName;
+});
+
+/* ================= UPLOAD SHORT ================= */
+uploadForm.onsubmit=async e=>{
+ e.preventDefault();
+ errorBox.textContent="";
+ setProgress(0);
+
+ const title=titleInput.value.trim();
+ const description=descInput.value.trim();
+ const videoFile=videoInput.files[0];
+ const thumbFile=thumbInput.files[0];
+ const allowComments=commentsInput.checked;
+
+ if(!title||!videoFile||!thumbFile){
+   errorBox.textContent="Champs requis manquants";
+   return;
+ }
+
+ try{
+   /* 1️⃣ Create short ID */
+   const shortRef=push(ref(db,"shorts"));
+   const shortId=shortRef.key;
+   setProgress(10);
+
+   /* 2️⃣ Upload thumbnail */
+   const thumbPath=`shorts-thumbnails/${shortId}.jpg`;
+   await supabase.storage.from("thumbnails")
+     .upload(thumbPath,thumbFile,{upsert:true});
+   setProgress(40);
+
+   /* 3️⃣ Upload video */
+   const videoPath=`shorts/${shortId}.mp4`;
+   await supabase.storage.from("videos")
+     .upload(videoPath,videoFile,{upsert:true});
+   setProgress(75);
+
+   const videoURL=`${SUPABASE_URL}/storage/v1/object/public/videos/${videoPath}`;
+   const thumbnailURL=`${SUPABASE_URL}/storage/v1/object/public/thumbnails/${thumbPath}`;
+
+   /* 4️⃣ Save metadata */
+   await set(shortRef,{
+     type:"short",
+     title,
+     description,
+     channelId,
+     channelName,
+     channelPhotoURL,
+     videoURL,
+     thumbnailURL,
+     allowComments,
+     likesEnabled:true,
+     shareEnabled:true,
+     views:0,
+     createdAt:Date.now()
+   });
+
+   setProgress(100);
+   location.href=`shorts.html?id=${shortId}`;
+
+ }catch(err){
+   console.error(err);
+   errorBox.textContent=err.message;
+ }
+};
+</script>
 </head>
 
 <body>
+<div class="container">
+<h2>Publier un Short</h2>
+<div>Chaîne : <b id="channelNameBox">...</b></div>
 
-<header>
- <h1>Publier un MV</h1>
- <button onclick="location.href='index.html'">
-  <i class="fa-solid fa-arrow-left"></i>
- </button>
-</header>
+<form id="uploadForm">
+<input id="titleInput" placeholder="Titre *">
+<textarea id="descInput" placeholder="Description"></textarea>
 
-<main>
- <form id="uploadForm">
+<label>Thumbnail *</label>
+<input type="file" id="thumbInput" accept="image/*">
 
-  <label>Titre</label>
-  <input id="titleInput" placeholder="Titre du short">
+<label>Vidéo verticale *</label>
+<input type="file" id="videoInput" accept="video/*">
 
-  <label>Description</label>
-  <textarea id="descriptionInput" placeholder="Description du short"></textarea>
+<label>
+ <input type="checkbox" id="commentsInput" checked>
+ Autoriser les commentaires
+</label>
 
-  <label>Thumbnail</label>
-  <input id="thumbnailInput" type="file" accept="image/*">
+<button type="submit">Publier</button>
 
-  <label>Vidéo verticale (Short)</label>
-  <input id="videoInput" type="file" accept="video/*">
-
-  <label>
-   <input id="comments" type="checkbox" checked>
-   Autoriser les commentaires
-  </label>
-
-  <button id="submitBtn" class="submit-btn">Publier</button>
-
-  <div class="progress"><div id="bar"></div></div>
-  <div class="status" id="status"></div>
-
- </form>
-</main>
-
+<div class="progress"><div class="bar" id="progressBar"></div></div>
+<div class="error" id="error"></div>
+</form>
+</div>
 </body>
 </html>
