@@ -240,6 +240,8 @@ onAuthStateChanged(auth,user=>{
     div.onclick=()=>location.href=`shorts.html?id=${id}`;
     div.innerHTML=`
       <div class="short-overlay">
+        <div class="title">${v.title}</div>
+        <div>${s.channelPhotoURL}</div>
         <div>${s.channelName}</div>
         <div>${s.views||0} vues</div>
       </div>`;
@@ -258,6 +260,7 @@ onAuthStateChanged(auth,user=>{
       <div class="thumb" style="background-image:url('${v.thumbnail}')"></div>
       <div class="card-body">
         <div class="title">${v.title}</div>
+        <div>${s.channelPhotoURL}</div>
         <div class="meta">${v.channelName} • ${v.views||0} vues</div>
       </div>`;
     grid.appendChild(card);
