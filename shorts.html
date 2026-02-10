@@ -128,14 +128,14 @@ video{
 <div id="shortsContainer"></div>
 
 <div id="commentModal">
-  <div class="comment-header">
+  <div style="padding:10px;text-align:center;font-weight:700">
     Commentaires
     <span style="float:right;cursor:pointer" onclick="closeComments()">✕</span>
   </div>
-  <div class="comment-list" id="commentList"></div>
-  <div class="comment-form">
-    <input id="commentInput" placeholder="Ajouter un commentaire…">
-    <button onclick="sendComment()">Envoyer</button>
+  <div id="commentList" style="flex:1;overflow:auto;padding:10px"></div>
+  <div style="display:flex;gap:8px;padding:10px">
+    <input id="commentInput" style="flex:1;background:#222;border:none;border-radius:10px;color:white">
+    <button onclick="sendComment()" style="background:#ff9800;border:none;border-radius:10px">Envoyer</button>
   </div>
 </div>
 
@@ -186,7 +186,7 @@ const forcedId=new URLSearchParams(location.search).get("id");
    <div class="like-anim"><i class="fa fa-thumbs-up"></i></div>
 
        <div class="actions">
-      <button onclick="like('${id}',this)"><i class="fa fa-heart"></i></button>
+      <button onclick="like('${id}',this)"><i class="fa fa-thumbs-up"></i></button>
       <button onclick="dislike('${id}',this)"><i class="fa fa-thumbs-down"></i></button>
       ${s.allowComments!==false?`<button onclick="openComments('${id}')"><i class="fa fa-comment"></i></button>`:""}
       <button onclick="shareShort('${id}')"><i class="fa fa-share"></i></button>
