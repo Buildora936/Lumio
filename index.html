@@ -241,7 +241,7 @@ onAuthStateChanged(auth,user=>{
     div.innerHTML=`
       <div class="short-overlay">
         <div class="title">${v.title}</div>
-        <div>${s.channelPhotoURL}</div>
+        <img src="${s.channelPhotoURL}">
         <div>${s.channelName}</div>
         <div>${s.views||0} vues</div>
       </div>`;
@@ -260,7 +260,7 @@ onAuthStateChanged(auth,user=>{
       <div class="thumb" style="background-image:url('${v.thumbnail}')"></div>
       <div class="card-body">
         <div class="title">${v.title}</div>
-        <div>${s.channelPhotoURL}</div>
+        <img src="${s.channelPhotoURL}">
         <div class="meta">${v.channelName} • ${v.views||0} vues</div>
       </div>`;
     grid.appendChild(card);
