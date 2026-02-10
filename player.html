@@ -25,13 +25,16 @@ video{
   width:100%;
   max-height:70vh;
   background:black;
+  display:block;
 }
 
-/* ================= TITLE ================= */
-.video-title{
-  font-size:20px;
+/* VIDEO TITLE BELOW VIDEO */
+.video-title-under{
+  margin-top:8px;
+  font-size:18px;
   font-weight:700;
-  margin:12px 0 6px;
+  color:white;
+  padding:0 4px;
 }
 
 /* ================= CONTROLS ================= */
@@ -67,7 +70,7 @@ video{
 }
 
 /* ================= INFOS ================= */
-.video-info{margin-top:6px}
+.video-info{margin-top:12px}
 .description{font-size:14px;color:#ccc}
 
 /* ================= CHANNEL ================= */
@@ -141,7 +144,9 @@ video{
   width:90px;
   height:160px;
 }
-.shortOverlay{font-size:12px}
+.shortOverlay{
+  font-size:12px;
+}
 
 /* ================= COMMENTS ================= */
 .comments{margin-top:20px}
@@ -192,9 +197,7 @@ video{
 <!-- LEFT -->
 <div>
   <div class="video-box skeleton" id="videoBox"></div>
-
-  <!-- TITLE BELOW VIDEO -->
-  <div class="video-title skeleton" id="videoTitle"></div>
+  <div class="video-title-under skeleton" id="videoTitle"></div>
 
   <div class="video-info">
     <div class="description skeleton" id="descBox"></div>
@@ -252,19 +255,19 @@ const db=getDatabase(app);
 
 const id=new URLSearchParams(location.search).get("id");
 let currentUser=null;
+let watchTime=0;
 let nextVideoId=null;
 
 onAuthStateChanged(auth,u=>currentUser=u);
 
+/* LOAD VIDEO */
 (async()=>{
  const snap=await get(ref(db,"videos/"+id));
  if(!snap.exists()) return;
  const v=snap.val();
 
+ // Changer le titre de la page dynamiquement
  document.title = v.title + " – Lumio";
-
- videoTitle.textContent = v.title;
- videoTitle.classList.remove("skeleton");
 
  const box=document.getElementById("videoBox");
  box.classList.remove("skeleton");
@@ -285,21 +288,38 @@ onAuthStateChanged(auth,u=>currentUser=u);
 
  box.append(video,controls);
 
- playBtn.onclick=()=>video.paused?video.play():video.pause();
- muteBtn.onclick=()=>video.muted=!video.muted;
- fsBtn.onclick=()=>video.requestFullscreen();
+ // TITRE sous la vidéo
+ const videoTitle=document.getElementById("videoTitle");
+ videoTitle.textContent = v.title;
+ videoTitle.classList.remove("skeleton");
 
- video.ontimeupdate=()=>pbar.style.width=(video.currentTime/video.duration*100)+"%";
+ // Contrôles
+playBtn.onclick=()=>video.paused?video.play():video.pause();
+muteBtn.onclick=()=>video.muted=!video.muted;
+fsBtn.onclick=()=>video.requestFullscreen();
 
- descBox.textContent=v.description;
- descBox.classList.remove("skeleton");
+// Barre progression + watchTime
+video.ontimeupdate=()=>{
+   pbar.style.width=(video.currentTime/video.duration*100)+"%";
+   watchTime=Math.floor(video.currentTime);
+   if(currentUser)
+     update(ref(db,`watchTime/${id}/${currentUser.uid}`),{watchTime});
+};
 
- loadComments();
- loadNext();
- loadShorts();
+// autoplay prochaine vidéo
+video.onended=()=>{
+   if(nextVideoId) location.href=`player.html?id=${nextVideoId}`;
+};
+
+descBox.textContent=v.description;
+descBox.classList.remove("skeleton");
+
+loadComments();
+loadNext();
+loadShorts();
 })();
 
-/* COMMENTS */
+/* COMMENTS REALTIME */
 function loadComments(){
  const r=ref(db,"comments/"+id);
  onValue(r,s=>{
@@ -320,7 +340,21 @@ function loadComments(){
  };
 }
 
-/* NEXT */
+/* LIKE / DISLIKE / FAV / REPORT */
+likeBtn.onclick=()=>{
+ likeBtn.classList.toggle("active");
+ if(currentUser) set(ref(db,`likes/${id}/${currentUser.uid}`),true);
+};
+favBtn.onclick=()=>{
+ favBtn.classList.toggle("active");
+ if(currentUser) set(ref(db,`favorites/${id}/${currentUser.uid}`),true);
+};
+reportBtn.onclick=()=>{
+ if(currentUser) push(ref(db,"reports"),{video:id,user:currentUser.uid});
+ alert("Vidéo signalée");
+};
+
+/* NEXT VIDEOS */
 async function loadNext(){
  const snap=await get(ref(db,"videos"));
  let first=true;
@@ -335,6 +369,7 @@ async function loadNext(){
   d.innerHTML=`
    <div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
    <div>${v.title}</div>
+   <div style="font-size:12px;color:#ccc">${v.channelName}</div>
   `;
   nextList.appendChild(d);
  });
@@ -348,7 +383,7 @@ async function loadShorts(){
   const d=document.createElement("div");
   d.className="shortCard skeleton";
   setTimeout(()=>d.classList.remove("skeleton"),500);
-  d.onclick=()=>location.href="shorts.html";
+  d.onclick=()=>location.href=`shorts.html?id=${c.key}`;
   d.innerHTML=`
     <div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
     <div class="shortOverlay">
