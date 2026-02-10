@@ -2,13 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Live – Lumio</title>
+<title>Lancer un live – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet"
  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
+*{box-sizing:border-box}
 body{
   margin:0;
   font-family:system-ui;
@@ -25,94 +26,67 @@ header{
 }
 header h2{margin:0;font-size:18px}
 
-.main{
-  display:flex;
-  gap:16px;
-  padding:16px;
-  max-width:1400px;
-  margin:auto;
-}
-
-.video-area{
-  flex:2;
-}
-video{
-  width:100%;
-  background:black;
-  border-radius:12px;
-}
-
-.live-info{
-  margin-top:10px;
-}
-.live-info h3{margin:6px 0}
-.viewers{color:#aaa;font-size:14px}
-
-.chat{
-  flex:1;
+.container{
+  max-width:520px;
+  margin:40px auto;
   background:#181818;
-  border-radius:12px;
-  display:flex;
-  flex-direction:column;
-  height:80vh;
+  padding:20px;
+  border-radius:16px;
 }
 
-.chat-messages{
-  flex:1;
+h3{margin-top:0}
+
+input,textarea,select,button{
+  width:100%;
+  margin-top:10px;
   padding:12px;
-  overflow-y:auto;
-}
-.msg{
-  margin-bottom:10px;
-}
-.msg span{
-  font-weight:600;
-}
-.msg p{
-  margin:4px 0 0;
-  font-size:14px;
-}
-
-.chat-input{
-  display:flex;
-  padding:10px;
-  gap:8px;
-  border-top:1px solid #333;
-}
-.chat-input input{
-  flex:1;
-  padding:10px;
+  border-radius:12px;
   border:none;
-  border-radius:20px;
   background:#222;
   color:white;
 }
-.chat-input button{
+
+textarea{resize:none;height:100px}
+
+button{
   background:#ff0000;
-  border:none;
-  padding:10px 14px;
-  border-radius:50%;
-  color:white;
+  font-weight:700;
   cursor:pointer;
 }
 
-.superchat{
-  background:#ff6a00;
-  padding:8px 12px;
+.progress{
+  margin-top:14px;
+  height:10px;
+  background:#222;
   border-radius:20px;
-  margin-bottom:10px;
+  overflow:hidden;
+}
+.progress div{
+  height:100%;
+  width:0%;
+  background:#ff0000;
+  transition:.2s;
+}
+
+.error{
+  margin-top:10px;
+  color:#ff5555;
   font-size:14px;
 }
 </style>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script type="module">
 import { initializeApp } from
  "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged }
  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, set, onValue, update, increment, remove }
+import { getDatabase, ref, get, push, set, query, orderByChild, equalTo }
  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+/* 🔥 FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
   authDomain: "lumio-6efed.firebaseapp.com",
@@ -124,98 +98,113 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const params = new URLSearchParams(location.search);
-const liveId = params.get("id");
-if(!liveId) location.href="index.html";
+/* 🧠 SUPABASE */
+const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
 
-let currentUser = null;
-let viewerRef = null;
+const supabase = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
-// 🔔 AUTH
-onAuthStateChanged(auth, user=>{
-  currentUser = user;
+let currentUser=null;
+let channelId=null;
+let channelName="", channelPhotoURL="";
+
+/* 🔐 AUTH */
+onAuthStateChanged(auth, async user=>{
+  if(!user) return location.href="auth.html";
+  currentUser=user;
+
+  const uc = await get(ref(db,"userChannels/"+user.uid));
+  if(!uc.exists()) return location.href="add-channel.html";
+
+  channelId = uc.val();
+  const ch = await get(ref(db,"channels/"+channelId));
+  const c = ch.val();
+
+  channelName = c.name;
+  channelPhotoURL = c.photoURL;
+
+  document.getElementById("channelName").textContent = channelName;
 });
 
-// 👁️ VIEWERS COUNT
-viewerRef = push(ref(db,`lives/${liveId}/viewers`));
-set(viewerRef,true);
+/* 🚀 CREATE LIVE */
+form.onsubmit = async e=>{
+  e.preventDefault();
+  error.textContent="";
+  bar.style.width="0%";
 
-window.addEventListener("beforeunload",()=>{
-  remove(viewerRef);
-});
+  const title = titleInput.value.trim();
+  const description = descInput.value.trim();
+  const thumb = thumbInput.files[0];
 
-// 📡 LIVE DATA
-onValue(ref(db,`lives/${liveId}`), snap=>{
-  if(!snap.exists()) return;
-  const l = snap.val();
-  document.getElementById("title").textContent = l.title;
-  document.getElementById("channel").textContent = l.channelName;
-});
+  if(!title || !thumb){
+    error.textContent="Titre et miniature obligatoires";
+    return;
+  }
 
-// 👥 VIEWERS UPDATE
-onValue(ref(db,`lives/${liveId}/viewers`), snap=>{
-  document.getElementById("viewers").textContent =
-    Object.keys(snap.val()||{}).length + " spectateurs";
-});
-
-// 💬 CHAT
-const chatBox = document.getElementById("messages");
-
-onValue(ref(db,`liveChats/${liveId}`), snap=>{
-  chatBox.innerHTML="";
-  snap.forEach(m=>{
-    const msg = m.val();
-    const div = document.createElement("div");
-    div.className="msg";
-
-    if(msg.amount){
-      div.innerHTML = `
-        <div class="superchat">
-          💰 <b>${msg.user}</b> : ${msg.text} (${msg.amount}$)
-        </div>`;
-    }else{
-      div.innerHTML = `<span>${msg.user}</span><p>${msg.text}</p>`;
+  try{
+    /* ⛔ CHECK LIVE EXIST */
+    const q = query(
+      ref(db,"lives"),
+      orderByChild("channelId"),
+      equalTo(channelId)
+    );
+    const snap = await get(q);
+    let hasLive=false;
+    snap.forEach(l=>{
+      if(l.val().status==="live") hasLive=true;
+    });
+    if(hasLive){
+      error.textContent="Un live est déjà en cours sur cette chaîne";
+      return;
     }
-    chatBox.appendChild(div);
-  });
-  chatBox.scrollTop = chatBox.scrollHeight;
-});
 
-// ➤ SEND MESSAGE
-sendBtn.onclick = async ()=>{
-  const text = msgInput.value.trim();
-  if(!text) return;
-  msgInput.value="";
+    /* 🆔 LIVE ID */
+    const liveRef = push(ref(db,"lives"));
+    const liveId = liveRef.key;
 
-  await push(ref(db,`liveChats/${liveId}`),{
-    user: currentUser?.displayName || "Invité",
-    text,
-    createdAt: Date.now()
-  });
-};
+    bar.style.width="20%";
 
-// 💰 SUPER CHAT
-superBtn.onclick = async ()=>{
-  const text = prompt("Message SuperChat");
-  const amount = prompt("Montant ($)");
-  if(!text || !amount) return;
+    /* 🖼️ UPLOAD THUMB */
+    const thumbPath = `live-thumbnails/${liveId}.jpg`;
+    const { error:upErr } = await supabase
+      .storage.from("thumbnails")
+      .upload(thumbPath, thumb, { upsert:true });
 
-  await push(ref(db,`liveChats/${liveId}`),{
-    user: currentUser?.displayName || "Anonyme",
-    text,
-    amount,
-    createdAt:Date.now()
-  });
-};
+    if(upErr) throw upErr;
 
-// ⏹️ END LIVE → REPLAY
-window.endLive = async ()=>{
-  await update(ref(db,`lives/${liveId}`),{
-    status:"ended",
-    endedAt:Date.now()
-  });
-  alert("Live terminé – Replay disponible");
-  location.href="index.html";
+    bar.style.width="60%";
+
+    const thumbURL =
+      `${SUPABASE_URL}/storage/v1/object/public/thumbnails/${thumbPath}`;
+
+    /* 💾 SAVE LIVE */
+    await set(liveRef,{
+      title,
+      description,
+      thumbnailURL: thumbURL,
+
+      channelId,
+      channelName,
+      channelPhotoURL,
+
+      status:"live",
+      chatEnabled:true,
+      likes:0,
+      viewersCount:0,
+      startedAt:Date.now()
+    });
+
+    bar.style.width="100%";
+
+    location.href = `live-control.html?id=${liveId}`;
+
+  }catch(err){
+    console.error(err);
+    error.textContent = err.message;
+  }
 };
 </script>
 </head>
@@ -223,33 +212,24 @@ window.endLive = async ()=>{
 <body>
 
 <header>
-  <h2>Lumio Live 🔴</h2>
-  <button onclick="endLive()">Terminer</button>
+  <h2>Lancer un live 🔴</h2>
 </header>
 
-<div class="main">
+<div class="container">
+  <h3>Chaîne : <span id="channelName">...</span></h3>
 
-  <div class="video-area">
-    <!-- STREAM VIDEO -->
-    <video controls autoplay muted></video>
+  <form id="form">
+    <input id="titleInput" placeholder="Titre du live *">
+    <textarea id="descInput" placeholder="Description"></textarea>
 
-    <div class="live-info">
-      <h3 id="title"></h3>
-      <div class="viewers" id="viewers">0 spectateurs</div>
-      <div class="viewers">Chaîne : <span id="channel"></span></div>
-    </div>
-  </div>
+    <label>Miniature du live *</label>
+    <input id="thumbInput" type="file" accept="image/*">
 
-  <div class="chat">
-    <div class="chat-messages" id="messages"></div>
+    <button type="submit">🔴 Lancer le live</button>
 
-    <div class="chat-input">
-      <input id="msgInput" placeholder="Écrire un message...">
-      <button id="sendBtn"><i class="fa fa-paper-plane"></i></button>
-      <button id="superBtn">💰</button>
-    </div>
-  </div>
-
+    <div class="progress"><div id="bar"></div></div>
+    <div class="error" id="error"></div>
+  </form>
 </div>
 
 </body>
