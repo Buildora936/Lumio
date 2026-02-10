@@ -11,21 +11,16 @@
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
 body{background:#000;color:white;overflow:hidden}
 
-/* CONTAINER */
 #shortsContainer{
   height:100vh;
-  width:100%;
   overflow-y:scroll;
   scroll-snap-type:y mandatory;
 }
 
-/* SHORT */
 .short{
   height:100vh;
-  width:100%;
   position:relative;
   scroll-snap-align:start;
-  background:black;
 }
 
 video{
@@ -44,16 +39,13 @@ video{
   background:linear-gradient(transparent,rgba(0,0,0,.7));
 }
 
-/* CHANNEL */
 .channel{
   display:flex;
   align-items:center;
   gap:10px;
-  margin-bottom:8px;
 }
-.channel img{
-  width:36px;height:36px;border-radius:50%;
-}
+.channel img{width:36px;height:36px;border-radius:50%}
+
 .subscribe{
   margin-left:auto;
   background:#ff9800;
@@ -68,33 +60,26 @@ video{
   color:black;
 }
 
-/* DESCRIPTION */
-.desc{
-  font-size:14px;
-  margin-bottom:8px;
-  max-height:60px;
-  overflow:hidden;
-}
+.desc{font-size:14px;margin-top:6px;max-height:60px;overflow:hidden}
 
 /* ACTIONS */
 .actions{
   position:absolute;
   right:12px;
-  bottom:120px;
+  bottom:140px;
   display:flex;
   flex-direction:column;
-  gap:16px;
+  gap:18px;
 }
 .actions button{
   background:none;
   border:none;
   color:white;
   font-size:22px;
-  cursor:pointer;
 }
 .actions button.active{color:#ff9800}
 
-/* COMMENTS MODAL */
+/* COMMENTS */
 #commentModal{
   position:fixed;
   left:0;right:0;bottom:0;
@@ -102,8 +87,8 @@ video{
   background:#111;
   border-radius:16px 16px 0 0;
   transform:translateY(100%);
-  transition:.3s;
-  z-index:10;
+  transition:.25s;
+  z-index:20;
   display:flex;
   flex-direction:column;
 }
@@ -120,8 +105,6 @@ video{
   overflow-y:auto;
   padding:10px;
 }
-.comment-list::-webkit-scrollbar{width:6px}
-.comment-list::-webkit-scrollbar-thumb{background:#555;border-radius:3px}
 .comment{
   background:#202020;
   padding:8px;
@@ -141,14 +124,12 @@ video{
   border-radius:10px;
   padding:6px;
   color:white;
-  max-length:200px;
 }
 .comment-form button{
   background:#ff9800;
   border:none;
   padding:6px 12px;
   border-radius:10px;
-  cursor:pointer;
 }
 </style>
 </head>
@@ -157,7 +138,6 @@ video{
 
 <div id="shortsContainer"></div>
 
-<!-- COMMENTS MODAL -->
 <div id="commentModal">
   <div class="comment-header">
     Commentaires
@@ -190,15 +170,22 @@ let currentShortId=null;
 
 onAuthStateChanged(auth,u=>currentUser=u);
 
-/* LOAD RANDOM SHORTS */
+const params=new URLSearchParams(location.search);
+const forcedId=params.get("id");
+
+/* LOAD SHORTS */
 (async()=>{
  const snap=await get(ref(db,"shorts"));
  if(!snap.exists()) return;
 
- const shorts=Object.entries(snap.val());
- shorts.sort(()=>Math.random()-0.5); // 🎲 aléatoire
+ let entries=Object.entries(snap.val());
+ if(forcedId){
+   entries.sort(([a],[b])=>a===forcedId?-1:b===forcedId?1:0);
+ }else{
+   entries.sort(()=>Math.random()-0.5);
+ }
 
- shorts.forEach(([id,s])=>{
+ entries.forEach(([id,s])=>{
    const div=document.createElement("div");
    div.className="short";
    div.innerHTML=`
@@ -206,43 +193,55 @@ onAuthStateChanged(auth,u=>currentUser=u);
 
     <div class="actions">
       <button onclick="like('${id}',this)"><i class="fa fa-heart"></i></button>
-      <button onclick="openComments('${id}')"><i class="fa fa-comment"></i></button>
-      <button onclick="save('${id}',this)"><i class="fa fa-bookmark"></i></button>
+      <button onclick="dislike('${id}',this)"><i class="fa fa-thumbs-down"></i></button>
+      ${s.allowComments!==false?`<button onclick="openComments('${id}')"><i class="fa fa-comment"></i></button>`:""}
+      <button onclick="shareShort('${id}')"><i class="fa fa-share"></i></button>
+      <button onclick="report('${id}')"><i class="fa fa-flag"></i></button>
     </div>
 
     <div class="overlay">
       <div class="channel">
         <img src="${s.channelPhotoURL}">
         <div>${s.channelName}</div>
-        <button class="subscribe" onclick="subscribe('${s.channelId}',this)">S’abonner</button>
+        <button class="subscribe" data-cid="${s.channelId}" onclick="subscribe('${s.channelId}',this)">S’abonner</button>
       </div>
-      <div class="desc">
-        ${s.description?.length>80?s.description.substr(0,80)+"...":s.description||""}
-      </div>
+      <div class="desc">${s.description||""}</div>
     </div>
    `;
    shortsContainer.appendChild(div);
+
+   checkSub(s.channelId,div.querySelector(".subscribe"));
  });
 })();
 
-/* INTERACTIONS */
+/* LIKE / DISLIKE */
 window.like=async(id,btn)=>{
  if(!currentUser) return location.href="auth.html";
- btn.classList.toggle("active");
  await set(ref(db,`shortLikes/${id}/${currentUser.uid}`),true);
+ await remove(ref(db,`shortDislikes/${id}/${currentUser.uid}`));
+ btn.classList.add("active");
 };
 
-window.save=async(id,btn)=>{
+window.dislike=async(id,btn)=>{
  if(!currentUser) return location.href="auth.html";
- btn.classList.toggle("active");
- await set(ref(db,`shortSaved/${currentUser.uid}/${id}`),true);
+ await set(ref(db,`shortDislikes/${id}/${currentUser.uid}`),true);
+ await remove(ref(db,`shortLikes/${id}/${currentUser.uid}`));
+ btn.classList.add("active");
 };
 
+/* SUBSCRIBE */
+async function checkSub(cid,btn){
+ if(!currentUser) return;
+ const r=ref(db,`subscriptions/${currentUser.uid}/${cid}`);
+ if((await get(r)).exists()){
+   btn.classList.add("subbed");
+   btn.textContent="Abonné";
+ }
+}
 window.subscribe=async(cid,btn)=>{
  if(!currentUser) return location.href="auth.html";
  const r=ref(db,`subscriptions/${currentUser.uid}/${cid}`);
- const snap=await get(r);
- if(snap.exists()){
+ if((await get(r)).exists()){
    await remove(r);
    btn.classList.remove("subbed");
    btn.textContent="S’abonner";
@@ -254,42 +253,50 @@ window.subscribe=async(cid,btn)=>{
 };
 
 /* COMMENTS */
-const commentModal=document.getElementById("commentModal");
-const commentInput=document.getElementById("commentInput");
-
 window.openComments=id=>{
  currentShortId=id;
+ commentList.innerHTML="";
  commentModal.classList.add("open");
- loadComments();
-};
-window.closeComments=()=>commentModal.classList.remove("open");
-
-function loadComments(){
- const list=document.getElementById("commentList");
- const r=ref(db,"shortComments/"+currentShortId);
- onValue(r,snap=>{
-   list.innerHTML="";
+ onValue(ref(db,"shortComments/"+id),snap=>{
+   commentList.innerHTML="";
    snap.forEach(c=>{
      const d=document.createElement("div");
      d.className="comment";
-     d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b>: ${c.val().text}`;
-     list.appendChild(d);
+     d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b> ${c.val().text}`;
+     commentList.appendChild(d);
    });
  });
-}
+};
+window.closeComments=()=>commentModal.classList.remove("open");
 
 window.sendComment=async()=>{
  if(!currentUser) return location.href="auth.html";
  const text=commentInput.value.trim();
  if(!text) return;
- const userSnap=await get(ref(db,"users/"+currentUser.uid));
  await push(ref(db,"shortComments/"+currentShortId),{
    text,
-   userName:userSnap.exists()?userSnap.val().name:"Anonyme",
    uid:currentUser.uid,
    createdAt:Date.now()
  });
  commentInput.value="";
+};
+
+/* SHARE */
+window.shareShort=id=>{
+ const url=location.origin+"/shorts.html?id="+id;
+ if(navigator.share){
+   navigator.share({url});
+ }else{
+   navigator.clipboard.writeText(url);
+   alert("Lien copié");
+ }
+};
+
+/* REPORT */
+window.report=async id=>{
+ if(!currentUser) return location.href="auth.html";
+ await set(ref(db,`reports/shorts/${id}/${currentUser.uid}`),true);
+ alert("Merci pour le signalement");
 };
 </script>
 
