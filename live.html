@@ -2,22 +2,20 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Live – Lumio</title>
+<title>Lumio Live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet"
  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-*{box-sizing:border-box}
 body{
   margin:0;
-  font-family:system-ui;
   background:#0f0f0f;
+  font-family:system-ui;
   color:white;
 }
 
-/* HEADER */
 header{
   height:56px;
   background:#181818;
@@ -26,9 +24,12 @@ header{
   justify-content:space-between;
   padding:0 16px;
 }
-header h2{margin:0;font-size:18px}
 
-/* MAIN */
+header h2{
+  margin:0;
+  font-size:18px;
+}
+
 .main{
   display:flex;
   gap:16px;
@@ -37,68 +38,46 @@ header h2{margin:0;font-size:18px}
   margin:auto;
 }
 
-.video-area{flex:2}
+.video-area{
+  flex:2;
+}
+
 video{
   width:100%;
+  height:70vh;
   background:black;
   border-radius:12px;
 }
 
-/* LIVE INFO */
-.live-info{margin-top:10px}
-.live-info h3{margin:6px 0}
-.meta{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  color:#aaa;
+.live-info{
+  margin-top:10px;
   font-size:14px;
+  color:#aaa;
 }
 
-/* CHANNEL */
-.channel{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-top:8px;
-}
-.channel img{
-  width:36px;
-  height:36px;
-  border-radius:50%;
-}
-.subscribe{
-  margin-left:auto;
-  background:#ff9800;
-  border:none;
-  padding:6px 14px;
-  border-radius:20px;
-  font-weight:700;
-  cursor:pointer;
-}
-.subscribe.subbed{
-  background:white;
-  color:black;
-}
-
-/* CHAT */
 .chat{
   flex:1;
   background:#181818;
   border-radius:12px;
   display:flex;
   flex-direction:column;
-  height:80vh;
+  height:75vh;
 }
 
 .chat-messages{
   flex:1;
-  padding:12px;
   overflow-y:auto;
+  padding:12px;
 }
-.msg{margin-bottom:10px}
-.msg span{font-weight:600}
-.msg p{margin:4px 0 0;font-size:14px}
+
+.msg{
+  margin-bottom:10px;
+  font-size:14px;
+}
+
+.msg span{
+  font-weight:600;
+}
 
 .chat-input{
   display:flex;
@@ -106,6 +85,7 @@ video{
   gap:8px;
   border-top:1px solid #333;
 }
+
 .chat-input input{
   flex:1;
   padding:10px;
@@ -114,24 +94,14 @@ video{
   background:#222;
   color:white;
 }
+
 .chat-input button{
-  background:#ff9800;
+  background:#ff0000;
   border:none;
   padding:10px 14px;
-  border-radius:50%;
+  border-radius:20px;
   color:white;
   cursor:pointer;
-}
-
-/* ENDED */
-.ended{
-  margin-top:10px;
-  background:#202020;
-  padding:10px;
-  border-radius:8px;
-  text-align:center;
-  color:#ff5555;
-  font-weight:600;
 }
 </style>
 </head>
@@ -139,39 +109,17 @@ video{
 <body>
 
 <header>
-  <h2>Lumio Live 🔴</h2>
-  <button onclick="location.href='lives.html'">
-    <i class="fa fa-arrow-left"></i>
-  </button>
+  <h2 id="liveTitle">🔴 Live</h2>
+  <div id="viewerCount">0 spectateurs</div>
 </header>
 
 <div class="main">
 
   <div class="video-area">
-
-    <video id="liveVideo" controls autoplay playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
 
     <div class="live-info">
-      <h3 id="title"></h3>
-
-      <div class="meta">
-        <span id="viewers">0 spectateurs</span>
-        <span id="likes">0 likes</span>
-        <button onclick="likeLive()" style="background:none;border:none;color:white;cursor:pointer">
-          <i class="fa fa-thumbs-up"></i>
-        </button>
-        <button onclick="shareLive()" style="background:none;border:none;color:white;cursor:pointer">
-          <i class="fa fa-share"></i>
-        </button>
-      </div>
-
-      <div class="channel">
-        <img id="channelPhoto">
-        <span id="channelName"></span>
-        <button class="subscribe" id="subBtn">S’abonner</button>
-      </div>
-
-      <div id="endedBox"></div>
+      Chaîne : <span id="channelName"></span>
     </div>
   </div>
 
@@ -189,128 +137,144 @@ video{
 </div>
 
 <script type="module">
-import { initializeApp }
-from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged }
-from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, set, onValue, remove, get }
-from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from
+ "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,set,onValue,push,remove,get }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app = initializeApp({
-  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
-  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId:"lumio-6efed"
-});
+const firebaseConfig={
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+};
 
-const auth = getAuth(app);
-const db = getDatabase(app);
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
 
-const params = new URLSearchParams(location.search);
-const liveId = params.get("id");
-
-if(!liveId) location.href="lives.html";
+const params=new URLSearchParams(location.search);
+const liveId=params.get("id");
+if(!liveId) location.href="index.html";
 
 let currentUser=null;
 let viewerRef=null;
 
-onAuthStateChanged(auth,u=>currentUser=u);
+const remoteVideo=document.getElementById("remoteVideo");
 
-/* VIEWER COUNT */
-viewerRef = push(ref(db,`lives/${liveId}/viewers`));
-set(viewerRef,true);
+/* ================= AUTH ================= */
 
-window.addEventListener("beforeunload",()=>{
-  remove(viewerRef);
+onAuthStateChanged(auth,async u=>{
+ currentUser=u;
+
+ // Vérifie si banni
+ if(u){
+   const banSnap=await get(ref(db,`liveBans/${liveId}/${u.uid}`));
+   if(banSnap.exists()){
+     alert("Vous êtes banni de ce live.");
+     location.href="index.html";
+     return;
+   }
+ }
+
+ // Ajouter viewer
+ viewerRef=ref(db,`liveViewers/${liveId}/${u?.uid||("guest_"+Date.now())}`);
+ await set(viewerRef,true);
+
+ window.addEventListener("beforeunload",()=>{
+   remove(viewerRef);
+ });
 });
 
-/* LIVE DATA */
+/* ================= LIVE DATA ================= */
+
 onValue(ref(db,`lives/${liveId}`),snap=>{
-  if(!snap.exists()) return;
+ if(!snap.exists()){
+   alert("Live introuvable");
+   location.href="index.html";
+   return;
+ }
 
-  const l=snap.val();
+ const l=snap.val();
+ if(l.status==="ended"){
+   alert("Live terminé");
+   location.href="index.html";
+   return;
+ }
 
-  title.textContent=l.title;
-  channelName.textContent=l.channelName;
-  channelPhoto.src=l.channelPhotoURL;
-
-  if(l.status==="ended"){
-    endedBox.innerHTML=`<div class="ended">Live terminé</div>`;
-  }
-
-  /* VIEWERS */
-  onValue(ref(db,`lives/${liveId}/viewers`),v=>{
-    viewers.textContent=
-      Object.keys(v.val()||{}).length+" spectateurs";
-  });
-
-  /* LIKES */
-  onValue(ref(db,`lives/${liveId}/likes`),v=>{
-    likes.textContent=
-      Object.keys(v.val()||{}).length+" likes";
-  });
+ document.getElementById("liveTitle").textContent="🔴 "+l.title;
+ document.getElementById("channelName").textContent=l.channelName;
 });
 
-/* CHAT */
-onValue(ref(db,`liveChats/${liveId}`),snap=>{
-  messages.innerHTML="";
-  snap.forEach(m=>{
-    const msg=m.val();
-    const div=document.createElement("div");
-    div.className="msg";
-    div.innerHTML=
-      `<span>${msg.user||"Invité"}</span>
-       <p>${msg.text}</p>`;
-    messages.appendChild(div);
-  });
-  messages.scrollTop=messages.scrollHeight;
+/* ================= VIEWERS ================= */
+
+onValue(ref(db,`liveViewers/${liveId}`),snap=>{
+ const viewers=snap.val()||{};
+ document.getElementById("viewerCount").textContent=
+   Object.keys(viewers).length+" spectateurs";
 });
 
-/* SEND MESSAGE */
+/* ================= WEBRTC ================= */
+
+const iceServers={
+ iceServers:[
+   {urls:"stun:stun.l.google.com:19302"}
+ ]
+};
+
+const pc=new RTCPeerConnection(iceServers);
+
+pc.ontrack=e=>{
+ remoteVideo.srcObject=e.streams[0];
+};
+
+pc.onicecandidate=e=>{
+ if(e.candidate){
+   push(ref(db,`liveSignals/${liveId}/viewerIce`),
+     e.candidate.toJSON());
+ }
+};
+
+// 🔹 Lire offer du créateur
+onValue(ref(db,`liveSignals/${liveId}/offers`),async snap=>{
+ snap.forEach(async child=>{
+   const offer=child.val();
+   if(!pc.currentRemoteDescription){
+     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+     const answer=await pc.createAnswer();
+     await pc.setLocalDescription(answer);
+     await set(ref(db,`liveSignals/${liveId}/answers/${auth.currentUser?.uid||"guest"}`),answer);
+   }
+ });
+});
+
+/* ================= CHAT ================= */
+
+onValue(ref(db,`liveChat/${liveId}`),snap=>{
+ messages.innerHTML="";
+ snap.forEach(m=>{
+   const div=document.createElement("div");
+   div.className="msg";
+   div.innerHTML=`<span>${m.val().user}</span>: ${m.val().text}`;
+   messages.appendChild(div);
+ });
+ messages.scrollTop=messages.scrollHeight;
+});
+
 sendBtn.onclick=async()=>{
-  const text=msgInput.value.trim();
-  if(!text) return;
-  msgInput.value="";
-  await push(ref(db,`liveChats/${liveId}`),{
-    user: currentUser?.displayName || "Invité",
-    text,
-    createdAt:Date.now()
-  });
-};
+ const text=msgInput.value.trim();
+ if(!text) return;
 
-/* LIKE */
-window.likeLive=async()=>{
-  if(!currentUser) return location.href="auth.html";
-  await set(ref(db,`lives/${liveId}/likes/${currentUser.uid}`),true);
-};
+ msgInput.value="";
 
-/* SHARE */
-window.shareLive=()=>{
-  const url=location.href;
-  if(navigator.share){
-    navigator.share({url});
-  }else{
-    navigator.clipboard.writeText(url);
-    alert("Lien copié");
-  }
-};
-
-/* SUBSCRIBE */
-subBtn.onclick=async()=>{
-  if(!currentUser) return location.href="auth.html";
-
-  const r=ref(db,`subscriptions/${currentUser.uid}/${liveId}`);
-  const snap=await get(r);
-
-  if(snap.exists()){
-    await remove(r);
-    subBtn.classList.remove("subbed");
-    subBtn.textContent="S’abonner";
-  }else{
-    await set(r,true);
-    subBtn.classList.add("subbed");
-    subBtn.textContent="Abonné";
-  }
+ await push(ref(db,`liveChat/${liveId}`),{
+   user:currentUser?.displayName||"Invité",
+   text,
+   uid:currentUser?.uid||null,
+   createdAt:Date.now()
+ });
 };
 </script>
 
