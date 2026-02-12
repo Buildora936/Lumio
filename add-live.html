@@ -2,235 +2,210 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lancer un live – Lumio</title>
+<title>Créer un Live - Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet"
- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
 <style>
-*{box-sizing:border-box}
 body{
   margin:0;
-  font-family:system-ui;
   background:#0f0f0f;
+  font-family:system-ui;
   color:white;
 }
-header{
-  height:56px;
-  background:#181818;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-}
-header h2{margin:0;font-size:18px}
 
 .container{
-  max-width:520px;
+  max-width:800px;
   margin:40px auto;
   background:#181818;
-  padding:20px;
+  padding:30px;
   border-radius:16px;
 }
 
-h3{margin-top:0}
+h2{
+  margin-top:0;
+}
 
-input,textarea,select,button{
+input, textarea{
   width:100%;
-  margin-top:10px;
   padding:12px;
-  border-radius:12px;
+  margin-bottom:15px;
   border:none;
+  border-radius:8px;
   background:#222;
   color:white;
 }
 
-textarea{resize:none;height:100px}
-
 button{
   background:#ff0000;
-  font-weight:700;
+  border:none;
+  padding:12px 18px;
+  border-radius:8px;
+  color:white;
+  font-weight:600;
   cursor:pointer;
 }
 
-.progress{
-  margin-top:14px;
-  height:10px;
-  background:#222;
-  border-radius:20px;
-  overflow:hidden;
+button:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
 }
-.progress div{
+
+.progress-container{
+  width:100%;
+  height:10px;
+  background:#333;
+  border-radius:10px;
+  overflow:hidden;
+  margin-bottom:10px;
+  display:none;
+}
+
+.progress-bar{
   height:100%;
   width:0%;
   background:#ff0000;
-  transition:.2s;
+  transition:width 0.2s;
+}
+
+.progress-text{
+  font-size:13px;
+  color:#aaa;
+  margin-bottom:15px;
+}
+
+.success{
+  color:#00ff88;
+  margin-top:15px;
 }
 
 .error{
-  margin-top:10px;
-  color:#ff5555;
-  font-size:14px;
+  color:#ff4444;
+  margin-top:15px;
 }
 </style>
-
-<!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script type="module">
-import { initializeApp } from
- "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, push, set, query, orderByChild, equalTo }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-/* 🔥 FIREBASE */
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-/* 🧠 SUPABASE */
-const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
-
-const supabase = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
-
-let currentUser=null;
-let channelId=null;
-let channelName="", channelPhotoURL="";
-
-/* 🔐 AUTH */
-onAuthStateChanged(auth, async user=>{
-  if(!user) return location.href="auth.html";
-  currentUser=user;
-
-  const uc = await get(ref(db,"userChannels/"+user.uid));
-  if(!uc.exists()) return location.href="add-channel.html";
-
-  channelId = uc.val();
-  const ch = await get(ref(db,"channels/"+channelId));
-  const c = ch.val();
-
-  channelName = c.name;
-  channelPhotoURL = c.photoURL;
-
-  document.getElementById("channelName").textContent = channelName;
-});
-
-/* 🚀 CREATE LIVE */
-form.onsubmit = async e=>{
-  e.preventDefault();
-  error.textContent="";
-  bar.style.width="0%";
-
-  const title = titleInput.value.trim();
-  const description = descInput.value.trim();
-  const thumb = thumbInput.files[0];
-
-  if(!title || !thumb){
-    error.textContent="Titre et miniature obligatoires";
-    return;
-  }
-
-  try{
-    /* ⛔ CHECK LIVE EXIST */
-    const q = query(
-      ref(db,"lives"),
-      orderByChild("channelId"),
-      equalTo(channelId)
-    );
-    const snap = await get(q);
-    let hasLive=false;
-    snap.forEach(l=>{
-      if(l.val().status==="live") hasLive=true;
-    });
-    if(hasLive){
-      error.textContent="Un live est déjà en cours sur cette chaîne";
-      return;
-    }
-
-    /* 🆔 LIVE ID */
-    const liveRef = push(ref(db,"lives"));
-    const liveId = liveRef.key;
-
-    bar.style.width="20%";
-
-    /* 🖼️ UPLOAD THUMB */
-    const thumbPath = `live-thumbnails/${liveId}.jpg`;
-    const { error:upErr } = await supabase
-      .storage.from("thumbnails")
-      .upload(thumbPath, thumb, { upsert:true });
-
-    if(upErr) throw upErr;
-
-    bar.style.width="60%";
-
-    const thumbURL =
-      `${SUPABASE_URL}/storage/v1/object/public/thumbnails/${thumbPath}`;
-
-    /* 💾 SAVE LIVE */
-    await set(liveRef,{
-      title,
-      description,
-      thumbnailURL: thumbURL,
-
-      channelId,
-      channelName,
-      channelPhotoURL,
-
-      status:"live",
-      chatEnabled:true,
-      likes:0,
-      viewersCount:0,
-      startedAt:Date.now()
-    });
-
-    bar.style.width="100%";
-
-    location.href = `live-control.html?id=${liveId}`;
-
-  }catch(err){
-    console.error(err);
-    error.textContent = err.message;
-  }
-};
-</script>
 </head>
 
 <body>
 
-<header>
-  <h2>Lancer un live 🔴</h2>
-</header>
-
 <div class="container">
-  <h3>Chaîne : <span id="channelName">...</span></h3>
+  <h2>🚀 Créer un Live</h2>
 
-  <form id="form">
-    <input id="titleInput" placeholder="Titre du live *">
-    <textarea id="descInput" placeholder="Description"></textarea>
+  <input id="title" placeholder="Titre du live">
+  <textarea id="description" rows="4"
+   placeholder="Description du live"></textarea>
 
-    <label>Miniature du live *</label>
-    <input id="thumbInput" type="file" accept="image/*">
+  <input type="file" id="thumbnailInput" accept="image/*">
 
-    <button type="submit">🔴 Lancer le live</button>
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="progress-text" id="progressText"></div>
 
-    <div class="progress"><div id="bar"></div></div>
-    <div class="error" id="error"></div>
-  </form>
+  <button id="createBtn">Créer le Live</button>
+
+  <div id="message"></div>
 </div>
+
+<script type="module">
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,set }
+from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+import { createClient }
+from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+const SUPABASE_URL="https://ymcrkbcsuloijemdbqzy.supabase.co";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
+
+const supabase=createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const firebaseConfig={
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+let currentUser=null;
+
+onAuthStateChanged(auth,u=>{
+ if(!u) location.href="login.html";
+ currentUser=u;
+});
+
+const createBtn=document.getElementById("createBtn");
+const progressBar=document.getElementById("progressBar");
+const progressText=document.getElementById("progressText");
+const progressContainer=document.getElementById("progressContainer");
+const message=document.getElementById("message");
+
+createBtn.onclick=async()=>{
+
+ const title=document.getElementById("title").value.trim();
+ const description=document.getElementById("description").value.trim();
+ const file=document.getElementById("thumbnailInput").files[0];
+
+ if(!title || !file){
+   alert("Titre et miniature obligatoires");
+   return;
+ }
+
+ createBtn.disabled=true;
+ progressContainer.style.display="block";
+ progressBar.style.width="0%";
+ progressText.textContent="Upload en cours...";
+
+ const fileName=`live_${Date.now()}_${file.name}`;
+
+ const {data,error}=await supabase.storage
+   .from("thumbnails")
+   .upload(fileName,file,{
+     onUploadProgress: (progress)=>{
+       const percent=Math.round(
+         (progress.loaded/progress.total)*100
+       );
+       progressBar.style.width=percent+"%";
+       progressText.textContent=percent+"%";
+     }
+   });
+
+ if(error){
+   message.innerHTML="<div class='error'>Erreur upload</div>";
+   createBtn.disabled=false;
+   return;
+ }
+
+ const {data:publicUrlData}=supabase.storage
+   .from("thumbnails")
+   .getPublicUrl(fileName);
+
+ const liveId="live_"+Date.now();
+
+ await set(ref(db,"lives/"+liveId),{
+   title,
+   description,
+   thumbnail:publicUrlData.publicUrl,
+   creatorId:currentUser.uid,
+   channelName:currentUser.displayName || "Créateur",
+   status:"waiting",
+   createdAt:Date.now()
+ });
+
+ message.innerHTML=
+  "<div class='success'>✅ Live lancé avec succès !</div>";
+
+ setTimeout(()=>{
+   location.href="live-control.html?id="+liveId;
+ },1500);
+};
+</script>
 
 </body>
 </html>
