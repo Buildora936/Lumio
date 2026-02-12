@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lives – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#0f0f0f;
+  color:white;
+}
+
+/* HEADER */
+header{
+  height:56px;
+  background:#181818;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+}
+header h2{
+  margin:0;
+  font-size:18px;
+}
+
+/* GRID */
+.container{
+  max-width:1200px;
+  margin:20px auto;
+  padding:0 16px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:16px;
+}
+
+/* LIVE CARD */
+.live-card{
+  background:#181818;
+  border-radius:16px;
+  overflow:hidden;
+  cursor:pointer;
+  transition:.2s;
+}
+.live-card:hover{
+  transform:scale(1.02);
+}
+
+.thumb{
+  position:relative;
+}
+.thumb img{
+  width:100%;
+  display:block;
+  aspect-ratio:16/9;
+  object-fit:cover;
+}
+
+.badge-live{
+  position:absolute;
+  top:10px;
+  left:10px;
+  background:#ff0000;
+  padding:4px 8px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.viewers{
+  position:absolute;
+  bottom:10px;
+  right:10px;
+  background:rgba(0,0,0,.7);
+  padding:4px 8px;
+  border-radius:6px;
+  font-size:12px;
+}
+
+/* INFO */
+.info{
+  padding:12px;
+}
+.info h3{
+  margin:0 0 6px;
+  font-size:15px;
+  line-height:1.3;
+}
+.channel{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:#ccc;
+}
+.channel img{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+}
+.empty{
+  text-align:center;
+  margin-top:80px;
+  color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>Lives 🔴</h2>
+</header>
+
+<div class="container" id="livesContainer"></div>
+<div class="empty" id="empty" style="display:none">
+  Aucun live en cours pour le moment
+</div>
+
+<script type="module">
+import { initializeApp } from
+ "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, onValue } 
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+/* 🔥 FIREBASE */
+const app = initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+
+const db = getDatabase(app);
+const container = document.getElementById("livesContainer");
+const empty = document.getElementById("empty");
+
+/* 📡 LOAD LIVES */
+onValue(ref(db,"lives"), snap=>{
+  container.innerHTML="";
+  let count=0;
+
+  snap.forEach(l=>{
+    const live = l.val();
+    if(live.status !== "live") return;
+
+    count++;
+
+    const card = document.createElement("div");
+    card.className="live-card";
+    card.onclick=()=>location.href=`live.html?id=${l.key}`;
+
+    card.innerHTML=`
+      <div class="thumb">
+        <img src="${live.thumbnailURL}">
+        <div class="badge-live">LIVE</div>
+        <div class="viewers">
+          ${(live.viewersCount||0)} spectateurs
+        </div>
+      </div>
+
+      <div class="info">
+        <h3>${live.title}</h3>
+        <div class="channel">
+          <img src="${live.channelPhotoURL}">
+          <span>${live.channelName}</span>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+
+  empty.style.display = count ? "none" : "block";
+});
+</script>
+
+</body>
+</html>
