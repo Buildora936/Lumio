@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio Live Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+body{
+  margin:0;
+  background:#0f0f0f;
+  font-family:system-ui;
+  color:white;
+}
+
+header{
+  height:60px;
+  background:#181818;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 20px;
+}
+
+header h2{
+  margin:0;
+}
+
+.main{
+  display:flex;
+  gap:16px;
+  padding:16px;
+  height:calc(100vh - 60px);
+}
+
+.preview{
+  flex:2;
+  display:flex;
+  flex-direction:column;
+}
+
+video{
+  width:100%;
+  height:70vh;
+  background:black;
+  border-radius:12px;
+}
+
+.controls{
+  margin-top:12px;
+  display:flex;
+  gap:10px;
+}
+
+.controls button{
+  background:#222;
+  color:white;
+  border:none;
+  padding:10px 16px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.controls button.active{
+  background:#ff0000;
+}
+
+.stats{
+  margin-top:10px;
+  font-size:14px;
+  color:#aaa;
+}
+
+.chat{
+  flex:1;
+  background:#181818;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+}
+
+.chat-messages{
+  flex:1;
+  overflow-y:auto;
+  padding:12px;
+}
+
+.msg{
+  margin-bottom:10px;
+}
+
+.chat-input{
+  display:flex;
+  padding:10px;
+  gap:6px;
+  border-top:1px solid #333;
+}
+
+.chat-input input{
+  flex:1;
+  padding:8px;
+  border:none;
+  border-radius:20px;
+  background:#222;
+  color:white;
+}
+
+.chat-input button{
+  background:#ff0000;
+  border:none;
+  padding:8px 14px;
+  border-radius:20px;
+  color:white;
+  cursor:pointer;
+}
+
+.ban{
+  color:red;
+  cursor:pointer;
+  margin-left:6px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>🔴 Lumio Live Studio</h2>
+  <button onclick="endLive()">Terminer le live</button>
+</header>
+
+<div class="main">
+
+  <div class="preview">
+    <video id="localVideo" autoplay muted playsinline></video>
+
+    <div class="controls">
+      <button id="camBtn">Caméra</button>
+      <button id="screenBtn">Écran</button>
+      <button id="bothBtn">Cam + Écran</button>
+    </div>
+
+    <div class="stats">
+      <span id="viewerCount">0 spectateurs</span>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-messages" id="messages"></div>
+
+    <div class="chat-input">
+      <input id="msgInput" placeholder="Message...">
+      <button id="sendBtn">Envoyer</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from
+ "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,set,onValue,push,remove }
+ from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
+
+const params=new URLSearchParams(location.search);
+const liveId=params.get("id");
+if(!liveId) location.href="index.html";
+
+let currentUser=null;
+let localStream=null;
+let peerConnections={};
+
+const localVideo=document.getElementById("localVideo");
+
+onAuthStateChanged(auth,u=>{
+ if(!u) location.href="auth.html";
+ currentUser=u;
+});
+
+/* ================= WEBRTC ================= */
+
+const iceServers={
+ iceServers:[
+   {urls:"stun:stun.l.google.com:19302"}
+ ]
+};
+
+async function createConnection(viewerId){
+ const pc=new RTCPeerConnection(iceServers);
+
+ localStream.getTracks().forEach(track=>{
+   pc.addTrack(track,localStream);
+ });
+
+ pc.onicecandidate=e=>{
+   if(e.candidate){
+     push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`),e.candidate.toJSON());
+   }
+ };
+
+ peerConnections[viewerId]=pc;
+ return pc;
+}
+
+/* ================= STREAM CAPTURE ================= */
+
+async function startCamera(){
+ localStream=await navigator.mediaDevices.getUserMedia({
+   video:true,
+   audio:true
+ });
+ localVideo.srcObject=localStream;
+}
+
+async function startScreen(){
+ const screen=await navigator.mediaDevices.getDisplayMedia({
+   video:true,
+   audio:true
+ });
+ const mic=await navigator.mediaDevices.getUserMedia({audio:true});
+ screen.addTrack(mic.getAudioTracks()[0]);
+ localStream=screen;
+ localVideo.srcObject=localStream;
+}
+
+camBtn.onclick=startCamera;
+screenBtn.onclick=startScreen;
+
+/* ================= VIEWERS ================= */
+
+onValue(ref(db,`liveViewers/${liveId}`),snap=>{
+ const viewers=snap.val()||{};
+ document.getElementById("viewerCount").textContent=
+   Object.keys(viewers).length+" spectateurs";
+
+ Object.keys(viewers).forEach(async uid=>{
+   if(!peerConnections[uid]){
+     const pc=await createConnection(uid);
+     const offer=await pc.createOffer();
+     await pc.setLocalDescription(offer);
+     await set(ref(db,`liveSignals/${liveId}/offers/${uid}`),offer);
+   }
+ });
+});
+
+/* ================= CHAT ================= */
+
+onValue(ref(db,`liveChat/${liveId}`),snap=>{
+ messages.innerHTML="";
+ snap.forEach(m=>{
+   const d=document.createElement("div");
+   d.className="msg";
+   d.innerHTML=
+     `<b>${m.val().user}</b>: ${m.val().text}
+      <span class="ban" onclick="ban('${m.val().uid}')">Ban</span>`;
+   messages.appendChild(d);
+ });
+});
+
+sendBtn.onclick=async()=>{
+ const text=msgInput.value.trim();
+ if(!text) return;
+ msgInput.value="";
+ await push(ref(db,`liveChat/${liveId}`),{
+   user:currentUser.displayName||"Créateur",
+   text,
+   uid:currentUser.uid,
+   createdAt:Date.now()
+ });
+};
+
+window.ban=async(uid)=>{
+ await set(ref(db,`liveBans/${liveId}/${uid}`),true);
+};
+
+/* ================= END LIVE ================= */
+
+window.endLive=async()=>{
+ await set(ref(db,`lives/${liveId}/status`),"ended");
+ localStream?.getTracks().forEach(t=>t.stop());
+ alert("Live terminé");
+ location.href="index.html";
+};
+</script>
+
+</body>
+</html>
