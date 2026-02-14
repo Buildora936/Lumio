@@ -30,26 +30,20 @@ onAuthStateChanged(auth, async user => {
   const uid = user.uid;
 
   const videosSnap = await get(ref(db, "videos"));
-  const likesSnap = await get(ref(db, "likes"));
+  const likesSnap = await get(ref(db, "shortLikes")); 
   const commentsSnap = await get(ref(db, "comments"));
   const subsSnap = await get(ref(db, "subscriptions"));
-  const mSnap = await get(ref(db, "monetization/" + uid));
+  const monetSnap = await get(ref(db,"monetization/"+uid));
 
-  let totalViews = 0;
-  let totalVideos = 0;
-  let totalLikes = 0;
-  let totalComments = 0;
-  let totalSubs = 0;
-  let revenue = 0;
-  let pubRevenue = 0;
+  let totalViews = 0, totalVideos = 0, totalLikes = 0, totalComments = 0, totalSubs = 0, revenue = 0, pubRevenue = 0;
 
-  // Vérifier abonnés
+  // Abonnés
   if(subsSnap.exists() && subsSnap.val()[uid]){
     totalSubs = Object.keys(subsSnap.val()[uid]).length;
   }
 
-  // Vérifier monétisation
-  const monetized = mSnap.exists() && mSnap.val().enabled && totalSubs >= 1000;
+  // Monétisation
+  const monetized = monetSnap.exists() && monetSnap.val().enabled && totalSubs >= 1000;
 
   const videoTable = document.getElementById("videoTable");
 
@@ -59,15 +53,15 @@ onAuthStateChanged(auth, async user => {
         totalVideos++;
         totalViews += v.views || 0;
 
-        const likes = likesSnap.exists() && likesSnap.val()[id] && likesSnap.val()[id][uid] ? Object.keys(likesSnap.val()[id]).length : 0;
+        // Likes par vidéo
+        const likes = likesSnap.exists() && likesSnap.val()[id] ? Object.keys(likesSnap.val()[id]).length : 0;
         const comments = commentsSnap.exists() && commentsSnap.val()[id] ? Object.keys(commentsSnap.val()[id]).length : 0;
 
         totalLikes += likes;
         totalComments += comments;
 
         if(monetized){
-          // 1,3$/1000 vues
-          const rev = ((v.views || 0)/1000) * 1.3;
+          const rev = ((v.views || 0)/1000)*1.3;
           pubRevenue += rev;
 
           const row = document.createElement("tr");
@@ -84,7 +78,7 @@ onAuthStateChanged(auth, async user => {
     });
   }
 
-  revenue = monetized ? (pubRevenue - 0.5) : 0; // taxe mensuelle 0,5$
+  revenue = monetized ? (pubRevenue - 0.5) : 0;
   if(revenue < 0) revenue = 0;
 
   document.getElementById("views").innerText = totalViews;
@@ -103,66 +97,21 @@ onAuthStateChanged(auth, async user => {
 </script>
 
 <style>
-body{
-  margin:0;
-  background:#0f0f0f;
-  color:white;
-  font-family:system-ui;
-}
-header{
-  padding:20px;
-  font-size:22px;
-  font-weight:600;
-}
-.stats{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:12px;
-  padding:16px;
-}
-.card{
-  background:#1c1c1c;
-  border-radius:12px;
-  padding:14px;
-}
-.card span{
-  font-size:12px;
-  color:#aaa;
-}
-.card h2{
-  margin:4px 0 0;
-}
-
-.revenue{
-  display:flex;
-  gap:16px;
-  padding:16px;
-}
-.revenue div{
-  flex:1;
-  background:#1c1c1c;
-  border-radius:12px;
-  padding:12px;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:20px;
-}
-th,td{
-  padding:10px;
-  border-bottom:1px solid #333;
-  font-size:13px;
-}
-th{
-  color:#aaa;
-}
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
+header{padding:20px;font-size:22px;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px}
+.card{background:#1c1c1c;border-radius:12px;padding:14px}
+.card span{font-size:12px;color:#aaa}
+.card h2{margin:4px 0 0}
+.revenue{display:flex;gap:16px;padding:16px}
+.revenue div{flex:1;background:#1c1c1c;border-radius:12px;padding:12px}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th,td{padding:10px;border-bottom:1px solid #333;font-size:13px}
+th{color:#aaa}
 </style>
 </head>
 
 <body>
-
 <header>📊 Analytics – Lumio Studio</header>
 
 <div class="stats">
@@ -190,6 +139,5 @@ th{
   </thead>
   <tbody id="videoTable"></tbody>
 </table>
-
 </body>
 </html>
