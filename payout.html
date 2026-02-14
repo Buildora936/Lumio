@@ -2,15 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Payout – Paiement créateur | Lumio</title>
+<title>Payout – Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, set, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -23,234 +21,76 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let currentUser = null;
-let channelId = null;
-let balance = 0;
-
-const balanceElem = document.getElementById("balance");
-const payoutForm = document.getElementById("payoutForm");
-const eligibilityMsg = document.getElementById("eligibilityMsg");
-
 onAuthStateChanged(auth, async user => {
-  if(!user){
-    alert("Connectez-vous pour accéder aux paiements.");
-    location.href="auth.html";
-    return;
-  }
-  currentUser = user;
+  if(!user) location.href="auth.html";
 
-  // Récupérer le channel
-  const chSnap = await get(ref(db, "userChannels/" + user.uid));
-  if (!chSnap.exists()) {
-    alert("Créez une chaîne d'abord");
-    location.href = "add-channel.html";
-    return;
-  }
-  channelId = chSnap.val();
+  const uid = user.uid;
 
-  // Vérifier le nombre d'abonnés
-  const subSnap = await get(ref(db, "subscriptions/" + channelId));
-  const subs = subSnap.exists() ? Object.keys(subSnap.val()).length : 0;
-
-  if (subs < 1000) {
-    payoutForm.style.display = "none";
-    eligibilityMsg.style.display = "block";
-  } else {
-    payoutForm.style.display = "block";
-    eligibilityMsg.style.display = "none";
-  }
-
-  // Calculer le solde réel depuis les vues
-  let totalViews = 0;
   const videosSnap = await get(ref(db, "videos"));
+  const subsSnap = await get(ref(db, "subscriptions"));
+  const monetSnap = await get(ref(db,"monetization/"+uid));
+
+  let totalViews = 0;
+  let totalSubs = 0;
+  let totalRevenue = 0;
+
+  // Abonnés
+  if(subsSnap.exists() && subsSnap.val()[uid]){
+    totalSubs = Object.keys(subsSnap.val()[uid]).length;
+  }
+
+  // Monétisation
+  const monetized = monetSnap.exists() && monetSnap.val().enabled && totalSubs >= 1000;
+
   if(videosSnap.exists()){
-    Object.entries(videosSnap.val()).forEach(([id,v])=>{
-      if(v.channelId === channelId){
+    Object.values(videosSnap.val()).forEach(v=>{
+      if(v.channelId === uid){
         totalViews += v.views || 0;
       }
     });
   }
 
-  // Conversion vues → revenu
-  balance = (totalViews / 1000) * 1.3;
-
-  // Vérifier si la monétisation est activée (taxe de 0,5$/mois)
-  const mSnap = await get(ref(db, "monetization/" + channelId));
-  if(mSnap.exists() && mSnap.val().enabled){
-    balance -= 0.5; // taxe mensuelle
-    if(balance < 0) balance = 0;
+  if(monetized){
+    totalRevenue = ((totalViews)/1000)*1.3; // 1,3$ / 1000 vues
   }
 
-  balanceElem.innerText = balance.toFixed(2) + " $";
+  document.getElementById("views").innerText = totalViews;
+  document.getElementById("subs").innerText = totalSubs;
+  document.getElementById("revenue").innerText = "$" + totalRevenue.toFixed(2);
 
-  // Sauvegarder le solde dans Firebase pour historique
-  await set(ref(db,"creatorBalances/"+currentUser.uid),{ balance });
-});
-
-// Soumettre une demande de payout
-payoutForm.addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const amount = parseFloat(document.getElementById("amount").value);
-  const method = document.getElementById("method").value;
-  const info = document.getElementById("info").value.trim();
-
-  if(amount <= 0 || amount > balance){
-    alert("Montant invalide.");
-    return;
-  }
-  if(!method || !info){
-    alert("Veuillez remplir tous les champs.");
-    return;
-  }
-
-  // Sauvegarde dans Firebase
-  const payoutRef = push(ref(db, "payoutRequests"));
-  await set(payoutRef,{
-    uid: currentUser.uid,
-    channelId,
-    amount,
-    method,
-    info,
-    status: "pending",
-    createdAt: serverTimestamp()
-  });
-
-  balance -= amount;
-  if(balance < 0) balance = 0;
-  await set(ref(db,"creatorBalances/"+currentUser.uid),{ balance });
-
-  alert("Demande de paiement envoyée avec succès ! Vous allez être redirigé vers WhatsApp pour confirmation.");
-
-  const message = encodeURIComponent(
-    `Bonjour Lumio,\n\nJe souhaite recevoir mon paiement de ${amount}$ via ${method}.\nDétails: ${info}\n\nMerci.`
-  );
-  window.open(`https://wa.me/50941040511?text=${message}`, "_blank");
-  window.open(`mailto:bjosephbrooks07@gmail.com?subject=Demande de paiement Lumio&body=${message}`, "_blank");
-
-  location.reload();
+  // Bouton de payout → WhatsApp
+  document.getElementById("payoutBtn").onclick = ()=>{
+    const msg = encodeURIComponent(`Bonjour, je souhaite retirer mes gains Lumio : $${totalRevenue.toFixed(2)}`);
+    window.open(`https://wa.me/NUMERO_WHATSAPP?text=${msg}`, "_blank");
+  };
 });
 </script>
 
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background:#181818;
-  color:white;
-  font-family:system-ui;
-}
-header{
-  height:56px;
-  background:#0f0f0f;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-}
-main{
-  max-width:600px;
-  margin:40px auto;
-  padding:20px;
-}
-.card{
-  background:#202020;
-  border-radius:14px;
-  padding:20px;
-  margin-bottom:20px;
-}
-h3{margin-top:0}
-.balance{
-  font-size:26px;
-  font-weight:700;
-  color:#ff8800;
-}
-input,select{
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  background:#2a2a2a;
-  color:white;
-  margin-bottom:12px;
-}
-button{
-  width:100%;
-  padding:12px;
-  border:none;
-  border-radius:20px;
-  background:#ff8800;
-  font-weight:700;
-  cursor:pointer;
-}
-.notice{
-  color:#aaa;
-  font-size:14px;
-}
-#eligibilityMsg{
-  display:none;
-  background:#331111;
-  padding:16px;
-  border-radius:14px;
-  margin-bottom:20px;
-}
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui;}
+header{padding:20px;font-size:22px;font-weight:600;}
+.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px;}
+button{background:#ff9800;color:black;padding:12px 24px;border:none;border-radius:12px;font-weight:700;cursor:pointer;}
+button:hover{opacity:0.9;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px;}
+.card h2{margin:4px 0 0;}
+.card span{font-size:12px;color:#aaa;}
 </style>
 </head>
 
 <body>
 
-<header>
-  <h2>Payout Lumio</h2>
-  <button onclick="location.href='studio.html'">
-    <i class="fa-solid fa-arrow-left"></i>
-  </button>
-</header>
+<header>💸 Retrait – Lumio Studio</header>
 
-<main>
-
-<div class="card">
-  <h3>💰 Solde disponible</h3>
-  <div class="balance" id="balance">0.00$</div>
-  <p class="notice">Minimum de retrait conseillé : 150$+</p>
-</div>
-
-<div id="eligibilityMsg">
-  ❌ Vous n'avez pas encore 1000 abonnés, impossible de faire un virement tant que vous n'êtes pas éligible.
+<div class="stats">
+  <div class="card"><span>Total vues</span><h2 id="views">0</h2></div>
+  <div class="card"><span>Total abonnés</span><h2 id="subs">0</h2></div>
+  <div class="card"><span>Revenu disponible</span><h2 id="revenue">$0</h2></div>
 </div>
 
 <div class="card">
-  <h3>📤 Demander un paiement</h3>
-
-  <form id="payoutForm">
-    <input type="number" id="amount" placeholder="Montant à retirer ($)" step="0.01" required>
-
-    <select id="method" required>
-      <option value="">Méthode de paiement</option>
-      <option value="unibank">Unibank</option>
-      <option value="songebank">Songebank</option>
-      <option value="paypal">Paypal</option>
-      <option value="wise">Wise</option>
-      <option value="payoneer">Payoneer</option>
-    </select>
-
-    <input type="text" id="info" placeholder="Numéro de compte, IBAN, email ou wallet..." required>
-
-    <button type="submit">Envoyer la demande</button>
-  </form>
+  <button id="payoutBtn">Retirer mes gains </button>
 </div>
-
-<div class="card">
-  <h3>ℹ️ Informations</h3>
-  <ul class="notice">
-    <li>Les paiements sont calculés automatiquement : 1,3$ par 1000 vues.</li>
-    <li>Taxe monétisation : 0,5$/mois.</li>
-    <li>Les paiements sont traités manuellement par l’équipe Lumio.</li>
-    <li>Délai moyen : 24 à 72 heures.</li>
-    <li>Après soumission, vous serez redirigé vers WhatsApp et Gmail pour confirmation.</li>
-  </ul>
-</div>
-
-</main>
 
 </body>
 </html>
