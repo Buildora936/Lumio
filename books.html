@@ -72,7 +72,6 @@ main{margin-top:56px;padding:16px}
 <main>
   <div class="grid" id="grid"></div>
 </main>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
@@ -83,62 +82,44 @@ const app=initializeApp({
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
 });
+
 const db=getDatabase(app);
 const grid=document.getElementById("grid");
 
 /* Skeleton */
 for(let i=0;i<8;i++){
   grid.innerHTML+=`
-    <div class="card skeleton">
-      <div class="cover"></div>
-      <div class="card-body">
-        <div class="title">&nbsp;</div>
-        <div class="author">&nbsp;</div>
-      </div>
-    </div>`;
+  <div class="card skeleton">
+    <div class="cover"></div>
+    <div class="card-body">
+      <div class="title">&nbsp;</div>
+      <div class="author">&nbsp;</div>
+    </div>
+  </div>`;
 }
 
 /* Load books */
 (async()=>{
   const snap=await get(ref(db,"books"));
-  if(!snap.exists()){grid.innerHTML="";return}
+  if(!snap.exists()){grid.innerHTML="Aucun livre";return}
 
-  let count=0;
   grid.innerHTML="";
 
-  /* PUB AVANT 1ER */
-  addAd();
-
   Object.entries(snap.val()).forEach(([id,b])=>{
-    if(count>0 && count%6===0) addAd();
+    if(b.status!=="public") return;
 
     const card=document.createElement("div");
     card.className="card";
-    card.onclick=()=>location.href=`book.html?id=${id}`;
+    card.onclick=()=>location.href=`book-detail.html?id=${id}`;
     card.innerHTML=`
       <div class="cover" style="background-image:url('${b.coverBase64||""}')"></div>
       <div class="card-body">
         <div class="title">${b.title}</div>
-        <div class="author">${b.author||"Auteur"}</div>
+        <div class="author">${b.authorChannelName||"Auteur"}</div>
       </div>`;
     grid.appendChild(card);
-    count++;
   });
 })();
-
-function addAd(){
-  const ad=document.createElement("div");
-  ad.className="ad-card";
-  ad.innerHTML=`
-  <script>
-    atOptions={
-      'key':'34ced6a9c342f10844eedf343e137cfb',
-      'format':'iframe','height':250,'width':300,'params':{}
-    };
-  </script>
-  <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
-  grid.appendChild(ad);
-}
 </script>
 
 </body>
