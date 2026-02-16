@@ -1,147 +1,129 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Payout – Lumio Studio</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://js.stripe.com/v3/"></script>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
-  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId:"lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-const balanceEl = document.getElementById("balance");
-const earnedEl = document.getElementById("earned");
-const withdrawnEl = document.getElementById("withdrawn");
-const payoutBtn = document.getElementById("payoutBtn");
-
-onAuthStateChanged(auth, async user=>{
- if(!user) return location.href="auth.html";
-
- const uid=user.uid;
-
- /* ========= WALLET ========= */
- const snap=await get(ref(db,"wallets/"+uid));
-
- let balance=0;
- let earned=0;
- let withdrawn=0;
-
- if(snap.exists()){
-   const w=snap.val();
-   balance=w.balance||0;
-   earned=w.totalEarned||0;
-   withdrawn=w.totalWithdrawn||0;
- }
-
- balanceEl.innerText="$"+balance.toFixed(2);
- earnedEl.innerText="$"+earned.toFixed(2);
- withdrawnEl.innerText="$"+withdrawn.toFixed(2);
-
- /* ========= CHECK STRIPE ========= */
- const statusRes = await fetch(
-   "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",
-   {
-     method:"POST",
-     headers:{
-       "Content-Type":"application/json",
-       "Authorization":"Bearer "+await user.getIdToken()
-     },
-     body:JSON.stringify({ uid })
-   }
- );
- const stripeStatus = await statusRes.json();
-
- if(!stripeStatus.payoutsEnabled){
-   payoutBtn.disabled = true;
-   payoutBtn.innerText = "Compte Stripe non vérifié";
-   return;
- }
-
- /* ========= PAYOUT ========= */
- payoutBtn.onclick=async()=>{
-
-   if(balance<10){
-     alert("Minimum retrait = 10$");
-     return;
-   }
-
-   payoutBtn.disabled=true;
-   payoutBtn.innerText="Traitement...";
-
-   try{
-     // Appel création payout via add-earnings pour marketplace
-     const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{
-       method:"POST",
-       headers:{
-         "Content-Type":"application/json",
-         "Authorization":"Bearer "+await user.getIdToken()
-       },
-       body:JSON.stringify({
-         uid,
-         amount:balance
-       })
-     });
-
-     const data=await res.json();
-     if(!data.success) throw new Error(data.error);
-
-     // Reset wallet après payout
-     await update(ref(db,"wallets/"+uid),{
-       balance:0,
-       totalWithdrawn: withdrawn+balance
-     });
-
-     alert("Paiement envoyé ✅");
-     location.reload();
-
-   }catch(err){
-     alert(err.message);
-     payoutBtn.disabled=false;
-     payoutBtn.innerText="Retirer mes gains";
-   }
- };
-});
-</script>
-
-<style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
-header{padding:20px;font-size:22px;font-weight:600}
-.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px}
-button{background:#ff9800;color:black;padding:14px;border:none;border-radius:12px;font-weight:700;cursor:pointer;width:100%}
-button:disabled{opacity:0.6;cursor:not-allowed}
-.card span{font-size:12px;color:#aaa}
-.card h2{margin:4px 0 0}
-</style>
-</head>
-
-<body>
-
-<header>Retrait – Lumio Studio</header>
-
-<div class="stats">
-  <div class="card"><span>Solde disponible</span><h2 id="balance">$0</h2></div>
-  <div class="card"><span>Total gagné</span><h2 id="earned">$0</h2></div>
-  <div class="card"><span>Total retiré</span><h2 id="withdrawn">$0</h2></div>
-</div>
-
-<div class="card">
-  <button id="payoutBtn">Retirer mes gains</button>
-</div>
-
-</body>
+<!DOCTYPE html>  
+<html lang="fr">  
+<head>  
+<meta charset="UTF-8">  
+<title>Payout – Lumio Studio</title>  
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  
+  
+<script src="https://js.stripe.com/v3/"></script>  
+  
+<script type="module">  
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";  
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";  
+import { getDatabase, ref, get, update, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";  
+  
+const firebaseConfig = {  
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",  
+  authDomain:"lumio-6efed.firebaseapp.com",  
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",  
+  projectId:"lumio-6efed"  
+};  
+  
+const app = initializeApp(firebaseConfig);  
+const auth = getAuth(app);  
+const db = getDatabase(app);  
+  
+const balanceEl = document.getElementById("balance");  
+const earnedEl = document.getElementById("earned");  
+const withdrawnEl = document.getElementById("withdrawn");  
+const payoutBtn = document.getElementById("payoutBtn");  
+  
+onAuthStateChanged(auth, async user=>{  
+ if(!user) return location.href="auth.html";  
+ const uid=user.uid;  
+  
+ /* ========= WALLET ========= */  
+ const walletRef = ref(db,"wallets/"+uid);  
+ let balance=0, earned=0, withdrawn=0;  
+ const snap = await get(walletRef);  
+ if(snap.exists()){  
+   const w=snap.val();  
+   balance=w.balance||0;  
+   earned=w.totalEarned||0;  
+   withdrawn=w.totalWithdrawn||0;  
+ } else {  
+   // Création wallet si inexistant  
+   await set(walletRef,{ balance:0, totalEarned:0, totalWithdrawn:0 });  
+ }  
+  
+ balanceEl.innerText="$"+balance.toFixed(2);  
+ earnedEl.innerText="$"+earned.toFixed(2);  
+ withdrawnEl.innerText="$"+withdrawn.toFixed(2);  
+  
+ /* ========= CHECK STRIPE ========= */  
+ const statusRes = await fetch(  
+   "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",  
+   {  
+     method:"POST",  
+     headers:{  
+       "Content-Type":"application/json",  
+       "Authorization":"Bearer "+await user.getIdToken()  
+     },  
+     body:JSON.stringify({ uid })  
+   }  
+ );  
+ const stripeStatus = await statusRes.json();  
+  
+ if(!stripeStatus.payoutsEnabled){  
+   payoutBtn.disabled = true;  
+   payoutBtn.innerText = "Compte Stripe non vérifié";  
+   return;  
+ }  
+  
+ /* ========= PAYOUT ========= */  
+ payoutBtn.onclick=async()=>{  
+   if(balance<10){  
+     alert("Minimum retrait = 10$");  
+     return;  
+   }  
+   payoutBtn.disabled=true;  
+   payoutBtn.innerText="Traitement...";  
+   try{  
+     const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{  
+       method:"POST",  
+       headers:{  
+         "Content-Type":"application/json",  
+         "Authorization":"Bearer "+await user.getIdToken()  
+       },  
+       body:JSON.stringify({ uid, amount:balance })  
+     });  
+     const data=await res.json();  
+     if(!data.success) throw new Error(data.error);  
+     await update(walletRef,{ balance:0, totalWithdrawn: withdrawn+balance });  
+     alert("Paiement envoyé ✅");  
+     location.reload();  
+   }catch(err){  
+     alert(err.message);  
+     payoutBtn.disabled=false;  
+     payoutBtn.innerText="Retirer mes gains";  
+   }  
+ };  
+});  
+</script>  
+  
+<style>  
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}  
+header{padding:20px;font-size:22px;font-weight:600}  
+.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px}  
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px}  
+button{background:#ff9800;color:black;padding:14px;border:none;border-radius:12px;font-weight:700;cursor:pointer;width:100%}  
+button:disabled{opacity:0.6;cursor:not-allowed}  
+.card span{font-size:12px;color:#aaa}  
+.card h2{margin:4px 0 0}  
+</style>  
+</head>  
+  
+<body>  
+<header>Retrait – Lumio Studio</header>  
+  
+<div class="stats">  
+  <div class="card"><span>Solde disponible</span><h2 id="balance">$0</h2></div>  
+  <div class="card"><span>Total gagné</span><h2 id="earned">$0</h2></div>  
+  <div class="card"><span>Total retiré</span><h2 id="withdrawn">$0</h2></div>  
+</div>  
+  
+<div class="card">  
+  <button id="payoutBtn">Retirer mes gains</button>  
+</div>  
+</body>  
 </html>
