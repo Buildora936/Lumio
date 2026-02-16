@@ -2,110 +2,49 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Bibliothèque – Lumio</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#181818">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<title>Ma Bibliothèque</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
-body{background:#181818;color:white}
-
-/* HEADER */
-header{
-  position:fixed;top:0;left:0;right:0;height:56px;
-  background:#0f0f0f;display:flex;align-items:center;
-  justify-content:space-between;padding:0 12px;z-index:100
-}
-.left{display:flex;align-items:center;gap:10px}
-.left img{width:34px}
-.right{display:flex;gap:10px}
-button{
-  background:#202020;color:white;border:none;
-  padding:8px 12px;border-radius:20px;cursor:pointer
-}
-
-/* LAYOUT */
-.layout{margin-top:56px;padding:16px}
-
-/* TITRES */
-.section-title{
-  font-size:18px;font-weight:700;
-  margin:20px 0 12px
-}
-
-/* GRID */
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
+header{padding:20px;font-size:22px;font-weight:600}
 .grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-  gap:16px
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+ gap:16px;
+ padding:16px
 }
-
-/* CARD */
 .card{
-  background:#202020;border-radius:14px;
-  overflow:hidden;border:1px solid #262626;
-  cursor:pointer;position:relative
+ background:#1c1c1c;
+ border-radius:14px;
+ overflow:hidden;
+ cursor:pointer;
+ transition:.2s;
 }
-.thumb{
-  height:130px;background:#2a2a2a;
-  background-size:cover;background-position:center
+.card:hover{transform:scale(1.03)}
+.cover{
+ height:200px;
+ background:#222;
+ background-size:cover;
+ background-position:center
 }
-.card-body{padding:10px}
-.title{font-weight:600;font-size:14px}
-.meta{font-size:12px;color:#aaa;margin-top:4px}
-
-/* BADGE */
-.badge{
-  position:absolute;top:8px;left:8px;
-  background:#ff9800;color:black;
-  font-size:11px;font-weight:700;
-  padding:4px 6px;border-radius:6px
-}
-
-/* SKELETON */
-.skeleton{animation:pulse 1.2s infinite}
-@keyframes pulse{
-  0%{opacity:.6}
-  50%{opacity:.3}
-  100%{opacity:.6}
-}
-
-/* EMPTY */
+.info{padding:12px}
+.title{font-weight:600;margin-bottom:6px}
+.author{color:#aaa;font-size:13px}
 .empty{
-  color:#777;text-align:center;
-  margin-top:40px
+ text-align:center;
+ margin-top:60px;
+ color:#aaa;
+ font-size:18px
 }
 </style>
 </head>
-
 <body>
 
-<header>
-  <div class="left">
-    <img src="logo_lumio.png">
-    <strong>Lumio</strong>
-  </div>
-  <div class="right">
-    <button id="notifBtn" style="display:none" onclick="location.href='notification.html'"><i class="fa fa-bell"></i></button>
-    <button id="uploadBtn" style="display:none" onclick="location.href='publish.html'"><i class="fa fa-plus"></i></button>
-    <button id="profileBtn" style="display:none" onclick="location.href='profile.html'"><i class="fa fa-user"></i></button>
-    <button id="startBtn" onclick="location.href='auth.html'">Start</button>
-  </div>
-</header>
+<header>📚 Ma Bibliothèque</header>
 
-<div class="layout">
-
-  <div class="section-title">📚 Historique</div>
-  <div class="grid" id="historyGrid"></div>
-
-  <div class="section-title">❤️ Vidéos aimées</div>
-  <div class="grid" id="likesGrid"></div>
-
-  <div class="section-title">⏰ À regarder plus tard</div>
-  <div class="grid" id="laterGrid"></div>
-
-</div>
+<div id="grid" class="grid"></div>
+<div id="empty" class="empty" style="display:none;">Aucun livre acheté</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -113,99 +52,60 @@ import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/1
 import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app=initializeApp({
-  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
-  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId:"lumio-6efed"
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
 });
 
 const auth=getAuth(app);
 const db=getDatabase(app);
 
-const historyGrid=document.getElementById("historyGrid");
-const likesGrid=document.getElementById("likesGrid");
-const laterGrid=document.getElementById("laterGrid");
+const grid=document.getElementById("grid");
+const empty=document.getElementById("empty");
 
-/* SKELETON */
-function skeleton(grid){
-  for(let i=0;i<6;i++){
-    grid.innerHTML+=`
-    <div class="card skeleton">
-      <div class="thumb"></div>
-      <div class="card-body">
-        <div class="title">&nbsp;</div>
-        <div class="meta">&nbsp;</div>
-      </div>
-    </div>`;
-  }
-}
-[skeleton(historyGrid),skeleton(likesGrid),skeleton(laterGrid)];
-
-/* AUTH */
 onAuthStateChanged(auth,async user=>{
-  if(!user) return;
+ if(!user){
+  location.href="auth.html";
+  return;
+ }
 
-  startBtn.style.display="none";
-  notifBtn.style.display="inline-flex";
-  uploadBtn.style.display="inline-flex";
-  profileBtn.style.display="inline-flex";
+ const purchasesSnap=await get(ref(db,"purchases/"+user.uid));
 
-  loadLibrary(user.uid);
+ if(!purchasesSnap.exists()){
+  empty.style.display="block";
+  return;
+ }
+
+ const purchases=purchasesSnap.val();
+ const booksSnap=await get(ref(db,"books"));
+ const books=booksSnap.exists()?booksSnap.val():{};
+
+ let count=0;
+
+ Object.keys(purchases).forEach(id=>{
+  const b=books[id];
+  if(!b) return;
+
+  count++;
+
+  const card=document.createElement("div");
+  card.className="card";
+  card.onclick=()=>location.href="reader.html?id="+id;
+
+  card.innerHTML=`
+   <div class="cover" style="background-image:url('${b.coverBase64||""}')"></div>
+   <div class="info">
+    <div class="title">${b.title}</div>
+    <div class="author">${b.authorChannelName||"Auteur"}</div>
+   </div>
+  `;
+
+  grid.appendChild(card);
+ });
+
+ if(count===0) empty.style.display="block";
 });
-
-/* LOAD LIBRARY */
-async function loadLibrary(uid){
-  historyGrid.innerHTML="";
-  likesGrid.innerHTML="";
-  laterGrid.innerHTML="";
-
-  const [videosSnap,libSnap]=await Promise.all([
-    get(ref(db,"videos")),
-    get(ref(db,"library/"+uid))
-  ]);
-
-  if(!libSnap.exists()){
-    showEmpty(historyGrid,"Aucune vidéo regardée");
-    showEmpty(likesGrid,"Aucun like");
-    showEmpty(laterGrid,"Aucune vidéo");
-    return;
-  }
-
-  const videos=videosSnap.val()||{};
-  const lib=libSnap.val();
-
-  renderSection(historyGrid,lib.history,videos);
-  renderSection(likesGrid,lib.likes,videos,"❤️");
-  renderSection(laterGrid,lib.watchLater,videos,"⏰");
-}
-
-function renderSection(grid,data,videos,badge){
-  if(!data){
-    showEmpty(grid,"Aucun contenu");
-    return;
-  }
-  Object.keys(data).forEach(id=>{
-    const v=videos[id];
-    if(!v) return;
-
-    const card=document.createElement("div");
-    card.className="card";
-    card.onclick=()=>location.href=`player.html?id=${id}`;
-
-    card.innerHTML=`
-      ${badge?`<div class="badge">${badge}</div>`:""}
-      <div class="thumb" style="background-image:url('${v.thumbnailBase64||""}')"></div>
-      <div class="card-body">
-        <div class="title">${v.title}</div>
-        <div class="meta">${v.channelName||"Chaîne"}</div>
-      </div>`;
-    grid.appendChild(card);
-  });
-}
-
-function showEmpty(grid,text){
-  grid.innerHTML=`<div class="empty">${text}</div>`;
-}
 </script>
 
 </body>
