@@ -50,7 +50,7 @@ h1{margin-bottom:6px}
 
 <main id="content"></main>
 
-<script type="module">
+  <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
@@ -60,6 +60,7 @@ const app=initializeApp({
   databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
   projectId:"lumio-6efed"
 });
+
 const db=getDatabase(app);
 
 const id=new URLSearchParams(location.search).get("id");
@@ -68,38 +69,15 @@ const content=document.getElementById("content");
 (async()=>{
   const snap=await get(ref(db,"books/"+id));
   if(!snap.exists()){content.textContent="Livre introuvable";return}
+
   const b=snap.val();
 
   content.innerHTML=`
     <h1>${b.title}</h1>
-    <div class="author">${b.author||""}</div>
+    <div class="author">${b.authorChannelName||""}</div>
+    <div class="chapter">${b.fileBase64 ? "Livre chargé ✔" : "Erreur chargement"}</div>
   `;
-
-  addAd();
-
-  (b.chapters||[]).forEach((c,i)=>{
-    if(i>0 && i%5===0) addAd();
-    const div=document.createElement("div");
-    div.className="chapter";
-    div.innerHTML=`<h3>${c.title||""}</h3><p>${c.text||""}</p>`;
-    content.appendChild(div);
-  });
 })();
-
-function addAd(){
-  const ad=document.createElement("div");
-  ad.className="ad-card";
-  ad.innerHTML=`
-  <script>
-    atOptions={
-      'key':'34ced6a9c342f10844eedf343e137cfb',
-      'format':'iframe','height':250,'width':300,'params':{}
-    };
-  </script>
-  <script src="https://www.highperformanceformat.com/34ced6a9c342f10844eedf343e137cfb/invoke.js"></script>`;
-  content.appendChild(ad);
-}
 </script>
-
 </body>
 </html>
