@@ -5,10 +5,12 @@
 <title>Payout – Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<script src="https://js.stripe.com/v3/"></script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -21,75 +23,103 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+// ton publishable key stripe
+const stripe = Stripe("pk_test_51T0kMn71rUXo5YlSkyaW6W2cBPdvczOMDLhbXoOq2ivQiHIAGt7VNNvc2hElWstZEpQe4j23xkhoc1dbUACNGZLO00wVCohAuU");
+
 onAuthStateChanged(auth, async user => {
-  if(!user) location.href="auth.html";
+  if(!user) return location.href="auth.html";
 
   const uid = user.uid;
 
-  const videosSnap = await get(ref(db, "videos"));
-  const subsSnap = await get(ref(db, "subscriptions"));
-  const monetSnap = await get(ref(db,"monetization/"+uid));
+  const walletSnap = await get(ref(db,"wallets/"+uid));
 
-  let totalViews = 0;
-  let totalSubs = 0;
-  let totalRevenue = 0;
+  let balance = 0;
+  let totalEarned = 0;
+  let totalWithdrawn = 0;
 
-  // Abonnés
-  if(subsSnap.exists() && subsSnap.val()[uid]){
-    totalSubs = Object.keys(subsSnap.val()[uid]).length;
+  if(walletSnap.exists()){
+    const w = walletSnap.val();
+    balance = w.balance || 0;
+    totalEarned = w.totalEarned || 0;
+    totalWithdrawn = w.totalWithdrawn || 0;
   }
 
-  // Monétisation
-  const monetized = monetSnap.exists() && monetSnap.val().enabled && totalSubs >= 1000;
+  document.getElementById("balance").innerText="$"+balance.toFixed(2);
+  document.getElementById("earned").innerText="$"+totalEarned.toFixed(2);
+  document.getElementById("withdrawn").innerText="$"+totalWithdrawn.toFixed(2);
 
-  if(videosSnap.exists()){
-    Object.values(videosSnap.val()).forEach(v=>{
-      if(v.channelId === uid){
-        totalViews += v.views || 0;
-      }
-    });
-  }
+  const btn=document.getElementById("payoutBtn");
 
-  if(monetized){
-    totalRevenue = ((totalViews)/1000)*1.3; // 1,3$ / 1000 vues
-  }
+  btn.onclick=async()=>{
 
-  document.getElementById("views").innerText = totalViews;
-  document.getElementById("subs").innerText = totalSubs;
-  document.getElementById("revenue").innerText = "$" + totalRevenue.toFixed(2);
+    if(balance < 10){
+      alert("Minimum retrait = 10$");
+      return;
+    }
 
-  // Bouton de payout → WhatsApp
-  document.getElementById("payoutBtn").onclick = ()=>{
-    const msg = encodeURIComponent(`Bonjour, je souhaite retirer mes gains Lumio : $${totalRevenue.toFixed(2)}`);
-    window.open(`https://wa.me/NUMERO_WHATSAPP?text=${msg}`, "_blank");
+    btn.disabled=true;
+    btn.innerText="Traitement...";
+
+    try{
+
+      const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":"Bearer "+ (await user.getIdToken())
+        },
+        body:JSON.stringify({
+          uid,
+          amount:balance
+        })
+      });
+
+      const data = await res.json();
+
+      if(!data.success) throw new Error(data.error);
+
+      // reset wallet
+      await update(ref(db,"wallets/"+uid),{
+        balance:0,
+        totalWithdrawn: totalWithdrawn + balance
+      });
+
+      alert("Paiement envoyé ✅");
+      location.reload();
+
+    }catch(err){
+      alert("Erreur : "+err.message);
+      btn.disabled=false;
+      btn.innerText="Retirer mes gains";
+    }
   };
 });
 </script>
 
 <style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui;}
-header{padding:20px;font-size:22px;font-weight:600;}
-.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px;}
-button{background:#ff9800;color:black;padding:12px 24px;border:none;border-radius:12px;font-weight:700;cursor:pointer;}
-button:hover{opacity:0.9;}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px;}
-.card h2{margin:4px 0 0;}
-.card span{font-size:12px;color:#aaa;}
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
+header{padding:20px;font-size:22px;font-weight:600}
+.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px}
+button{background:#ff9800;color:black;padding:14px;border:none;border-radius:12px;font-weight:700;cursor:pointer;width:100%}
+button:disabled{opacity:0.6;cursor:not-allowed}
+.card span{font-size:12px;color:#aaa}
+.card h2{margin:4px 0 0}
 </style>
 </head>
 
 <body>
 
-<header>💸 Retrait – Lumio Studio</header>
+<header>Retrait – Lumio Studio</header>
 
 <div class="stats">
-  <div class="card"><span>Total vues</span><h2 id="views">0</h2></div>
-  <div class="card"><span>Total abonnés</span><h2 id="subs">0</h2></div>
-  <div class="card"><span>Revenu disponible</span><h2 id="revenue">$0</h2></div>
+  <div class="card"><span>Solde disponible</span><h2 id="balance">$0</h2></div>
+  <div class="card"><span>Total gagné</span><h2 id="earned">$0</h2></div>
+  <div class="card"><span>Total retiré</span><h2 id="withdrawn">$0</h2></div>
 </div>
 
 <div class="card">
-  <button id="payoutBtn">Retirer mes gains </button>
+  <button id="payoutBtn">Retirer mes gains</button>
 </div>
 
 </body>
