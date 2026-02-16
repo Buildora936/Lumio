@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Détail Livre</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<style>
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
+.container{max-width:900px;margin:auto;padding:20px}
+.cover{width:100%;height:300px;background:#222;background-size:cover;background-position:center;border-radius:14px}
+h1{margin:16px 0 4px}
+.author{color:#aaa;margin-bottom:16px}
+.price{font-size:22px;font-weight:700;margin:12px 0}
+.desc{color:#ccc;line-height:1.6;margin:20px 0}
+button{
+ width:100%;padding:14px;border:none;border-radius:12px;
+ background:#00c853;color:white;font-size:16px;font-weight:600;
+ cursor:pointer
+}
+button:disabled{background:#555}
+.notice{margin-top:12px;color:#aaa;font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div id="cover" class="cover"></div>
+
+<h1 id="title"></h1>
+<div class="author" id="author"></div>
+<div class="price" id="price"></div>
+
+<div class="desc" id="desc"></div>
+
+<button id="buyBtn">Acheter</button>
+<div class="notice" id="notice"></div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const app=initializeApp({
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+});
+
+const db=getDatabase(app);
+const auth=getAuth(app);
+
+const id=new URLSearchParams(location.search).get("id");
+
+const titleEl=document.getElementById("title");
+const authorEl=document.getElementById("author");
+const priceEl=document.getElementById("price");
+const descEl=document.getElementById("desc");
+const coverEl=document.getElementById("cover");
+const btn=document.getElementById("buyBtn");
+const notice=document.getElementById("notice");
+
+let bookData=null;
+let currentUser=null;
+
+/* load book */
+(async()=>{
+ const snap=await get(ref(db,"books/"+id));
+ if(!snap.exists()){
+  titleEl.textContent="Livre introuvable";
+  btn.disabled=true;
+  return;
+ }
+
+ bookData=snap.val();
+
+ titleEl.textContent=bookData.title;
+ authorEl.textContent=bookData.authorChannelName || "Auteur";
+ priceEl.textContent="$"+(bookData.price||0).toFixed(2);
+ descEl.textContent=bookData.description || "Aucune description";
+ coverEl.style.backgroundImage=`url('${bookData.coverBase64||""}')`;
+})();
+
+/* auth */
+onAuthStateChanged(auth,user=>{
+ currentUser=user;
+});
+
+/* buy */
+btn.onclick=async()=>{
+ if(!currentUser){
+  location.href="auth.html";
+  return;
+ }
+
+ btn.disabled=true;
+ btn.textContent="Traitement...";
+
+ const purchaseRef=ref(db,"purchases/"+currentUser.uid+"/"+id);
+ const already=await get(purchaseRef);
+
+ if(already.exists()){
+  notice.textContent="Vous possédez déjà ce livre";
+  btn.style.display="none";
+  return;
+ }
+
+ /* simulate payment (Stripe connect later) */
+
+ await set(purchaseRef,{
+  bookId:id,
+  date:Date.now(),
+  price:bookData.price||0
+ });
+
+ btn.textContent="Acheté ✔";
+ notice.textContent="Livre ajouté à votre bibliothèque";
+};
+</script>
+
+</body>
+</html>
