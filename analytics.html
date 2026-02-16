@@ -8,7 +8,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -70,14 +70,20 @@ onAuthStateChanged(auth, async user => {
   }
 
   /* ========= WALLET MARKETPLACE ========= */
-  const walletSnap = await get(ref(db,"wallets/"+uid));
+  const walletRef = ref(db,"wallets/"+uid);
   let walletBalance = 0, walletEarned = 0, walletWithdrawn = 0;
+
+  const walletSnap = await get(walletRef);
   if(walletSnap.exists()){
     const w = walletSnap.val();
     walletBalance = w.balance || 0;
     walletEarned = w.totalEarned || 0;
     walletWithdrawn = w.totalWithdrawn || 0;
+  } else {
+    // Création automatique du wallet si inexistant
+    await set(walletRef, { balance:0, totalEarned:0, totalWithdrawn:0 });
   }
+
   walletBalanceEl.innerText = `💰 Solde disponible : $${walletBalance.toFixed(2)} | Total gagné : $${walletEarned.toFixed(2)} | Total retiré : $${walletWithdrawn.toFixed(2)}`;
   document.body.prepend(walletBalanceEl);
 
@@ -98,7 +104,7 @@ onAuthStateChanged(auth, async user => {
 
   const videoTable = document.getElementById("videoTable");
 
-  if(videosSnap.exists()){
+  if(videosSnap.exists() && videoTable){
     Object.entries(videosSnap.val()).forEach(([id, v])=>{
       if(v.channelId === uid){
         totalVideos++;
@@ -137,11 +143,21 @@ onAuthStateChanged(auth, async user => {
   document.getElementById("likes").innerText = totalLikes;
   document.getElementById("comments").innerText = totalComments;
 
+  // Mise à jour revenu total en haut
+  const revPubEl = document.getElementById("revPub");
+  if(revPubEl){
+    revPubEl.innerText = "$" + pubRevenue.toFixed(2);
+  }
+
   if(monetized){
-    document.getElementById("revenue").innerText = "$" + revenue.toFixed(2);
-    document.getElementById("revenuePanel").style.display = "flex";
+    const revenuePanel = document.getElementById("revenuePanel");
+    if(revenuePanel){
+      document.getElementById("revenue").innerText = "$" + revenue.toFixed(2);
+      revenuePanel.style.display = "flex";
+    }
   } else {
-    document.getElementById("revenuePanel").style.display = "none";
+    const revenuePanel = document.getElementById("revenuePanel");
+    if(revenuePanel) revenuePanel.style.display = "none";
   }
 });
 </script>
