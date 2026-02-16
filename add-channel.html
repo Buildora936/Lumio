@@ -43,11 +43,16 @@ function setBar(p){
  document.getElementById("bar").style.width=p+"%";
 }
 
-let user;
-
-onAuthStateChanged(auth,async u=>{
- if(!u) return location.href="auth.html";
- user=u;
+window.onload = ()=>{    
+  let currentUser = null;    
+  onAuthStateChanged(auth, async user => {    
+    if(!user){    
+      alert("Connecte-toi pour créer une chaîne");    
+      location.href="auth.html";    
+      return;    
+    }    
+    currentUser = user;    
+  
 
  const snap=await get(child(ref(db),"userChannels/"+u.uid));
  if(snap.exists()){
