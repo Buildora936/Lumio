@@ -83,7 +83,7 @@ onAuthStateChanged(auth, async user=>{
    payoutBtn.innerText="Traitement...";
 
    try{
-
+     // Appel création payout via add-earnings pour marketplace
      const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{
        method:"POST",
        headers:{
@@ -99,6 +99,7 @@ onAuthStateChanged(auth, async user=>{
      const data=await res.json();
      if(!data.success) throw new Error(data.error);
 
+     // Reset wallet après payout
      await update(ref(db,"wallets/"+uid),{
        balance:0,
        totalWithdrawn: withdrawn+balance
