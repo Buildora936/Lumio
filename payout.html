@@ -13,86 +13,102 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// ton publishable key stripe
-const stripe = Stripe("pk_test_51T0kMn71rUXo5YlSkyaW6W2cBPdvczOMDLhbXoOq2ivQiHIAGt7VNNvc2hElWstZEpQe4j23xkhoc1dbUACNGZLO00wVCohAuU");
+onAuthStateChanged(auth, async user=>{
+ if(!user) return location.href="auth.html";
 
-onAuthStateChanged(auth, async user => {
-  if(!user) return location.href="auth.html";
+ const uid=user.uid;
 
-  const uid = user.uid;
+ /* ========= WALLET ========= */
 
-  const walletSnap = await get(ref(db,"wallets/"+uid));
+ const snap=await get(ref(db,"wallets/"+uid));
 
-  let balance = 0;
-  let totalEarned = 0;
-  let totalWithdrawn = 0;
+ let balance=0;
+ let earned=0;
+ let withdrawn=0;
 
-  if(walletSnap.exists()){
-    const w = walletSnap.val();
-    balance = w.balance || 0;
-    totalEarned = w.totalEarned || 0;
-    totalWithdrawn = w.totalWithdrawn || 0;
-  }
+ if(snap.exists()){
+   const w=snap.val();
+   balance=w.balance||0;
+   earned=w.totalEarned||0;
+   withdrawn=w.totalWithdrawn||0;
+ }
 
-  document.getElementById("balance").innerText="$"+balance.toFixed(2);
-  document.getElementById("earned").innerText="$"+totalEarned.toFixed(2);
-  document.getElementById("withdrawn").innerText="$"+totalWithdrawn.toFixed(2);
+ balanceEl.innerText="$"+balance.toFixed(2);
+ earnedEl.innerText="$"+earned.toFixed(2);
+ withdrawnEl.innerText="$"+withdrawn.toFixed(2);
 
-  const btn=document.getElementById("payoutBtn");
+ /* ========= CHECK STRIPE ========= */
 
-  btn.onclick=async()=>{
+ const statusRes=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",{
+   method:"POST",
+   headers:{
+     "Content-Type":"application/json",
+     "Authorization":"Bearer "+await user.getIdToken()
+   },
+   body:JSON.stringify({ uid })
+ });
 
-    if(balance < 10){
-      alert("Minimum retrait = 10$");
-      return;
-    }
+ const stripeStatus=await statusRes.json();
 
-    btn.disabled=true;
-    btn.innerText="Traitement...";
+ if(!stripeStatus.payoutsEnabled){
+   payoutBtn.disabled=true;
+   payoutBtn.innerText="Compte Stripe non vérifié";
+   return;
+ }
 
-    try{
+ /* ========= PAYOUT ========= */
 
-      const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "Authorization":"Bearer "+ (await user.getIdToken())
-        },
-        body:JSON.stringify({
-          uid,
-          amount:balance
-        })
-      });
+ payoutBtn.onclick=async()=>{
 
-      const data = await res.json();
+   if(balance<10){
+     alert("Minimum retrait = 10$");
+     return;
+   }
 
-      if(!data.success) throw new Error(data.error);
+   payoutBtn.disabled=true;
+   payoutBtn.innerText="Traitement...";
 
-      // reset wallet
-      await update(ref(db,"wallets/"+uid),{
-        balance:0,
-        totalWithdrawn: totalWithdrawn + balance
-      });
+   try{
 
-      alert("Paiement envoyé ✅");
-      location.reload();
+     const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{
+       method:"POST",
+       headers:{
+         "Content-Type":"application/json",
+         "Authorization":"Bearer "+await user.getIdToken()
+       },
+       body:JSON.stringify({
+         uid,
+         amount:balance
+       })
+     });
 
-    }catch(err){
-      alert("Erreur : "+err.message);
-      btn.disabled=false;
-      btn.innerText="Retirer mes gains";
-    }
-  };
+     const data=await res.json();
+     if(!data.success) throw new Error(data.error);
+
+     await update(ref(db,"wallets/"+uid),{
+       balance:0,
+       totalWithdrawn: withdrawn+balance
+     });
+
+     alert("Paiement envoyé ✅");
+     location.reload();
+
+   }catch(err){
+     alert(err.message);
+     payoutBtn.disabled=false;
+     payoutBtn.innerText="Retirer mes gains";
+   }
+ };
 });
 </script>
 
