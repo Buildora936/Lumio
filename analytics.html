@@ -21,6 +21,14 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+const stripeBadgeEl = document.createElement("div");
+stripeBadgeEl.style.margin = "16px";
+stripeBadgeEl.style.padding = "12px";
+stripeBadgeEl.style.borderRadius = "12px";
+stripeBadgeEl.style.background = "#1c1c1c";
+stripeBadgeEl.style.color = "white";
+stripeBadgeEl.style.fontWeight = "700";
+
 onAuthStateChanged(auth, async user => {
   if(!user){
     location.href="auth.html";
@@ -29,6 +37,29 @@ onAuthStateChanged(auth, async user => {
 
   const uid = user.uid;
 
+  /* ========= CHECK STRIPE ========= */
+  const statusRes = await fetch(
+    "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",
+    {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+await user.getIdToken()
+      },
+      body:JSON.stringify({ uid })
+    }
+  );
+  const stripeStatus = await statusRes.json();
+
+  if(!stripeStatus.payoutsEnabled){
+    stripeBadgeEl.innerText = "⚠ Stripe non configuré pour les paiements";
+    document.body.prepend(stripeBadgeEl);
+  } else {
+    stripeBadgeEl.innerText = "✅ Stripe prêt pour paiements";
+    document.body.prepend(stripeBadgeEl);
+  }
+
+  /* ========= EXISTING ANALYTICS LOGIC ========= */
   const videosSnap = await get(ref(db, "videos"));
   const likesSnap = await get(ref(db, "shortLikes")); 
   const commentsSnap = await get(ref(db, "comments"));
@@ -37,12 +68,10 @@ onAuthStateChanged(auth, async user => {
 
   let totalViews = 0, totalVideos = 0, totalLikes = 0, totalComments = 0, totalSubs = 0, revenue = 0, pubRevenue = 0;
 
-  // Abonnés
   if(subsSnap.exists() && subsSnap.val()[uid]){
     totalSubs = Object.keys(subsSnap.val()[uid]).length;
   }
 
-  // Monétisation
   const monetized = monetSnap.exists() && monetSnap.val().enabled && totalSubs >= 1000;
 
   const videoTable = document.getElementById("videoTable");
@@ -53,7 +82,6 @@ onAuthStateChanged(auth, async user => {
         totalVideos++;
         totalViews += v.views || 0;
 
-        // Likes par vidéo
         const likes = likesSnap.exists() && likesSnap.val()[id] ? Object.keys(likesSnap.val()[id]).length : 0;
         const comments = commentsSnap.exists() && commentsSnap.val()[id] ? Object.keys(commentsSnap.val()[id]).length : 0;
 
