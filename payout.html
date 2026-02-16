@@ -23,13 +23,17 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+const balanceEl = document.getElementById("balance");
+const earnedEl = document.getElementById("earned");
+const withdrawnEl = document.getElementById("withdrawn");
+const payoutBtn = document.getElementById("payoutBtn");
+
 onAuthStateChanged(auth, async user=>{
  if(!user) return location.href="auth.html";
 
  const uid=user.uid;
 
  /* ========= WALLET ========= */
-
  const snap=await get(ref(db,"wallets/"+uid));
 
  let balance=0;
@@ -48,26 +52,26 @@ onAuthStateChanged(auth, async user=>{
  withdrawnEl.innerText="$"+withdrawn.toFixed(2);
 
  /* ========= CHECK STRIPE ========= */
-
- const statusRes=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",{
-   method:"POST",
-   headers:{
-     "Content-Type":"application/json",
-     "Authorization":"Bearer "+await user.getIdToken()
-   },
-   body:JSON.stringify({ uid })
- });
-
- const stripeStatus=await statusRes.json();
+ const statusRes = await fetch(
+   "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",
+   {
+     method:"POST",
+     headers:{
+       "Content-Type":"application/json",
+       "Authorization":"Bearer "+await user.getIdToken()
+     },
+     body:JSON.stringify({ uid })
+   }
+ );
+ const stripeStatus = await statusRes.json();
 
  if(!stripeStatus.payoutsEnabled){
-   payoutBtn.disabled=true;
-   payoutBtn.innerText="Compte Stripe non vérifié";
+   payoutBtn.disabled = true;
+   payoutBtn.innerText = "Compte Stripe non vérifié";
    return;
  }
 
  /* ========= PAYOUT ========= */
-
  payoutBtn.onclick=async()=>{
 
    if(balance<10){
