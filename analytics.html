@@ -21,6 +21,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+// Badge Stripe
 const stripeBadgeEl = document.createElement("div");
 stripeBadgeEl.style.margin = "16px";
 stripeBadgeEl.style.padding = "12px";
@@ -28,6 +29,15 @@ stripeBadgeEl.style.borderRadius = "12px";
 stripeBadgeEl.style.background = "#1c1c1c";
 stripeBadgeEl.style.color = "white";
 stripeBadgeEl.style.fontWeight = "700";
+
+// Wallet elements
+const walletBalanceEl = document.createElement("div");
+walletBalanceEl.style.margin = "16px";
+walletBalanceEl.style.padding = "12px";
+walletBalanceEl.style.borderRadius = "12px";
+walletBalanceEl.style.background = "#1c1c1c";
+walletBalanceEl.style.color = "white";
+walletBalanceEl.style.fontWeight = "700";
 
 onAuthStateChanged(auth, async user => {
   if(!user){
@@ -58,6 +68,18 @@ onAuthStateChanged(auth, async user => {
     stripeBadgeEl.innerText = "✅ Stripe prêt pour paiements";
     document.body.prepend(stripeBadgeEl);
   }
+
+  /* ========= WALLET MARKETPLACE ========= */
+  const walletSnap = await get(ref(db,"wallets/"+uid));
+  let walletBalance = 0, walletEarned = 0, walletWithdrawn = 0;
+  if(walletSnap.exists()){
+    const w = walletSnap.val();
+    walletBalance = w.balance || 0;
+    walletEarned = w.totalEarned || 0;
+    walletWithdrawn = w.totalWithdrawn || 0;
+  }
+  walletBalanceEl.innerText = `💰 Solde disponible : $${walletBalance.toFixed(2)} | Total gagné : $${walletEarned.toFixed(2)} | Total retiré : $${walletWithdrawn.toFixed(2)}`;
+  document.body.prepend(walletBalanceEl);
 
   /* ========= EXISTING ANALYTICS LOGIC ========= */
   const videosSnap = await get(ref(db, "videos"));
