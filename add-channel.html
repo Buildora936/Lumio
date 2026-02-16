@@ -12,10 +12,11 @@ body{margin:0;font-family:system-ui;background:#181818;color:white;}
 h2{text-align:center;margin-bottom:20px;font-weight:700;color:#ff9800;}
 input,select,textarea,button{width:100%;margin:10px 0;padding:12px;border-radius:12px;border:none;background:#1f1f1f;color:white;}
 textarea{resize:none;}
-button{background:#ff9800;color:black;font-weight:700;cursor:pointer}
-.error{color:#ff5555;text-align:center;font-size:14px;margin-top:8px;}
-.progress{margin:20px 0;height:18px;background:#222;border-radius:10px;overflow:hidden}
-.bar{height:100%;width:0;background:#ff9800;transition:.3s}
+button{background:#ff9800;color:black;font-weight:700;cursor:pointer;transition:.3s;}
+button:hover{background:#e68a00;}
+.error{color:#ff5555;text-align:center;font-size:14px}
+.progress{height:18px;background:#222;border-radius:10px;overflow:hidden;margin:10px 0}
+.bar{height:100%;width:0;background:#ff9800;transition:.4s}
 </style>
 
 <script type="module">
@@ -23,149 +24,150 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebas
 import { getDatabase, ref, set, push, get, child } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-const app = initializeApp({
+const config={
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
  authDomain:"lumio-6efed.firebaseapp.com",
  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
  projectId:"lumio-6efed"
-});
+};
 
+const app=initializeApp(config);
 const db=getDatabase(app);
 const auth=getAuth(app);
 
-const to64=f=>new Promise(r=>{
- const fr=new FileReader();
- fr.onload=()=>r(fr.result);
- fr.readAsDataURL(f);
-});
+let user=null;
 
-function setBar(p){
- document.getElementById("bar").style.width=p+"%";
+const bar=()=>document.getElementById("bar");
+const errBox=()=>document.getElementById("error");
+
+function progress(p){bar().style.width=p+"%";}
+
+function toBase64(file){
+ return new Promise((res,rej)=>{
+  const r=new FileReader();
+  r.onload=()=>res(r.result);
+  r.onerror=rej;
+  r.readAsDataURL(file);
+ });
 }
 
-window.onload = ()=>{    
-  let currentUser = null;    
-  onAuthStateChanged(auth, async user => {    
-    if(!user){    
-      alert("Connecte-toi pour créer une chaîne");    
-      location.href="auth.html";    
-      return;    
-    }    
-    currentUser = user;    
-  
+onAuthStateChanged(auth,async u=>{
+ if(!u){location.href="auth.html";return;}
+ user=u;
 
  const snap=await get(child(ref(db),"userChannels/"+u.uid));
  if(snap.exists()){
-   alert("Vous avez déjà une chaîne");
-   location.href="publish.html";
+  alert("Tu as déjà une chaîne.");
+  location.href="dashboard.html";
  }
 });
 
-window.submitChannel=async()=>{
+window.createChannel=async(e)=>{
+ e.preventDefault();
+ errBox().textContent="";
+ progress(5);
 
- const btn=document.getElementById("submitBtn");
- btn.disabled=true;
- btn.textContent="Création...";
+ if(!user)return errBox().textContent="Utilisateur non connecté";
+
+ const name=nameInput.value.trim();
+ const desc=descInput.value.trim();
+ const photo=photoInput.files[0];
+ const banner=bannerInput.files[0];
+ const cat=catInput.value;
+
+ if(!name||!desc||!photo)
+  return errBox().textContent="Remplis tous les champs obligatoires.";
 
  try{
+  const photo64=await toBase64(photo);
+  const banner64=banner?await toBase64(banner):"";
 
- const name=channelName.value.trim();
- const desc=channelDesc.value.trim();
- const photo=channelPhoto.files[0];
- const banner=channelBanner.files[0];
+  progress(30);
 
- if(!name||!desc||!photo) throw Error("Champs obligatoires manquants");
+  const chRef=push(ref(db,"channels"));
+  const id=chRef.key;
 
- setBar(20);
+  await set(chRef,{
+   id,
+   name,
+   description:desc,
+   category:cat,
+   owner:user.uid,
+   photoURL:photo64,
+   bannerURL:banner64,
+   createdAt:Date.now(),
+   monetization:true,
+   comments:true
+  });
 
- const photo64=await to64(photo);
- const banner64=banner?await to64(banner):"";
+  progress(60);
 
- setBar(40);
+  await set(ref(db,"userChannels/"+user.uid),id);
 
- const refChan=push(ref(db,"channels"));
- const id=refChan.key;
+  const walletRef=ref(db,"wallets/"+user.uid);
+  const w=await get(walletRef);
 
- await set(refChan,{
-  name,
-  description:desc,
-  owner:user.uid,
-  photoURL:photo64,
-  bannerURL:banner64,
-  category:channelCategory.value,
-  createdAt:Date.now()
- });
+  if(!w.exists()){
+   await set(walletRef,{
+    balance:0,
+    earned:0,
+    withdrawn:0
+   });
+  }
 
- await set(ref(db,"userChannels/"+user.uid),id);
+  progress(75);
 
- setBar(60);
+  const token=await user.getIdToken();
 
- // wallet firebase
- const walletRef=ref(db,"wallets/"+user.uid);
- const w=await get(walletRef);
- if(!w.exists()){
-  await set(walletRef,{balance:0,totalEarned:0,totalWithdrawn:0});
+  await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-wallet",{
+   method:"POST",
+   headers:{
+    "Content-Type":"application/json",
+    "Authorization":"Bearer "+token
+   },
+   body:JSON.stringify({uid:user.uid})
+  });
+
+  progress(100);
+
+  alert("Chaîne créée !");
+  location.href="connect-stripe.html";
+
+ }catch(err){
+  console.error(err);
+  errBox().textContent="Erreur serveur.";
  }
-
- setBar(80);
-
- // wallet supabase
- const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-wallet",{
-  method:"POST",
-  headers:{
-   "Content-Type":"application/json",
-   "Authorization":"Bearer "+await user.getIdToken()
-  },
-  body:JSON.stringify({uid:user.uid})
- });
-
- const data=await res.json();
- if(!data.success) throw Error(data.error||"Wallet error");
-
- setBar(100);
-
- alert("Chaîne créée avec succès");
-
- location.href="connect-stripe.html";
-
- }catch(e){
-  error.textContent=e.message;
-  btn.disabled=false;
-  btn.textContent="Créer la chaîne";
- }
-};
+}
 </script>
 </head>
 
 <body>
 <div class="container">
 
-<h2>Créer votre chaîne</h2>
+<h2>Créer ta chaîne</h2>
 
-<input id="channelName" placeholder="Nom de la chaîne">
-<textarea id="channelDesc" placeholder="Description"></textarea>
+<form onsubmit="createChannel(event)">
+<input id="nameInput" placeholder="Nom chaîne">
+<textarea id="descInput" placeholder="Description"></textarea>
 
 <label>Photo</label>
-<input id="channelPhoto" type="file" accept="image/*">
+<input id="photoInput" type="file" accept="image/*">
 
 <label>Bannière</label>
-<input id="channelBanner" type="file" accept="image/*">
+<input id="bannerInput" type="file" accept="image/*">
 
-<select id="channelCategory">
+<select id="catInput">
 <option>Divers</option>
-<option>Musique</option>
 <option>Gaming</option>
-<option>Éducation</option>
+<option>Musique</option>
+<option>Education</option>
 </select>
 
-<div class="progress">
-<div id="bar" class="bar"></div>
-</div>
-
+<div class="progress"><div id="bar" class="bar"></div></div>
 <div id="error" class="error"></div>
 
-<button id="submitBtn" onclick="submitChannel()">Créer la chaîne</button>
+<button>Créer la chaîne</button>
+</form>
 
 </div>
 </body>
-</html>
