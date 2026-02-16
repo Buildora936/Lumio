@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Connecter Stripe — Lumio</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+body{
+ font-family:system-ui;
+ background:#0f172a;
+ color:white;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ height:100vh;
+ margin:0;
+}
+.card{
+ background:#111827;
+ padding:30px;
+ border-radius:14px;
+ width:380px;
+ text-align:center;
+ box-shadow:0 0 20px rgba(0,0,0,.4);
+}
+button{
+ background:#635bff;
+ border:none;
+ padding:12px 18px;
+ border-radius:8px;
+ color:white;
+ font-weight:600;
+ cursor:pointer;
+ width:100%;
+ margin-top:15px;
+}
+button:disabled{
+ opacity:.5;
+ cursor:not-allowed;
+}
+.status{
+ margin-top:15px;
+ padding:10px;
+ border-radius:8px;
+ font-size:14px;
+}
+.ok{background:#064e3b}
+.warn{background:#78350f}
+.err{background:#7f1d1d}
+</style>
+</head>
+<body>
+
+<div class="card">
+<h2>Activer la monétisation</h2>
+<p>Connecte ton compte Stripe pour recevoir tes paiements.</p>
+
+<button id="connectBtn">Connecter Stripe</button>
+
+<div id="statusBox" style="display:none" class="status"></div>
+
+<button id="continueBtn" style="display:none">Continuer</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const firebaseConfig={
+ apiKey:"YOUR_KEY",
+ authDomain:"YOUR_DOMAIN",
+ projectId:"YOUR_ID",
+ appId:"YOUR_APP"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+
+const connectBtn=document.getElementById("connectBtn");
+const statusBox=document.getElementById("statusBox");
+const continueBtn=document.getElementById("continueBtn");
+
+let user=null;
+
+onAuthStateChanged(auth,async u=>{
+ if(!u) return location.href="login.html";
+ user=u;
+ await checkStatus();
+});
+
+async function checkStatus(){
+ try{
+  const token=await user.getIdToken();
+
+  const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",{
+   method:"POST",
+   headers:{
+    "Content-Type":"application/json",
+    "Authorization":"Bearer "+token
+   },
+   body:JSON.stringify({uid:user.uid})
+  });
+
+  const data=await res.json();
+
+  if(!data.accountExists){
+   showStatus("Compte Stripe non connecté","warn");
+   return;
+  }
+
+  if(data.chargesEnabled && data.payoutsEnabled){
+   showStatus("Compte Stripe actif","ok");
+   continueBtn.style.display="block";
+   connectBtn.style.display="none";
+  }
+  else{
+   showStatus("Stripe connecté mais vérification requise","warn");
+  }
+
+ }catch(err){
+  showStatus("Erreur vérification Stripe","err");
+ }
+}
+
+connectBtn.onclick=async()=>{
+ connectBtn.disabled=true;
+ connectBtn.textContent="Connexion...";
+
+ try{
+  const token=await user.getIdToken();
+
+  const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-stripe-account",{
+   method:"POST",
+   headers:{
+    "Content-Type":"application/json",
+    "Authorization":"Bearer "+token
+   },
+   body:JSON.stringify({uid:user.uid})
+  });
+
+  const data=await res.json();
+
+  if(!data.url) throw Error();
+
+  window.location.href=data.url;
+
+ }catch{
+  showStatus("Erreur création compte Stripe","err");
+  connectBtn.disabled=false;
+  connectBtn.textContent="Connecter Stripe";
+ }
+};
+
+continueBtn.onclick=()=>{
+ location.href="dashboard.html";
+};
+
+function showStatus(msg,type){
+ statusBox.style.display="block";
+ statusBox.textContent=msg;
+ statusBox.className="status "+type;
+}
+</script>
+
+</body>
+</html>
