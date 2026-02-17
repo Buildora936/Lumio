@@ -91,7 +91,7 @@ onAuthStateChanged(auth,async user=>{
 
   const card=document.createElement("div");
   card.className="card";
-  card.onclick=()=>location.href="reader.html?id="+id;
+  card.onclick=()=>location.href="book.html?id="+id;
 
   card.innerHTML=`
    <div class="cover" style="background-image:url('${b.coverBase64||""}')"></div>
