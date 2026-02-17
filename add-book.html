@@ -2,182 +2,222 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Ajouter un livre – Lumio</title>
+<title>Studio Livre – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+main{max-width:900px;margin:60px auto;padding:24px;background:#202020;border-radius:16px}
+h2{text-align:center;margin-bottom:18px}
+
+input,textarea,select{
+ width:100%;padding:12px;margin-bottom:12px;
+ background:#2a2a2a;border:none;border-radius:8px;color:white
+}
+
+button{
+ background:#ff6a00;border:none;color:white;
+ padding:12px 18px;border-radius:30px;
+ font-weight:700;cursor:pointer
+}
+
+.toolbar{
+ display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap
+}
+.editor{
+ min-height:300px;
+ background:#111;
+ padding:16px;
+ border-radius:12px;
+ outline:none;
+ line-height:1.8;
+}
+
+.preview{
+ margin-top:20px;
+ background:#111;
+ padding:16px;
+ border-radius:12px;
+}
+
+.progress{
+ height:16px;background:#333;border-radius:10px;margin-bottom:16px;overflow:hidden
+}
+.bar{height:100%;width:0;background:#ff6a00}
+.stats{font-size:13px;color:#aaa;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<main>
+<h2>Studio Auteur</h2>
+
+<div class="progress"><div class="bar" id="bar"></div></div>
+
+<input id="title" placeholder="Titre du livre">
+<textarea id="desc" placeholder="Description"></textarea>
+<input id="price" type="number" placeholder="Prix ($)">
+<select id="lang">
+<option value="fr">Français</option>
+<option value="en">Anglais</option>
+</select>
+
+<div class="toolbar">
+<button onclick="format('bold')">Gras</button>
+<button onclick="format('italic')">Italique</button>
+<button onclick="format('insertUnorderedList')">Liste</button>
+<button onclick="addImg()">Image</button>
+<button onclick="togglePreview()">Preview</button>
+</div>
+
+<div contenteditable class="editor" id="editor"></div>
+
+<div class="stats" id="stats">0 mots • 0 pages</div>
+
+<hr>
+
+<h3>OU importer un fichier</h3>
+<input id="file" type="file" accept=".pdf,.epub,.txt">
+
+<button id="publish">Publier</button>
+
+<div class="preview" id="preview" style="display:none"></div>
+</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, push, set, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,push,set,get,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
-};
+const app=initializeApp({
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+});
+const db=getDatabase(app);
+const auth=getAuth(app);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+let uid=null;
+let channelId=null;
 
-let currentUser = null;
-let channelId = null;
-
-onAuthStateChanged(auth, async user => {
-  if(!user) return location.href="auth.html";
-  currentUser = user;
-
-  const snap = await get(ref(db, "userChannels/" + user.uid));
-  if(!snap.exists()){
-    alert("Aucune chaîne trouvée, créez-en une.");
-    location.href="add-channel.html";
-  }
-  channelId = snap.val();
+onAuthStateChanged(auth, async u=>{
+ if(!u) return location.href="auth.html";
+ uid=u.uid;
+ const snap=await get(ref(db,"userChannels/"+uid));
+ if(!snap.exists()) location.href="add-channel.html";
+ channelId=snap.val();
 });
 
-// 🔹 Base64 AVEC progression réelle
-function toBase64(file, onProgress){
-  return new Promise((res, rej)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>res(reader.result);
-    reader.onerror = e=>rej(e);
-    reader.onprogress = e=>{
-      if(e.lengthComputable && onProgress){
-        onProgress(e.loaded / e.total);
-      }
-    };
-    reader.readAsDataURL(file);
-  });
-}
+/* ====== TEXT EDITOR ====== */
+window.format=cmd=>document.execCommand(cmd);
 
-// 🔹 Progress bar
-function setProgress(percent){
-  document.getElementById("progressBar").style.width = percent + "%";
-}
-
-// 🔹 Formulaire
-document.getElementById("bookForm").onsubmit = async e=>{
-  e.preventDefault();
-  if(!currentUser || !channelId) return;
-
-  const title = document.getElementById("title").value.trim();
-  const desc = document.getElementById("desc").value.trim();
-  const lang = document.getElementById("language").value;
-  const pages = parseInt(document.getElementById("pages").value);
-  const price = parseFloat(document.getElementById("price").value) || 0;
-  const coverFile = document.getElementById("cover").files[0];
-  const bookFile = document.getElementById("file").files[0];
-
-  if(!title || !coverFile || !bookFile || !pages) {
-    alert("Champs obligatoires manquants");
-    return;
-  }
-
-  setProgress(0);
-
-  // Cover = 0 → 40%
-  const coverBase64 = await toBase64(coverFile, p=>{
-    setProgress(Math.floor(p * 40));
-  });
-
-  // Book file = 40 → 90%
-  const bookBase64 = await toBase64(bookFile, p=>{
-    setProgress(40 + Math.floor(p * 50));
-  });
-
-  const bookRef = push(ref(db,"books"));
-  const bookData = {
-    title,
-    description: desc,
-    price,
-    coverBase64,
-    fileBase64: bookBase64,
-    authorChannelId: channelId,
-    authorChannelName: currentUser.displayName || "Auteur",
-    language: lang,
-    pages,
-    createdAt: serverTimestamp(),
-    salesCount:0,
-    status:"public"
+window.addImg=()=>{
+ const input=document.createElement("input");
+ input.type="file";
+ input.accept="image/*";
+ input.onchange=()=>{
+  const f=input.files[0];
+  const r=new FileReader();
+  r.onload=e=>{
+   document.execCommand("insertImage",false,e.target.result);
   };
+  r.readAsDataURL(f);
+ };
+ input.click();
+};
 
-  await set(bookRef, bookData);
+/* ===== WORD COUNT ===== */
+const editor=document.getElementById("editor");
+editor.oninput=()=>{
+ const text=editor.innerText.trim();
+ const words=text?text.split(/\s+/).length:0;
+ const pages=Math.ceil(words/350);
+ document.getElementById("stats").innerText=
+ words+" mots • "+pages+" pages";
+ localStorage.setItem("draft_book",editor.innerHTML);
+};
+editor.innerHTML=localStorage.getItem("draft_book")||"";
 
-  // Lier au channel automatiquement
-  await set(ref(db, `channels/${channelId}/books/${bookRef.key}`), true);
+/* ===== PREVIEW ===== */
+window.togglePreview=()=>{
+ const box=document.getElementById("preview");
+ box.style.display=box.style.display==="none"?"block":"none";
+ box.innerHTML=editor.innerHTML;
+};
 
-  setProgress(100);
+/* ===== FILE PARSER ===== */
+async function fileToText(file){
+ const text=await file.text();
+ return text.replace(/\n/g,"<br>");
+}
 
-  alert("Livre ajouté avec succès !");
-  location.href="publish.html";
+/* ===== IMAGE COMPRESS ===== */
+function compress(img){
+ return new Promise(res=>{
+  const c=document.createElement("canvas");
+  const ctx=c.getContext("2d");
+  const i=new Image();
+  i.onload=()=>{
+   const w=600;
+   const h=i.height*(w/i.width);
+   c.width=w;c.height=h;
+   ctx.drawImage(i,0,0,w,h);
+   res(c.toDataURL("image/jpeg",0.7));
+  };
+  i.src=img;
+ });
+}
+
+/* ===== PUBLISH ===== */
+document.getElementById("publish").onclick=async()=>{
+ if(!channelId) return alert("Erreur channel");
+
+ const title=document.getElementById("title").value.trim();
+ if(!title) return alert("Titre requis");
+
+ const file=document.getElementById("file").files[0];
+ let content="";
+
+ if(file){
+  content=await fileToText(file);
+ }else{
+  content=editor.innerHTML;
+ }
+
+ if(!content) return alert("Livre vide");
+
+ /* compress images */
+ const imgs=[...content.matchAll(/src="(data:image.*?)"/g)];
+ for(const m of imgs){
+  const small=await compress(m[1]);
+  content=content.replace(m[1],small);
+ }
+
+ const bar=document.getElementById("bar");
+ bar.style.width="60%";
+
+ const refBook=push(ref(db,"books"));
+ await set(refBook,{
+  title,
+  description:desc.value,
+  price:parseFloat(price.value)||0,
+  content,
+  authorChannelId:channelId,
+  language:lang.value,
+  createdAt:serverTimestamp(),
+  sales:0,
+  views:0,
+  status:"public"
+ });
+
+ await set(ref(db,"channels/"+channelId+"/books/"+refBook.key),true);
+
+ bar.style.width="100%";
+ alert("Livre publié");
+ localStorage.removeItem("draft_book");
+ location.href="books.html";
 };
 </script>
-
-<style>
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui;background:#181818;color:white;}
-main{max-width:600px;margin:80px auto;background:#202020;padding:24px;border-radius:14px}
-h2{text-align:center;margin-bottom:20px}
-input,textarea,select{
-  width:100%;
-  padding:12px;
-  margin-bottom:14px;
-  border:none;
-  border-radius:8px;
-  background:#2a2a2a;
-  color:white
-}
-button{
-  width:100%;
-  padding:14px;
-  background:#ff6a00;
-  border:none;
-  border-radius:20px;
-  font-weight:700;
-  cursor:pointer
-}
-
-/* 🔥 Progress bar */
-.progress{
-  width:100%;
-  height:18px;
-  background:#333;
-  border-radius:10px;
-  overflow:hidden;
-  margin-bottom:16px;
-}
-.progress-bar{
-  height:100%;
-  width:0%;
-  background:#ff6a00;
-  transition:width .2s linear;
-}
-</style>
-</head>
-
-<body>
-<main>
-  <h2>Ajouter un livre</h2>
-
-  <div class="progress">
-    <div class="progress-bar" id="progressBar"></div>
-  </div>
-
-  <form id="bookForm">
-    <input id="title" placeholder="Titre du livre" required>
-    <textarea id="desc" placeholder="Description (optionnel)"></textarea>
-    <input id="price" type="number" min="0" placeholder="Prix ($), 0 si gratuit">
-    <select id="language">
-      <option value="fr">Français</option>
-      <option value="en">Anglais</option>
-    </select>
-    <input id="pages" type="number" min="1" placeholder="Nombre de pages" required>
-    <input id="cover" type="file" accept="image/*" required>
-    <input id="file" type="file" accept=".pdf,.epub" required>
-    <button type="submit">Publier le livre</button>
-  </form>
-</main>
 </body>
 </html>
