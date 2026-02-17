@@ -2,127 +2,103 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lecteur</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Lecteur</title>
 
 <style>
 body{
  margin:0;
  background:#202020;
  font-family:serif;
- display:flex;
- flex-direction:column;
- align-items:center;
- transition:.3s;
-}
-
-.topbar{
- width:100%;
- padding:12px;
- text-align:center;
- color:white;
- font-weight:600;
-}
-
-.controls{
- display:flex;
- gap:8px;
- margin:10px;
- flex-wrap:wrap;
- justify-content:center;
-}
-.controls button{
- border:none;
- padding:8px 14px;
- border-radius:8px;
- cursor:pointer;
- background:#333;
- color:white;
-}
-
-.book{
- width:92%;
- max-width:750px;
- height:75vh;
- background:#fdf6e3;
- border-radius:12px;
- box-shadow:0 10px 40px rgba(0,0,0,.6);
- padding:40px;
- position:relative;
  overflow:hidden;
- transition:.3s;
 }
 
+/* container */
+.reader{
+ position:absolute;
+ inset:0;
+ display:flex;
+ justify-content:center;
+ align-items:center;
+}
+
+/* page */
 .page{
+ width:90%;
+ max-width:900px;
+ height:90%;
+ background:#fdf6e3;
+ border-radius:14px;
+ box-shadow:0 20px 60px rgba(0,0,0,.6);
+ padding:50px;
+ overflow:hidden;
+ position:relative;
+ transform:scale(.98);
+ animation:pop .3s ease;
+}
+@keyframes pop{to{transform:scale(1)}}
+
+.text{
  height:100%;
- overflow:auto;
- font-size:18px;
- line-height:1.8;
- transition:.2s;
+ overflow:hidden;
+ line-height:1.9;
+ font-size:22px;
+ user-select:text;
 }
 
 .counter{
  position:absolute;
- bottom:12px;
- right:18px;
+ bottom:14px;
+ right:20px;
  font-size:14px;
- color:#666;
+ color:#555;
 }
 
-.nav{
+/* toolbar */
+.bar{
+ position:fixed;
+ bottom:20px;
+ left:50%;
+ transform:translateX(-50%);
+ background:#111;
+ border-radius:40px;
+ padding:10px 14px;
  display:flex;
- justify-content:space-between;
- width:92%;
- max-width:750px;
- margin-top:10px;
+ gap:10px;
 }
-
-.nav button{
- padding:10px 18px;
+.bar button{
+ background:#333;
  border:none;
- border-radius:8px;
- background:#2c2c2c;
  color:white;
+ padding:10px 14px;
+ border-radius:30px;
  cursor:pointer;
 }
 
-.flip{animation:flip .35s}
-@keyframes flip{
- from{transform:rotateY(90deg);opacity:.3}
- to{transform:rotateY(0);opacity:1}
-}
-
-/* mode nuit */
-.night body{background:#111}
-.night .book{background:#111;color:#ddd}
-.night .counter{color:#aaa}
+/* themes */
+.dark{background:#111;color:#ddd}
+.dark .page{background:#111;color:#ddd}
+.sepia .page{background:#f4ecd8}
 </style>
 </head>
 <body>
 
-<div class="topbar" id="title">Livre</div>
+<div class="reader" id="reader"></div>
 
-<div class="controls">
-<button id="night">🌙 Mode nuit</button>
-<button id="plus">A+</button>
-<button id="minus">A-</button>
-<button id="bookmark">🔖 Signet</button>
-<button id="resume">↺ Reprendre</button>
-</div>
-
-<div class="book" id="book">
- <div class="page" id="page"></div>
- <div class="counter" id="counter"></div>
-</div>
-
-<div class="nav">
-<button id="prev">←</button>
-<button id="next">→</button>
+<div class="bar">
+<button id="prev">◀</button>
+<button id="next">▶</button>
+<button id="fontUp">A+</button>
+<button id="fontDown">A-</button>
+<button id="themeBtn">☾</button>
+<button id="mark">Highlight</button>
+<button id="note">Note</button>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -131,84 +107,118 @@ const app=initializeApp({
  projectId:"lumio-6efed"
 });
 const db=getDatabase(app);
+const auth=getAuth(app);
 
 const id=new URLSearchParams(location.search).get("id");
 const snap=await get(ref(db,"books/"+id));
-
-const pageEl=document.getElementById("page");
-const counter=document.getElementById("counter");
-const title=document.getElementById("title");
-
-let pages=[];
-let index=0;
-let size=18;
-
-if(!snap.exists()){
- pageEl.innerHTML="Livre introuvable";
- throw "";
-}
+if(!snap.exists()) throw alert("Livre introuvable");
 
 const book=snap.val();
-pages=book.pages||["Vide"];
-title.innerText=book.title||"Livre";
+const container=document.getElementById("reader");
 
-/* restore last page */
+let font=22;
+let pages=[];
+let index=0;
+let theme=0;
+
+/* PAGINATION ENGINE */
+function paginate(text){
+ const measure=document.createElement("div");
+ measure.style.cssText=`
+ position:absolute;visibility:hidden;width:800px;
+ line-height:1.9;font-size:${font}px;
+ `;
+ document.body.appendChild(measure);
+
+ pages=[];
+ let words=text.split(" ");
+ let buf="";
+
+ for(let w of words){
+  measure.innerHTML=buf+" "+w;
+  if(measure.scrollHeight>measure.clientHeight+5){
+   pages.push(buf);
+   buf=w;
+  }else buf+=" "+w;
+ }
+ pages.push(buf);
+ measure.remove();
+}
+paginate(book.text||"Livre vide");
+
+/* RESTORE */
 const saved=localStorage.getItem("read_"+id);
 if(saved) index=parseInt(saved);
 
-/* render */
+/* RENDER */
 function render(){
- pageEl.classList.remove("flip");
- void pageEl.offsetWidth;
- pageEl.classList.add("flip");
+ container.innerHTML="";
+ const p=document.createElement("div");
+ p.className="page";
 
- pageEl.innerHTML=pages[index];
- counter.innerText=`${index+1}/${pages.length}`;
-
- prev.disabled=index===0;
- next.disabled=index===pages.length-1;
+ p.innerHTML=`
+ <div class="text" style="font-size:${font}px">${pages[index]}</div>
+ <div class="counter">${index+1}/${pages.length}</div>
+ `;
+ container.appendChild(p);
 
  localStorage.setItem("read_"+id,index);
+
+ if(auth.currentUser)
+  set(ref(db,"progress/"+auth.currentUser.uid+"/"+id),index);
 }
 render();
 
-/* nav */
-prev.onclick=()=>{if(index>0){index--;render();}}
+/* NAV */
 next.onclick=()=>{if(index<pages.length-1){index++;render();}}
+prev.onclick=()=>{if(index>0){index--;render();}}
 
-/* swipe */
-let startX=0;
-book.addEventListener("touchstart",e=>startX=e.touches[0].clientX);
-book.addEventListener("touchend",e=>{
- let diff=e.changedTouches[0].clientX-startX;
- if(Math.abs(diff)<40)return;
- diff<0?next.click():prev.click();
-});
-
-/* clavier */
 document.addEventListener("keydown",e=>{
  if(e.key==="ArrowRight") next.click();
  if(e.key==="ArrowLeft") prev.click();
 });
 
-/* zoom texte */
-plus.onclick=()=>{size+=2;pageEl.style.fontSize=size+"px";}
-minus.onclick=()=>{size=Math.max(12,size-2);pageEl.style.fontSize=size+"px";}
+/* SWIPE */
+let sx=0;
+container.addEventListener("touchstart",e=>sx=e.touches[0].clientX);
+container.addEventListener("touchend",e=>{
+ let dx=e.changedTouches[0].clientX-sx;
+ if(Math.abs(dx)<50) return;
+ dx<0?next.click():prev.click();
+});
 
-/* nuit */
-night.onclick=()=>document.documentElement.classList.toggle("night");
+/* FONT */
+fontUp.onclick=()=>{font+=2;paginate(book.text);render();}
+fontDown.onclick=()=>{font-=2;paginate(book.text);render();}
 
-/* signet */
-bookmark.onclick=()=>{
- localStorage.setItem("bookmark_"+id,index);
- alert("Signet ajouté page "+(index+1));
+/* THEME */
+themeBtn.onclick=()=>{
+ theme=(theme+1)%3;
+ document.body.classList.remove("dark","sepia");
+ if(theme===1) document.body.classList.add("dark");
+ if(theme===2) document.body.classList.add("sepia");
 };
 
-/* reprendre */
-resume.onclick=()=>{
- const b=localStorage.getItem("bookmark_"+id);
- if(b!==null){index=parseInt(b);render();}
+/* HIGHLIGHT */
+mark.onclick=()=>{
+ const sel=window.getSelection().toString();
+ if(!sel) return;
+ localStorage.setItem("hl_"+id+"_"+index,sel);
+ alert("Surligné");
 };
+
+/* NOTE */
+note.onclick=()=>{
+ const t=prompt("Note page "+(index+1));
+ if(!t) return;
+ localStorage.setItem("note_"+id+"_"+index,t);
+ alert("Note enregistrée");
+};
+
+/* AUTO DARK SYSTEM */
+if(window.matchMedia("(prefers-color-scheme: dark)").matches){
+ document.body.classList.add("dark");
+}
 </script>
 </body>
 </html>
