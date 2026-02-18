@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Init Payments DB</title>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+  authDomain:"lumio-6efed.firebaseapp.com",
+  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+  projectId:"lumio-6efed"
+});
+
+const db = getDatabase(app);
+
+async function ensure(path, value){
+  const r = ref(db,path);
+  const snap = await get(r);
+  if(!snap.exists()){
+    await set(r,value);
+    log("Créé → "+path);
+  }else{
+    log("Existe → "+path);
+  }
+}
+
+function log(t){
+  document.body.innerHTML += "<div>"+t+"</div>";
+}
+
+(async()=>{
+  log("Initialisation DB Paiement...");
+
+  await ensure("orders", {});
+  await ensure("payments", {});
+  await ensure("userOrders", {});
+  await ensure("bookSales", {});
+  await ensure("wallets", {});
+
+  log("✔ Structure prête");
+})();
+</script>
+</head>
+<body style="background:#111;color:white;font-family:sans-serif;padding:20px">
+<h2>Initialisation système paiement</h2>
+</body>
+</html>
