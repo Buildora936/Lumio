@@ -5,6 +5,8 @@
 <title>Détail Livre</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
+<script src="https://checkout.flutterwave.com/v3.js"></script>
+
 <style>
 body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
 .container{max-width:900px;margin:auto;padding:20px}
@@ -13,13 +15,21 @@ h1{margin:16px 0 4px}
 .author{color:#aaa;margin-bottom:16px}
 .price{font-size:22px;font-weight:700;margin:12px 0}
 .desc{color:#ccc;line-height:1.6;margin:20px 0}
-button{
- width:100%;padding:14px;border:none;border-radius:12px;
- background:#00c853;color:white;font-size:16px;font-weight:600;
- cursor:pointer
-}
+button{width:100%;padding:14px;border:none;border-radius:12px;background:#00c853;color:white;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}
 button:disabled{background:#555}
 .notice{margin-top:12px;color:#aaa;font-size:13px;text-align:center}
+
+.social{display:flex;gap:10px;margin-top:10px}
+.social button{flex:1;background:#1c1c1c}
+
+.comments{margin-top:30px}
+.comment{padding:10px;border-bottom:1px solid #333;font-size:14px}
+
+.related{margin-top:40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-top:16px}
+.card{background:#1c1c1c;border-radius:12px;padding:10px;cursor:pointer}
+.card img{width:100%;height:160px;object-fit:cover;border-radius:10px}
+.card div{font-size:13px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -27,21 +37,35 @@ button:disabled{background:#555}
 <div class="container">
 
 <div id="cover" class="cover"></div>
-
 <h1 id="title"></h1>
 <div class="author" id="author"></div>
 <div class="price" id="price"></div>
-
 <div class="desc" id="desc"></div>
 
 <button id="buyBtn">Acheter</button>
 <div class="notice" id="notice"></div>
 
+<div class="social">
+<button id="likeBtn">❤️ Like</button>
+<button id="shareBtn">🔗 Partager</button>
+</div>
+
+<div class="comments">
+<h3>Commentaires</h3>
+<input id="commentInput" placeholder="Écrire commentaire..." style="width:100%;padding:10px;border-radius:8px;border:none;background:#222;color:white">
+<div id="commentsList"></div>
+</div>
+
+<div class="related">
+<h3>Livres similaires</h3>
+<div class="grid" id="relatedGrid"></div>
+</div>
+
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,set,push,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
@@ -75,51 +99,130 @@ let currentUser=null;
   btn.disabled=true;
   return;
  }
-
  bookData=snap.val();
-
  titleEl.textContent=bookData.title;
- authorEl.textContent=bookData.authorChannelName || "Auteur";
+ authorEl.textContent=bookData.authorChannelName||"Auteur";
  priceEl.textContent="$"+(bookData.price||0).toFixed(2);
- descEl.textContent=bookData.description || "Aucune description";
+ descEl.textContent=bookData.description||"Aucune description";
  coverEl.style.backgroundImage=`url('${bookData.coverBase64||""}')`;
+ loadRelated();
 })();
 
 /* auth */
-onAuthStateChanged(auth,user=>{
- currentUser=user;
-});
+onAuthStateChanged(auth,user=>currentUser=user);
 
-/* buy */
+/* BUY */
 btn.onclick=async()=>{
- if(!currentUser){
-  location.href="auth.html";
-  return;
- }
+ if(!currentUser)return location.href="auth.html";
 
  btn.disabled=true;
- btn.textContent="Traitement...";
+ btn.textContent="Création commande...";
 
- const purchaseRef=ref(db,"purchases/"+currentUser.uid+"/"+id);
- const already=await get(purchaseRef);
+ const order=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-order",{
+  method:"POST",
+  headers:{ "Content-Type":"application/json" },
+  body:JSON.stringify({
+    user_id:currentUser.uid,
+    book_id:id,
+    amount:bookData.price||0
+  })
+ }).then(r=>r.json());
 
- if(already.exists()){
-  notice.textContent="Vous possédez déjà ce livre";
-  btn.style.display="none";
+ if(!order.success){
+  alert("Erreur commande");
   return;
  }
 
- /* simulate payment (Stripe connect later) */
-
- await set(purchaseRef,{
-  bookId:id,
-  date:Date.now(),
-  price:bookData.price||0
+ FlutterwaveCheckout({
+   public_key:"FLWPUBK_TEST-cebe5538e9c95213e15f146b0dfefaa1-X",
+   tx_ref:order.tx_ref,
+   amount:bookData.price||0,
+   currency:"USD",
+   customer:{
+     email:currentUser.email
+   },
+   callback: async function(data){
+     if(data.status==="successful"){
+        await set(ref(db,"purchases/"+currentUser.uid+"/"+id),{
+          bookId:id,
+          date:Date.now()
+        });
+        btn.textContent="Acheté ✔";
+        notice.textContent="Livre ajouté à votre bibliothèque";
+     }
+   },
+   onclose:function(){
+     btn.disabled=false;
+     btn.textContent="Acheter";
+   }
  });
-
- btn.textContent="Acheté ✔";
- notice.textContent="Livre ajouté à votre bibliothèque";
 };
+
+/* LIKE */
+document.getElementById("likeBtn").onclick=async()=>{
+ if(!currentUser)return location.href="auth.html";
+ await set(ref(db,"bookLikes/"+id+"/"+currentUser.uid),true);
+};
+
+/* SHARE */
+document.getElementById("shareBtn").onclick=()=>{
+ navigator.share({
+  title:titleEl.textContent,
+  url:location.href
+ });
+};
+
+/* COMMENTS */
+const list=document.getElementById("commentsList");
+const input=document.getElementById("commentInput");
+
+input.addEventListener("keypress",async e=>{
+ if(e.key==="Enter"){
+  if(!currentUser)return location.href="auth.html";
+  const text=input.value.trim();
+  if(!text)return;
+  await push(ref(db,"bookComments/"+id),{
+    text,
+    user:currentUser.email,
+    date:Date.now()
+  });
+  input.value="";
+ }
+});
+
+onValue(ref(db,"bookComments/"+id),snap=>{
+ list.innerHTML="";
+ if(!snap.exists())return;
+ Object.values(snap.val()).reverse().forEach(c=>{
+  const div=document.createElement("div");
+  div.className="comment";
+  div.textContent=c.user+" : "+c.text;
+  list.appendChild(div);
+ });
+});
+
+/* RELATED BOOKS */
+async function loadRelated(){
+ const snap=await get(ref(db,"books"));
+ if(!snap.exists())return;
+
+ const grid=document.getElementById("relatedGrid");
+ const keyword=bookData.title.toLowerCase().split(" ")[0];
+
+ Object.entries(snap.val()).forEach(([bid,b])=>{
+   if(bid===id)return;
+   if(b.title.toLowerCase().includes(keyword)){
+      const card=document.createElement("div");
+      card.className="card";
+      card.innerHTML=`
+        <img src="${b.coverBase64}">
+        <div>${b.title}</div>
+      `;
+      card.onclick=()=>location.href="book-detail.html?id="+bid;
+      grid.appendChild(card);
+   }
+ });
+}
 </script>
 
 </body>
