@@ -2,129 +2,21 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Payout – Lumio Studio</title>
+<title>Retrait – Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, update, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain:"lumio-6efed.firebaseapp.com",
-  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId:"lumio-6efed"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-const balanceEl = document.getElementById("balance");
-const earnedEl = document.getElementById("earned");
-const withdrawnEl = document.getElementById("withdrawn");
-const payoutBtn = document.getElementById("payoutBtn");
-
-const MIN_PAYOUT = 10; // Minimum retrait en $
-
-onAuthStateChanged(auth, async user => {
-  if(!user) return location.href="auth.html";
-  const uid = user.uid;
-
-  // Wallet
-  const walletRef = ref(db,"wallets/"+uid);
-  let balance=0, earned=0, withdrawn=0;
-  const snap = await get(walletRef);
-
-  if(snap.exists()){
-    const w = snap.val();
-    balance = w.balance || 0;
-    earned = w.totalEarned || 0;
-    withdrawn = w.totalWithdrawn || 0;
-  } else {
-    await set(walletRef,{ balance:0, totalEarned:0, totalWithdrawn:0 });
-  }
-
-  // Update DOM
-  balanceEl.innerText = "$"+balance.toFixed(2);
-  earnedEl.innerText = "$"+earned.toFixed(2);
-  withdrawnEl.innerText = "$"+withdrawn.toFixed(2);
-
-  // Retrait interne
-  payoutBtn.onclick = async () => {
-    if(balance < MIN_PAYOUT){
-      alert("Minimum retrait = $"+MIN_PAYOUT);
-      return;
-    }
-    payoutBtn.disabled = true;
-    payoutBtn.innerText = "Traitement...";
-
-    try {
-      // On ajoute le retrait au total retiré et on vide le solde
-      await update(walletRef,{
-        balance: 0,
-        totalWithdrawn: withdrawn + balance
-      });
-
-      alert("Retrait effectué ✅");
-      location.reload();
-
-    } catch(err){
-      alert("Erreur lors du retrait : "+err.message);
-      payoutBtn.disabled = false;
-      payoutBtn.innerText = "Retirer mes gains";
-    }
-  };
-});
-</script>
-
 <style>
-body{
-  margin:0;
-  background:#0f0f0f;
-  color:white;
-  font-family:system-ui;
-}
-header{
-  padding:20px;
-  font-size:22px;
-  font-weight:600;
-}
-.stats{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:12px;
-  padding:16px;
-}
-.card{
-  background:#1c1c1c;
-  border-radius:12px;
-  padding:16px;
-  margin:16px;
-  text-align:center;
-}
-.card span{
-  font-size:12px;
-  color:#aaa;
-}
-.card h2{
-  margin:4px 0 0;
-}
-button{
-  background:#ff9800;
-  color:black;
-  padding:14px;
-  border:none;
-  border-radius:12px;
-  font-weight:700;
-  cursor:pointer;
-  width:100%;
-}
-button:disabled{
-  opacity:0.6;
-  cursor:not-allowed;
-}
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
+header{padding:20px;font-size:22px;font-weight:600;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px}
+.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px}
+.card span{font-size:12px;color:#aaa}
+.card h2{margin:4px 0 0}
+button{background:#ff9800;color:black;padding:14px;border:none;border-radius:12px;font-weight:700;cursor:pointer;width:100%}
+button:disabled{opacity:0.6;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th,td{padding:10px;border-bottom:1px solid #333;font-size:13px;color:white}
+th{color:#aaa}
 </style>
 </head>
 
@@ -138,7 +30,104 @@ button:disabled{
 </div>
 
 <div class="card">
-  <button id="payoutBtn">Retirer mes gains</button>
+  <button id="payoutBtn">Demander un retrait</button>
 </div>
+
+<div class="card">
+  <h3>Historique des demandes</h3>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Montant</th><th>Statut</th></tr>
+    </thead>
+    <tbody id="payoutHistory"></tbody>
+  </table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get, set, push, onValue, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+const app = initializeApp({
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+});
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const balanceEl = document.getElementById("balance");
+const earnedEl = document.getElementById("earned");
+const withdrawnEl = document.getElementById("withdrawn");
+const payoutBtn = document.getElementById("payoutBtn");
+const historyEl = document.getElementById("payoutHistory");
+
+const MIN_WITHDRAW = 10; // minimum retrait en $
+
+onAuthStateChanged(auth, async user => {
+ if(!user) return location.href="auth.html";
+ const uid = user.uid;
+
+ // ==== LOAD WALLET ====
+ const walletRef = ref(db,"wallets/"+uid);
+ let walletSnap = await get(walletRef);
+ let balance=0, earned=0, withdrawn=0;
+
+ if(walletSnap.exists()){
+   const w = walletSnap.val();
+   earned = w.totalEarned || 0;
+   withdrawn = w.totalWithdrawn || 0;
+   balance = ((earned * 0.85) - withdrawn); // commission 15%
+   if(balance < 0) balance = 0;
+ } else {
+   await set(walletRef,{ balance:0, totalEarned:0, totalWithdrawn:0 });
+ }
+
+ // update DOM
+ balanceEl.innerText = "$"+balance.toFixed(2);
+ earnedEl.innerText = "$"+earned.toFixed(2);
+ withdrawnEl.innerText = "$"+withdrawn.toFixed(2);
+
+ // ==== LOAD HISTORIQUE ====
+ const histRef = ref(db,"payoutRequests/"+uid);
+ onValue(histRef, snap => {
+   historyEl.innerHTML = "";
+   if(!snap.exists()) return;
+   Object.entries(snap.val()).sort((a,b)=>b[1].date - a[1].date).forEach(([id, r]) => {
+     const row = document.createElement("tr");
+     const date = new Date(r.date).toLocaleDateString();
+     row.innerHTML = `<td>${date}</td><td>$${r.amount.toFixed(2)}</td><td>${r.status}</td>`;
+     historyEl.appendChild(row);
+   });
+ });
+
+ // ==== DEMANDE DE RETRAIT ====
+ payoutBtn.onclick = async () => {
+   if(balance < MIN_WITHDRAW){
+     alert(`Solde insuffisant, minimum retrait = $${MIN_WITHDRAW}`);
+     return;
+   }
+
+   payoutBtn.disabled = true;
+   payoutBtn.innerText = "Création demande...";
+
+   // Créer une nouvelle demande
+   const reqRef = push(ref(db,"payoutRequests/"+uid));
+   const reqData = {
+     amount: balance,
+     status: "pending",
+     date: serverTimestamp()
+   };
+   await set(reqRef, reqData);
+
+   // Mettre à jour le wallet (déduire du solde)
+   await update(walletRef, { totalWithdrawn: withdrawn + balance });
+
+   alert("Demande de retrait envoyée ✅");
+   location.reload();
+ };
+});
+</script>
 </body>
 </html>
