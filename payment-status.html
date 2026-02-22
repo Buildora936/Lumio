@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Vérification paiement</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<style>
+body{margin:0;background:#0f0f0f;color:white;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}
+.card{background:#181818;padding:40px;border-radius:16px;text-align:center;width:90%;max-width:420px}
+.loader{border:5px solid #333;border-top:5px solid #00e676;border-radius:50%;width:50px;height:50px;margin:auto;animation:spin 1s linear infinite}
+@keyframes spin{100%{transform:rotate(360deg)}}
+.success{color:#00e676;font-size:20px;font-weight:700}
+.error{color:#ff5252;font-size:20px;font-weight:700}
+a{display:block;margin-top:20px;color:#00e676;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="card">
+<div id="state">
+<div class="loader"></div>
+<p>Vérification du paiement…</p>
+</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase,ref,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const SUPABASE_URL="https://ymcrkbcsuloijemdbqzy.supabase.co";
+
+const app=initializeApp({
+ apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
+ authDomain:"lumio-6efed.firebaseapp.com",
+ databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
+ projectId:"lumio-6efed"
+});
+
+const db=getDatabase(app);
+const auth=getAuth(app);
+
+const tx_ref=new URLSearchParams(location.search).get("tx");
+const book=new URLSearchParams(location.search).get("book");
+
+const state=document.getElementById("state");
+
+onAuthStateChanged(auth,async user=>{
+ if(!user)return location.href="auth.html";
+
+ const res=await fetch(SUPABASE_URL+"/functions/v1/verify-payment",{
+  method:"POST",
+  headers:{ "Content-Type":"application/json" },
+  body:JSON.stringify({tx_ref})
+ });
+
+ const data=await res.json();
+
+ if(data.success){
+
+   await set(ref(db,"purchases/"+user.uid+"/"+book),{
+     bookId:book,
+     tx:data.tx,
+     date:Date.now(),
+     amount:data.amount
+   });
+
+   state.innerHTML=`
+   <div class="success">Paiement confirmé ✔</div>
+   <a href="reader.html?id=${book}">Lire le livre</a>
+   `;
+
+ }else{
+   state.innerHTML=`
+   <div class="error">Paiement non validé</div>
+   <a href="checkout.html?book=${book}">Réessayer</a>
+   `;
+ }
+});
+</script>
+
+</body>
+</html>
