@@ -6,76 +6,30 @@
 <title>Lecteur</title>
 
 <style>
-body{
- margin:0;
- background:#202020;
- font-family:serif;
- overflow:hidden;
-}
-
-/* container */
-.reader{
- position:absolute;
- inset:0;
- display:flex;
- justify-content:center;
- align-items:center;
-}
-
-/* page */
+body{margin:0;background:#202020;font-family:serif;overflow:hidden}
+.reader{position:absolute;inset:0;display:flex;justify-content:center;align-items:center}
 .page{
- width:90%;
- max-width:900px;
- height:90%;
- background:#fdf6e3;
- border-radius:14px;
+ width:90%;max-width:900px;height:90%;
+ background:#fdf6e3;border-radius:14px;
  box-shadow:0 20px 60px rgba(0,0,0,.6);
- padding:50px;
- overflow:hidden;
- position:relative;
- transform:scale(.98);
- animation:pop .3s ease;
+ padding:50px;position:relative;animation:pop .25s ease
 }
-@keyframes pop{to{transform:scale(1)}}
+@keyframes pop{from{transform:scale(.97)}to{transform:scale(1)}}
 
-.text{
- height:100%;
- overflow:hidden;
- line-height:1.9;
- font-size:22px;
- user-select:text;
-}
+.text{height:100%;overflow:hidden;line-height:1.9}
+.counter{position:absolute;bottom:14px;right:20px;font-size:14px;color:#555}
 
-.counter{
- position:absolute;
- bottom:14px;
- right:20px;
- font-size:14px;
- color:#555;
-}
-
-/* toolbar */
 .bar{
- position:fixed;
- bottom:20px;
- left:50%;
+ position:fixed;bottom:20px;left:50%;
  transform:translateX(-50%);
- background:#111;
- border-radius:40px;
- padding:10px 14px;
- display:flex;
- gap:10px;
+ background:#111;border-radius:40px;padding:10px 14px;
+ display:flex;gap:10px;z-index:9
 }
 .bar button{
- background:#333;
- border:none;
- color:white;
- padding:10px 14px;
- border-radius:30px;
- cursor:pointer;
+ background:#333;border:none;color:white;
+ padding:10px 14px;border-radius:30px;cursor:pointer
 }
 
-/* themes */
 .dark{background:#111;color:#ddd}
 .dark .page{background:#111;color:#ddd}
 .sepia .page{background:#f4ecd8}
@@ -97,8 +51,8 @@ body{
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get,set,update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -106,27 +60,69 @@ const app=initializeApp({
  databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
  projectId:"lumio-6efed"
 });
+
 const db=getDatabase(app);
 const auth=getAuth(app);
-
-const id=new URLSearchParams(location.search).get("id");
-const snap=await get(ref(db,"books/"+id));
-if(!snap.exists()) throw alert("Livre introuvable");
-
-const book=snap.val();
 const container=document.getElementById("reader");
 
-let font=22;
+const id=new URLSearchParams(location.search).get("id");
+if(!id) location.href="books.html";
+
+let book;
 let pages=[];
 let index=0;
+let font=22;
 let theme=0;
+let user;
+
+/* AUTH + ACCESS CHECK */
+onAuthStateChanged(auth, async u=>{
+ if(!u) return location.href="auth.html";
+ user=u;
+
+ const owned=await get(ref(db,"purchases/"+u.uid+"/"+id));
+ if(!owned.exists()){
+  document.body.innerHTML="<h2 style='color:white;text-align:center;margin-top:40vh'>Livre non acheté</h2>";
+  return;
+ }
+
+ loadBook();
+});
+
+/* LOAD BOOK */
+async function loadBook(){
+ const snap=await get(ref(db,"books/"+id));
+ if(!snap.exists()){
+  container.innerHTML="<h2>Livre introuvable</h2>";
+  return;
+ }
+ book=snap.val();
+
+ paginate(stripHTML(book.content||"Livre vide"));
+
+ const saved=localStorage.getItem("read_"+id);
+ if(saved) index=parseInt(saved);
+
+ render();
+}
+
+/* REMOVE HTML TAGS */
+function stripHTML(html){
+ const div=document.createElement("div");
+ div.innerHTML=html;
+ return div.innerText;
+}
 
 /* PAGINATION ENGINE */
 function paginate(text){
  const measure=document.createElement("div");
  measure.style.cssText=`
- position:absolute;visibility:hidden;width:800px;
- line-height:1.9;font-size:${font}px;
+ position:absolute;
+ visibility:hidden;
+ width:700px;
+ height:900px;
+ line-height:1.9;
+ font-size:${font}px;
  `;
  document.body.appendChild(measure);
 
@@ -134,9 +130,9 @@ function paginate(text){
  let words=text.split(" ");
  let buf="";
 
- for(let w of words){
-  measure.innerHTML=buf+" "+w;
-  if(measure.scrollHeight>measure.clientHeight+5){
+ for(const w of words){
+  measure.innerText=buf+" "+w;
+  if(measure.scrollHeight>measure.clientHeight){
    pages.push(buf);
    buf=w;
   }else buf+=" "+w;
@@ -144,11 +140,6 @@ function paginate(text){
  pages.push(buf);
  measure.remove();
 }
-paginate(book.text||"Livre vide");
-
-/* RESTORE */
-const saved=localStorage.getItem("read_"+id);
-if(saved) index=parseInt(saved);
 
 /* RENDER */
 function render(){
@@ -164,10 +155,9 @@ function render(){
 
  localStorage.setItem("read_"+id,index);
 
- if(auth.currentUser)
-  set(ref(db,"progress/"+auth.currentUser.uid+"/"+id),index);
+ if(user)
+  update(ref(db,"progress/"+user.uid),{[id]:index});
 }
-render();
 
 /* NAV */
 next.onclick=()=>{if(index<pages.length-1){index++;render();}}
@@ -188,8 +178,13 @@ container.addEventListener("touchend",e=>{
 });
 
 /* FONT */
-fontUp.onclick=()=>{font+=2;paginate(book.text);render();}
-fontDown.onclick=()=>{font-=2;paginate(book.text);render();}
+fontUp.onclick=()=>{font+=2;paginate(stripHTML(book.content));render();}
+fontDown.onclick=()=>{
+ if(font<=14) return;
+ font-=2;
+ paginate(stripHTML(book.content));
+ render();
+};
 
 /* THEME */
 themeBtn.onclick=()=>{
@@ -199,26 +194,32 @@ themeBtn.onclick=()=>{
  if(theme===2) document.body.classList.add("sepia");
 };
 
-/* HIGHLIGHT */
-mark.onclick=()=>{
+/* HIGHLIGHT SAVE FIREBASE */
+mark.onclick=async()=>{
  const sel=window.getSelection().toString();
  if(!sel) return;
- localStorage.setItem("hl_"+id+"_"+index,sel);
+ await push(ref(db,"highlights/"+user.uid+"/"+id+"/"+index),{
+  text:sel,
+  date:Date.now()
+ });
  alert("Surligné");
 };
 
-/* NOTE */
-note.onclick=()=>{
+/* NOTE SAVE FIREBASE */
+note.onclick=async()=>{
  const t=prompt("Note page "+(index+1));
  if(!t) return;
- localStorage.setItem("note_"+id+"_"+index,t);
+ await push(ref(db,"notes/"+user.uid+"/"+id+"/"+index),{
+  text:t,
+  date:Date.now()
+ });
  alert("Note enregistrée");
 };
 
-/* AUTO DARK SYSTEM */
-if(window.matchMedia("(prefers-color-scheme: dark)").matches){
+/* AUTO DARK */
+if(window.matchMedia("(prefers-color-scheme: dark)").matches)
  document.body.classList.add("dark");
-}
+
 </script>
 </body>
 </html>
