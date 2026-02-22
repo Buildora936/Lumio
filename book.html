@@ -51,8 +51,8 @@ body{margin:0;background:#202020;font-family:serif;overflow:hidden}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get,set,update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -63,83 +63,54 @@ const app=initializeApp({
 
 const db=getDatabase(app);
 const auth=getAuth(app);
-const container=document.getElementById("reader");
 
 const id=new URLSearchParams(location.search).get("id");
 if(!id) location.href="books.html";
 
-let book;
+const snap=await get(ref(db,"books/"+id));
+if(!snap.exists()) throw alert("Livre introuvable");
+
+const book=snap.val();
+const container=document.getElementById("reader");
+
+let font=parseInt(localStorage.getItem("font"))||22;
 let pages=[];
-let index=0;
-let font=22;
-let theme=0;
-let user;
+let index=parseInt(localStorage.getItem("read_"+id))||0;
+let theme=localStorage.getItem("theme")||"";
 
-/* AUTH + ACCESS CHECK */
-onAuthStateChanged(auth, async u=>{
- if(!u) return location.href="auth.html";
- user=u;
+/* PAGINATION HTML SAFE */
+function paginate(html){
+ const tmp=document.createElement("div");
+ tmp.innerHTML=html;
 
- const owned=await get(ref(db,"purchases/"+u.uid+"/"+id));
- if(!owned.exists()){
-  document.body.innerHTML="<h2 style='color:white;text-align:center;margin-top:40vh'>Livre non acheté</h2>";
-  return;
- }
+ const words=tmp.innerHTML.split(" ");
+ let buf="";
+ pages=[];
 
- loadBook();
-});
-
-/* LOAD BOOK */
-async function loadBook(){
- const snap=await get(ref(db,"books/"+id));
- if(!snap.exists()){
-  container.innerHTML="<h2>Livre introuvable</h2>";
-  return;
- }
- book=snap.val();
-
- paginate(stripHTML(book.content||"Livre vide"));
-
- const saved=localStorage.getItem("read_"+id);
- if(saved) index=parseInt(saved);
-
- render();
-}
-
-/* REMOVE HTML TAGS */
-function stripHTML(html){
- const div=document.createElement("div");
- div.innerHTML=html;
- return div.innerText;
-}
-
-/* PAGINATION ENGINE */
-function paginate(text){
- const measure=document.createElement("div");
- measure.style.cssText=`
+ const meas=document.createElement("div");
+ meas.style.cssText=`
  position:absolute;
  visibility:hidden;
- width:700px;
- height:900px;
- line-height:1.9;
+ width:800px;
+ height:1200px;
+ overflow:hidden;
  font-size:${font}px;
+ line-height:1.9;
  `;
- document.body.appendChild(measure);
-
- pages=[];
- let words=text.split(" ");
- let buf="";
+ document.body.appendChild(meas);
 
  for(const w of words){
-  measure.innerText=buf+" "+w;
-  if(measure.scrollHeight>measure.clientHeight){
-   pages.push(buf);
-   buf=w;
+  meas.innerHTML=buf+" "+w;
+  if(meas.scrollHeight>meas.clientHeight){
+    pages.push(buf);
+    buf=w;
   }else buf+=" "+w;
  }
  pages.push(buf);
- measure.remove();
+ meas.remove();
 }
+
+paginate(book.content||"Livre vide");
 
 /* RENDER */
 function render(){
@@ -154,15 +125,24 @@ function render(){
  container.appendChild(p);
 
  localStorage.setItem("read_"+id,index);
+}
+render();
 
- if(user)
-  update(ref(db,"progress/"+user.uid),{[id]:index});
+/* SAVE PROGRESS THROTTLE */
+let saveTimeout=null;
+function saveProgress(){
+ if(!auth.currentUser) return;
+ clearTimeout(saveTimeout);
+ saveTimeout=setTimeout(()=>{
+  set(ref(db,"progress/"+auth.currentUser.uid+"/"+id),index);
+ },1000);
 }
 
 /* NAV */
-next.onclick=()=>{if(index<pages.length-1){index++;render();}}
-prev.onclick=()=>{if(index>0){index--;render();}}
+next.onclick=()=>{ if(index<pages.length-1){index++;render();saveProgress();}};
+prev.onclick=()=>{ if(index>0){index--;render();saveProgress();}};
 
+/* KEYS */
 document.addEventListener("keydown",e=>{
  if(e.key==="ArrowRight") next.click();
  if(e.key==="ArrowLeft") prev.click();
@@ -173,53 +153,40 @@ let sx=0;
 container.addEventListener("touchstart",e=>sx=e.touches[0].clientX);
 container.addEventListener("touchend",e=>{
  let dx=e.changedTouches[0].clientX-sx;
- if(Math.abs(dx)<50) return;
+ if(Math.abs(dx)<50)return;
  dx<0?next.click():prev.click();
 });
 
 /* FONT */
-fontUp.onclick=()=>{font+=2;paginate(stripHTML(book.content));render();}
+fontUp.onclick=()=>{
+ font+=2;
+ localStorage.setItem("font",font);
+ paginate(book.content);
+ render();
+};
 fontDown.onclick=()=>{
- if(font<=14) return;
- font-=2;
- paginate(stripHTML(book.content));
+ font=Math.max(14,font-2);
+ localStorage.setItem("font",font);
+ paginate(book.content);
  render();
 };
 
 /* THEME */
 themeBtn.onclick=()=>{
- theme=(theme+1)%3;
- document.body.classList.remove("dark","sepia");
- if(theme===1) document.body.classList.add("dark");
- if(theme===2) document.body.classList.add("sepia");
+ document.body.classList.toggle("dark");
+ localStorage.setItem("theme",
+ document.body.classList.contains("dark")?"dark":"");
 };
 
-/* HIGHLIGHT SAVE FIREBASE */
-mark.onclick=async()=>{
- const sel=window.getSelection().toString();
- if(!sel) return;
- await push(ref(db,"highlights/"+user.uid+"/"+id+"/"+index),{
-  text:sel,
-  date:Date.now()
- });
- alert("Surligné");
-};
+if(theme==="dark") document.body.classList.add("dark");
 
-/* NOTE SAVE FIREBASE */
-note.onclick=async()=>{
+/* NOTE */
+note.onclick=()=>{
  const t=prompt("Note page "+(index+1));
- if(!t) return;
- await push(ref(db,"notes/"+user.uid+"/"+id+"/"+index),{
-  text:t,
-  date:Date.now()
- });
- alert("Note enregistrée");
+ if(!t)return;
+ localStorage.setItem("note_"+id+"_"+index,t);
 };
-
-/* AUTO DARK */
-if(window.matchMedia("(prefers-color-scheme: dark)").matches)
- document.body.classList.add("dark");
-
 </script>
+ 
 </body>
 </html>
