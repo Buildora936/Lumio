@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -65,7 +65,7 @@ button:disabled{background:#555}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get,set,push,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,set,push,onValue,update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
@@ -79,6 +79,7 @@ const db=getDatabase(app);
 const auth=getAuth(app);
 
 const id=new URLSearchParams(location.search).get("id");
+if(!id) location.href="books.html";
 
 const titleEl=document.getElementById("title");
 const authorEl=document.getElementById("author");
@@ -88,112 +89,137 @@ const coverEl=document.getElementById("cover");
 const btn=document.getElementById("buyBtn");
 const notice=document.getElementById("notice");
 
-let bookData=null;
-let currentUser=null;
+let bookData;
+let user;
 
-/* load book */
-(async()=>{
- const snap=await get(ref(db,"books/"+id));
- if(!snap.exists()){
-  titleEl.textContent="Livre introuvable";
-  btn.disabled=true;
-  return;
+/* AUTH */
+onAuthStateChanged(auth,u=>user=u);
+
+/* LOAD BOOK */
+const snap=await get(ref(db,"books/"+id));
+if(!snap.exists()){
+ titleEl.textContent="Livre introuvable";
+ btn.disabled=true;
+ throw "";
+}
+bookData=snap.val();
+
+titleEl.textContent=bookData.title;
+authorEl.textContent=bookData.authorChannelName||"Auteur";
+priceEl.textContent="$"+(bookData.price||0).toFixed(2);
+descEl.textContent=bookData.description||"Aucune description";
+coverEl.style.backgroundImage=`url('${bookData.coverBase64||""}')`;
+
+checkOwned();
+loadRelated();
+
+/* CHECK OWNED */
+async function checkOwned(){
+ if(!auth.currentUser) return;
+ const own=await get(ref(db,"purchases/"+auth.currentUser.uid+"/"+id));
+ if(own.exists()){
+  btn.textContent="Lire le livre";
+  btn.onclick=()=>location.href="book.html?id="+id;
  }
- bookData=snap.val();
- titleEl.textContent=bookData.title;
- authorEl.textContent=bookData.authorChannelName||"Auteur";
- priceEl.textContent="$"+(bookData.price||0).toFixed(2);
- descEl.textContent=bookData.description||"Aucune description";
- coverEl.style.backgroundImage=`url('${bookData.coverBase64||""}')`;
- loadRelated();
-})();
-
-/* auth */
-onAuthStateChanged(auth,user=>currentUser=user);
+}
 
 /* BUY */
 btn.onclick=async()=>{
- if(!currentUser)return location.href="auth.html";
+ if(!user) return location.href="auth.html";
 
  btn.disabled=true;
- btn.textContent="Création commande...";
+ btn.textContent="Connexion paiement...";
 
- const order=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-order",{
+ const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-order",{
   method:"POST",
   headers:{ "Content-Type":"application/json" },
   body:JSON.stringify({
-    user_id:currentUser.uid,
-    book_id:id,
-    amount:bookData.price||0
+    user_id:user.uid,
+    book_id:id
   })
- }).then(r=>r.json());
+ });
 
+ const order=await res.json();
  if(!order.success){
-  alert("Erreur commande");
+  alert("Erreur serveur paiement");
+  btn.disabled=false;
+  btn.textContent="Acheter";
   return;
  }
 
  FlutterwaveCheckout({
    public_key:"FLWPUBK_TEST-cebe5538e9c95213e15f146b0dfefaa1-X",
    tx_ref:order.tx_ref,
-   amount:bookData.price||0,
+   amount:order.amount,
    currency:"USD",
-   customer:{
-     email:currentUser.email
-   },
+   customer:{ email:user.email },
+
    callback: async function(data){
      if(data.status==="successful"){
-        await set(ref(db,"purchases/"+currentUser.uid+"/"+id),{
-          bookId:id,
-          date:Date.now()
+        await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/verify-payment",{
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body:JSON.stringify({
+            tx_ref:data.tx_ref,
+            transaction_id:data.transaction_id,
+            user_id:user.uid,
+            book_id:id
+          })
         });
-        btn.textContent="Acheté ✔";
-        notice.textContent="Livre ajouté à votre bibliothèque";
+        location.reload();
      }
    },
-   onclose:function(){
+
+   onclose(){
      btn.disabled=false;
      btn.textContent="Acheter";
    }
  });
 };
 
-/* LIKE */
+/* LIKE SAFE */
 document.getElementById("likeBtn").onclick=async()=>{
- if(!currentUser)return location.href="auth.html";
- await set(ref(db,"bookLikes/"+id+"/"+currentUser.uid),true);
+ if(!user) return location.href="auth.html";
+ await update(ref(db,"bookLikes/"+id),{[user.uid]:true});
 };
 
-/* SHARE */
+/* SHARE SAFE */
 document.getElementById("shareBtn").onclick=()=>{
- navigator.share({
-  title:titleEl.textContent,
-  url:location.href
- });
+ if(navigator.share){
+  navigator.share({title:titleEl.textContent,url:location.href});
+ }else{
+  navigator.clipboard.writeText(location.href);
+  alert("Lien copié");
+ }
 };
 
-/* COMMENTS */
+/* COMMENTS SAFE */
 const list=document.getElementById("commentsList");
 const input=document.getElementById("commentInput");
 
 input.addEventListener("keypress",async e=>{
  if(e.key==="Enter"){
-  if(!currentUser)return location.href="auth.html";
-  const text=input.value.trim();
+  if(!user)return location.href="auth.html";
+  const text=input.value.trim().replace(/[<>]/g,"");
   if(!text)return;
+
   await push(ref(db,"bookComments/"+id),{
     text,
-    user:currentUser.email,
+    user:user.email,
     date:Date.now()
   });
+
   input.value="";
  }
 });
 
 onValue(ref(db,"bookComments/"+id),snap=>{
  list.innerHTML="";
- if(!snap.exists())return;
- Object.values(snap.val()).reverse().forEach(c=>{
+ if(!snap.exists()) return;
+
+ Object.values(snap.val())
+ .sort((a,b)=>b.date-a.date)
+ .forEach(c=>{
   const div=document.createElement("div");
   div.className="comment";
   div.textContent=c.user+" : "+c.text;
@@ -201,7 +227,7 @@ onValue(ref(db,"bookComments/"+id),snap=>{
  });
 });
 
-/* RELATED BOOKS */
+/* RELATED OPTIMIZED */
 async function loadRelated(){
  const snap=await get(ref(db,"books"));
  if(!snap.exists())return;
@@ -209,18 +235,15 @@ async function loadRelated(){
  const grid=document.getElementById("relatedGrid");
  const keyword=bookData.title.toLowerCase().split(" ")[0];
 
- Object.entries(snap.val()).forEach(([bid,b])=>{
-   if(bid===id)return;
-   if(b.title.toLowerCase().includes(keyword)){
-      const card=document.createElement("div");
-      card.className="card";
-      card.innerHTML=`
-        <img src="${b.coverBase64}">
-        <div>${b.title}</div>
-      `;
-      card.onclick=()=>location.href="book-detail.html?id="+bid;
-      grid.appendChild(card);
-   }
+ Object.entries(snap.val()).slice(0,40).forEach(([bid,b])=>{
+  if(bid===id)return;
+  if(b.title?.toLowerCase().includes(keyword)){
+    const card=document.createElement("div");
+    card.className="card";
+    card.innerHTML=`<img src="${b.coverBase64}"><div>${b.title}</div>`;
+    card.onclick=()=>location.href="book-detail.html?id="+bid;
+    grid.appendChild(card);
+  }
  });
 }
 </script>
