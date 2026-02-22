@@ -5,8 +5,6 @@
 <title>Payout – Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="https://js.stripe.com/v3/"></script>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -28,108 +26,105 @@ const earnedEl = document.getElementById("earned");
 const withdrawnEl = document.getElementById("withdrawn");
 const payoutBtn = document.getElementById("payoutBtn");
 
-onAuthStateChanged(auth, async user=>{
- if(!user) return location.href="auth.html";
- const uid = user.uid;
+const MIN_PAYOUT = 10; // Minimum retrait en $
 
- /* ========= WALLET ========= */
- const walletRef = ref(db,"wallets/"+uid);
- let balance=0, earned=0, withdrawn=0;
- const snap = await get(walletRef);
+onAuthStateChanged(auth, async user => {
+  if(!user) return location.href="auth.html";
+  const uid = user.uid;
 
- if(snap.exists()){
-   const w = snap.val();
-   balance = w.balance || 0;
-   earned = w.totalEarned || 0;
-   withdrawn = w.totalWithdrawn || 0;
- } else {
-   // Création wallet si inexistant
-   await set(walletRef,{ balance:0, totalEarned:0, totalWithdrawn:0 });
-   balance = 0;
-   earned = 0;
-   withdrawn = 0;
- }
+  // Wallet
+  const walletRef = ref(db,"wallets/"+uid);
+  let balance=0, earned=0, withdrawn=0;
+  const snap = await get(walletRef);
 
- // Mise à jour DOM après création wallet si nécessaire
-balanceEl.innerText = "$"+balance.toFixed(2);
-earnedEl.innerText = "$"+earned.toFixed(2);
-withdrawnEl.innerText = "$"+withdrawn.toFixed(2);
+  if(snap.exists()){
+    const w = snap.val();
+    balance = w.balance || 0;
+    earned = w.totalEarned || 0;
+    withdrawn = w.totalWithdrawn || 0;
+  } else {
+    await set(walletRef,{ balance:0, totalEarned:0, totalWithdrawn:0 });
+  }
 
-/* ========= CHECK STRIPE ========= */
-try{
-  const statusRes = await fetch(
-    "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",
-    {
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":"Bearer "+await user.getIdToken()
-      },
-      body:JSON.stringify({ uid })
+  // Update DOM
+  balanceEl.innerText = "$"+balance.toFixed(2);
+  earnedEl.innerText = "$"+earned.toFixed(2);
+  withdrawnEl.innerText = "$"+withdrawn.toFixed(2);
+
+  // Retrait interne
+  payoutBtn.onclick = async () => {
+    if(balance < MIN_PAYOUT){
+      alert("Minimum retrait = $"+MIN_PAYOUT);
+      return;
     }
-  );
-  const stripeStatus = await statusRes.json();
-
-  if(!stripeStatus.payoutsEnabled){
     payoutBtn.disabled = true;
-    payoutBtn.innerText = "Compte Stripe non vérifié";
-    return;
-  }
-}catch(err){
-  payoutBtn.disabled = true;
-  payoutBtn.innerText = "Erreur Stripe";
-  console.error("Stripe status error:", err);
-  return;
-}
+    payoutBtn.innerText = "Traitement...";
 
-/* ========= PAYOUT ========= */
-payoutBtn.onclick = async ()=>{
-  if(balance < 10){
-    alert("Minimum retrait = 10$");
-    return;
-  }
-  payoutBtn.disabled = true;
-  payoutBtn.innerText = "Traitement...";
+    try {
+      // On ajoute le retrait au total retiré et on vide le solde
+      await update(walletRef,{
+        balance: 0,
+        totalWithdrawn: withdrawn + balance
+      });
 
-  try{
-    const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout-ts",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":"Bearer "+await user.getIdToken()
-      },
-      body:JSON.stringify({ uid, amount: balance })
-    });
+      alert("Retrait effectué ✅");
+      location.reload();
 
-    const data = await res.json();
-    if(!data || !data.success) throw new Error(data?.error || "Erreur lors du payout");
-
-    // Mise à jour wallet après payout
-    await update(walletRef,{
-      balance: 0,
-      totalWithdrawn: withdrawn + balance
-    });
-
-    alert("Paiement envoyé ✅");
-    location.reload();
-
-  }catch(err){
-    alert(err.message);
-    payoutBtn.disabled = false;
-    payoutBtn.innerText = "Retirer mes gains";
-  }
-};
+    } catch(err){
+      alert("Erreur lors du retrait : "+err.message);
+      payoutBtn.disabled = false;
+      payoutBtn.innerText = "Retirer mes gains";
+    }
+  };
+});
 </script>
 
 <style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
-header{padding:20px;font-size:22px;font-weight:600}
-.card{background:#1c1c1c;border-radius:12px;padding:16px;margin:16px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:16px}
-button{background:#ff9800;color:black;padding:14px;border:none;border-radius:12px;font-weight:700;cursor:pointer;width:100%}
-button:disabled{opacity:0.6;cursor:not-allowed}
-.card span{font-size:12px;color:#aaa}
-.card h2{margin:4px 0 0}
+body{
+  margin:0;
+  background:#0f0f0f;
+  color:white;
+  font-family:system-ui;
+}
+header{
+  padding:20px;
+  font-size:22px;
+  font-weight:600;
+}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:12px;
+  padding:16px;
+}
+.card{
+  background:#1c1c1c;
+  border-radius:12px;
+  padding:16px;
+  margin:16px;
+  text-align:center;
+}
+.card span{
+  font-size:12px;
+  color:#aaa;
+}
+.card h2{
+  margin:4px 0 0;
+}
+button{
+  background:#ff9800;
+  color:black;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  font-weight:700;
+  cursor:pointer;
+  width:100%;
+}
+button:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+}
 </style>
 </head>
 
