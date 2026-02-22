@@ -8,7 +8,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
@@ -21,144 +21,76 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// Badge Stripe
-const stripeBadgeEl = document.createElement("div");
-stripeBadgeEl.style.margin = "16px";
-stripeBadgeEl.style.padding = "12px";
-stripeBadgeEl.style.borderRadius = "12px";
-stripeBadgeEl.style.background = "#1c1c1c";
-stripeBadgeEl.style.color = "white";
-stripeBadgeEl.style.fontWeight = "700";
+const walletEl = document.createElement("div");
+walletEl.style.cssText = "margin:16px;padding:12px;border-radius:12px;background:#1c1c1c;color:white;font-weight:700";
 
-// Wallet elements
-const walletBalanceEl = document.createElement("div");
-walletBalanceEl.style.margin = "16px";
-walletBalanceEl.style.padding = "12px";
-walletBalanceEl.style.borderRadius = "12px";
-walletBalanceEl.style.background = "#1c1c1c";
-walletBalanceEl.style.color = "white";
-walletBalanceEl.style.fontWeight = "700";
+const transactionsEl = document.createElement("div");
+transactionsEl.style.cssText = "margin:16px;padding:12px;border-radius:12px;background:#1c1c1c;color:white";
 
 onAuthStateChanged(auth, async user => {
-  if(!user){
-    location.href="auth.html";
-    return;
-  }
-
+  if(!user) location.href="auth.html";
   const uid = user.uid;
 
-  /* ========= CHECK STRIPE ========= */
-  const statusRes = await fetch(
-    "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/check-stripe-status",
-    {
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":"Bearer "+await user.getIdToken()
-      },
-      body:JSON.stringify({ uid })
-    }
-  );
-  const stripeStatus = await statusRes.json();
-
-  if(!stripeStatus.payoutsEnabled){
-    stripeBadgeEl.innerText = "⚠ Stripe non configuré pour les paiements";
-    document.body.prepend(stripeBadgeEl);
+  // Récupération Wallet
+  const wSnap = await get(ref(db,"wallets/"+uid));
+  let balance=0, totalEarned=0, totalWithdrawn=0;
+  if(wSnap.exists()){
+    const w = wSnap.val();
+    balance = w.balance || 0;
+    totalEarned = w.totalEarned || 0;
+    totalWithdrawn = w.totalWithdrawn || 0;
   } else {
-    stripeBadgeEl.innerText = "✅ Stripe prêt pour paiements";
-    document.body.prepend(stripeBadgeEl);
+    await set(ref(db,"wallets/"+uid),{balance:0,totalEarned:0,totalWithdrawn:0});
   }
+  walletEl.innerHTML = `💰 Solde actuel: $${balance.toFixed(2)} | Total gagné: $${totalEarned.toFixed(2)} | Total retiré: $${totalWithdrawn.toFixed(2)}`;
+  document.body.prepend(walletEl);
 
-  /* ========= WALLET MARKETPLACE ========= */
-  const walletRef = ref(db,"wallets/"+uid);
-  let walletBalance = 0, walletEarned = 0, walletWithdrawn = 0;
+  // Récupération ventes
+  const purchasesSnap = await get(ref(db,"purchases"));
+  let totalBooksSold=0, totalRevenue=0;
+  const bookRevenue = {}; // par livre
 
-  const walletSnap = await get(walletRef);
-  if(walletSnap.exists()){
-    const w = walletSnap.val();
-    walletBalance = w.balance || 0;
-    walletEarned = w.totalEarned || 0;
-    walletWithdrawn = w.totalWithdrawn || 0;
-  } else {
-    // Création automatique du wallet si inexistant
-    await set(walletRef, { balance:0, totalEarned:0, totalWithdrawn:0 });
-  }
-
-  walletBalanceEl.innerText = `💰 Solde disponible : $${walletBalance.toFixed(2)} | Total gagné : $${walletEarned.toFixed(2)} | Total retiré : $${walletWithdrawn.toFixed(2)}`;
-  document.body.prepend(walletBalanceEl);
-
-  /* ========= EXISTING ANALYTICS LOGIC ========= */
-  const videosSnap = await get(ref(db, "videos"));
-  const likesSnap = await get(ref(db, "shortLikes")); 
-  const commentsSnap = await get(ref(db, "comments"));
-  const subsSnap = await get(ref(db, "subscriptions"));
-  const monetSnap = await get(ref(db,"monetization/"+uid));
-
-  let totalViews = 0, totalVideos = 0, totalLikes = 0, totalComments = 0, totalSubs = 0, revenue = 0, pubRevenue = 0;
-
-  if(subsSnap.exists() && subsSnap.val()[uid]){
-    totalSubs = Object.keys(subsSnap.val()[uid]).length;
-  }
-
-  const monetized = monetSnap.exists() && monetSnap.val().enabled && totalSubs >= 1000;
-
-  const videoTable = document.getElementById("videoTable");
-
-  if(videosSnap.exists() && videoTable){
-    Object.entries(videosSnap.val()).forEach(([id, v])=>{
-      if(v.channelId === uid){
-        totalVideos++;
-        totalViews += v.views || 0;
-
-        const likes = likesSnap.exists() && likesSnap.val()[id] ? Object.keys(likesSnap.val()[id]).length : 0;
-        const comments = commentsSnap.exists() && commentsSnap.val()[id] ? Object.keys(commentsSnap.val()[id]).length : 0;
-
-        totalLikes += likes;
-        totalComments += comments;
-
-        if(monetized){
-          const rev = ((v.views || 0)/1000)*1.3;
-          pubRevenue += rev;
-
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td>${v.title}</td>
-            <td>${v.views || 0}</td>
-            <td>${likes}</td>
-            <td>${comments}</td>
-            <td>$${rev.toFixed(2)}</td>
-          `;
-          videoTable.appendChild(row);
+  if(purchasesSnap.exists()){
+    Object.values(purchasesSnap.val()).forEach(userPurchases=>{
+      Object.values(userPurchases).forEach(p=>{
+        if(p.bookId){
+          totalBooksSold++;
+          const price = p.price || 0;
+          totalRevenue += price*0.85; // auteur gain
+          bookRevenue[p.bookId] = (bookRevenue[p.bookId]||0) + price*0.85;
         }
-      }
+      });
     });
   }
 
-  revenue = monetized ? (pubRevenue - 0.5) : 0;
-  if(revenue < 0) revenue = 0;
+  // Stats rapide
+  const statsContainer = document.getElementById("stats");
+  statsContainer.querySelector("#totalBooks").textContent = totalBooksSold;
+  statsContainer.querySelector("#totalRev").textContent = "$"+totalRevenue.toFixed(2);
 
-  document.getElementById("views").innerText = totalViews;
-  document.getElementById("videos").innerText = totalVideos;
-  document.getElementById("subs").innerText = totalSubs;
-  document.getElementById("likes").innerText = totalLikes;
-  document.getElementById("comments").innerText = totalComments;
-
-  // Mise à jour revenu total en haut
-  const revPubEl = document.getElementById("revPub");
-  if(revPubEl){
-    revPubEl.innerText = "$" + pubRevenue.toFixed(2);
+  // Transactions récentes
+  const txList = document.getElementById("txList");
+  txList.innerHTML="";
+  if(purchasesSnap.exists()){
+    Object.entries(purchasesSnap.val()).forEach(([uid,purchases])=>{
+      Object.entries(purchases).forEach(([bid,p])=>{
+        const div = document.createElement("div");
+        div.textContent = `LivreID:${bid} | $${(p.price||0).toFixed(2)} | Date:${new Date(p.date).toLocaleString()}`;
+        txList.appendChild(div);
+      });
+    });
   }
 
-  if(monetized){
-    const revenuePanel = document.getElementById("revenuePanel");
-    if(revenuePanel){
-      document.getElementById("revenue").innerText = "$" + revenue.toFixed(2);
-      revenuePanel.style.display = "flex";
-    }
-  } else {
-    const revenuePanel = document.getElementById("revenuePanel");
-    if(revenuePanel) revenuePanel.style.display = "none";
-  }
+  // Graphiques simples (barres par livre)
+  const chartEl = document.getElementById("chart");
+  chartEl.innerHTML="";
+  Object.entries(bookRevenue).forEach(([bid,rev])=>{
+    const bar = document.createElement("div");
+    bar.style.cssText=`background:#ff6a00;height:20px;margin:4px;border-radius:4px;width:${Math.min(rev*5,300)}px;color:white;padding:2px`;
+    bar.textContent = `${bid} : $${rev.toFixed(2)}`;
+    chartEl.appendChild(bar);
+  });
+
 });
 </script>
 
@@ -171,9 +103,8 @@ header{padding:20px;font-size:22px;font-weight:600}
 .card h2{margin:4px 0 0}
 .revenue{display:flex;gap:16px;padding:16px}
 .revenue div{flex:1;background:#1c1c1c;border-radius:12px;padding:12px}
-table{width:100%;border-collapse:collapse;margin-top:20px}
-th,td{padding:10px;border-bottom:1px solid #333;font-size:13px}
-th{color:#aaa}
+#txList div{padding:6px;border-bottom:1px solid #333;font-size:13px}
+#chart div{margin-top:4px}
 </style>
 </head>
 
@@ -181,29 +112,19 @@ th{color:#aaa}
 <header>📊 Analytics – Lumio Studio</header>
 
 <div class="stats">
-  <div class="card"><span>Vues</span><h2 id="views">0</h2></div>
-  <div class="card"><span>Vidéos</span><h2 id="videos">0</h2></div>
-  <div class="card"><span>Abonnés</span><h2 id="subs">0</h2></div>
-  <div class="card"><span>Likes</span><h2 id="likes">0</h2></div>
-  <div class="card"><span>Commentaires</span><h2 id="comments">0</h2></div>
+  <div class="card"><span>Total livres vendus</span><h2 id="totalBooks">0</h2></div>
+  <div class="card"><span>Total revenu auteur</span><h2 id="totalRev">$0</h2></div>
 </div>
 
-<div class="revenue" id="revenuePanel" style="display:none;">
-  <div>📺 Vues : <b id="revPub">$0</b></div>
-  <div>💰 Revenu total : <b id="revenue">$0</b></div>
+<div class="revenue">
+  <div>
+    <h3>Transactions récentes</h3>
+    <div id="txList"></div>
+  </div>
+  <div>
+    <h3>Gains par livre</h3>
+    <div id="chart"></div>
+  </div>
 </div>
-
-<table>
-  <thead>
-    <tr>
-      <th>Titre</th>
-      <th>Vues</th>
-      <th>Likes</th>
-      <th>Commentaires</th>
-      <th>Revenu</th>
-    </tr>
-  </thead>
-  <tbody id="videoTable"></tbody>
-</table>
 </body>
 </html>
