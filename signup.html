@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Inscription – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
 *{box-sizing:border-box}
@@ -22,8 +21,8 @@ body{
   border-radius:14px;
   box-shadow:0 0 20px #000;
 }
-h2{text-align:center; margin-bottom:20px;}
-input, select, button, textarea{
+h2{text-align:center;margin-bottom:20px;}
+input, select, button{
   width:100%;
   margin:8px 0;
   padding:12px;
@@ -32,17 +31,14 @@ input, select, button, textarea{
   background:#1f1f1f;
   color:white;
 }
-textarea{resize:none;}
 button{
   background:#ff9800;
   color:black;
   font-weight:700;
   cursor:pointer;
-  transition:0.3s;
 }
 button:hover{background:#e68a00;}
-label{font-size:14px; margin-top:8px; display:block;}
-.error{color:#ff5555; text-align:center; font-size:14px; margin-top:8px;}
+.error{color:#ff5555;text-align:center;font-size:14px;margin-top:8px;}
 .progress-container{
   margin:20px 0;
   background:#202020;
@@ -56,162 +52,110 @@ label{font-size:14px; margin-top:8px; display:block;}
   background:#ff9800;
   transition:width 0.5s ease;
 }
-.channel-section{display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;}
 </style>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
 
-/* Firebase config */
+/* 🔥 NOUVEAU FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
-  authDomain: "lumio-6efed.firebaseapp.com",
-  databaseURL: "https://lumio-6efed-default-rtdb.firebaseio.com",
-  projectId: "lumio-6efed"
+  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain: "lumio-822f0.firebaseapp.com",
+  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId: "lumio-822f0",
+  storageBucket: "lumio-822f0.firebasestorage.app",
+  messagingSenderId: "833325770824",
+  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-/* Base64 photo */
-function toBase64(file){
-  return new Promise((res, rej)=>{
-    const r = new FileReader();
-    r.onload = ()=>res(r.result);
-    r.onerror = e=>rej(e);
-    r.readAsDataURL(file);
-  });
+/* Progress bar */
+function updateProgress(p){
+  document.getElementById("progressBar").style.width = p+"%";
 }
 
-/* Calcul âge */
-function getAge(date){
-  const today = new Date();
-  const birth = new Date(date);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if(m<0 || (m===0 && today.getDate()<birth.getDate())) age--;
-  return age;
-}
-
-/* Progression */
-function updateProgress(percent){
-  document.getElementById("progressBar").style.width = percent+"%";
-}
-
-/* Formulaire */
 window.onload = ()=>{
-  const form = document.getElementById("signupForm");
-  const errorBox = document.getElementById("error");
-  const channelCheckbox = document.getElementById("createChannel");
-  const channelSection = document.getElementById("channelSection");
 
-  channelCheckbox.addEventListener("change", ()=>{
-    channelSection.style.display = channelCheckbox.checked ? "block" : "none";
-  });
+const form = document.getElementById("signupForm");
+const errorBox = document.getElementById("error");
 
-  form.onsubmit = async (e)=>{
-    e.preventDefault();
-    errorBox.textContent = "";
-    updateProgress(0);
+form.onsubmit = async (e)=>{
+e.preventDefault();
+errorBox.textContent="";
+updateProgress(10);
 
-    const email = document.getElementById("emailInput").value.trim();
-    const password = document.getElementById("passwordInput").value;
-    const confirm = document.getElementById("confirmInput").value;
-    const username = document.getElementById("usernameInput").value.trim().toLowerCase();
-    const birthdate = document.getElementById("birthInput").value;
-    const country = document.getElementById("countryInput").value;
-    const language = document.getElementById("languageInput").value;
-    const photo = document.getElementById("photoInput").files[0];
+const email = document.getElementById("emailInput").value.trim();
+const password = document.getElementById("passwordInput").value;
+const confirm = document.getElementById("confirmInput").value;
+const username = document.getElementById("usernameInput").value.trim().toLowerCase();
+const birthdate = document.getElementById("birthInput").value;
+const country = document.getElementById("countryInput").value;
 
-    /* Validation basique */
-    if(password !== confirm) return errorBox.textContent = "Mots de passe différents";
-    if(password.length<8) return errorBox.textContent = "Mot de passe trop court";
-    if(!birthdate) return errorBox.textContent = "Date de naissance obligatoire";
-    if(!photo) return errorBox.textContent = "Photo obligatoire";
+if(password !== confirm) return errorBox.textContent="Mots de passe différents";
+if(password.length < 8) return errorBox.textContent="Mot de passe trop court";
 
-    const age = getAge(birthdate);
-    const isAdult = age>=18;
-    updateProgress(20);
+updateProgress(25);
 
-    try{
-      /* Vérifier username unique */
-      const snap = await get(ref(db,"usernames/"+username));
-      if(snap.exists()) return errorBox.textContent="Nom d’utilisateur déjà pris";
+try{
 
-      const photoBase64 = await toBase64(photo);
-      updateProgress(40);
+/* Vérifier username unique */
+const snap = await get(ref(db,"usernames/"+username));
+if(snap.exists()) return errorBox.textContent="Nom déjà pris";
 
-      /* Création du compte Firebase */
-      const cred = await createUserWithEmailAndPassword(auth,email,password);
-      const uid = cred.user.uid;
+/* Création utilisateur Firebase */
+const cred = await createUserWithEmailAndPassword(auth,email,password);
+const uid = cred.user.uid;
 
-      await set(ref(db,"users/"+uid),{
-        email,
-        username,
-        birthdate,
-        age,
-        adult: isAdult,
-        monetizationEligible: isAdult,
-        country,
-        language,
-        photoURL: photoBase64,
-        role:"user",
-        createdAt: Date.now()
-      });
+updateProgress(40);
 
-      await set(ref(db,"usernames/"+username),uid);
-      updateProgress(60);
+/* 🔵 CRÉATION AUTOMATIQUE COMPTE STRIPE */
+const stripeRes = await fetch(
+"https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-connected-account",
+{
+  method:"POST",
+  headers:{
+    "Content-Type":"application/json",
+    "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw"
+  },
+  body:JSON.stringify({ email })
+});
 
-      /* Création chaîne si coché */
-      if(channelCheckbox.checked){
-        const channelName = document.getElementById("channelName").value.trim();
-        const channelDesc = document.getElementById("channelDesc").value.trim();
-        const channelPhoto = document.getElementById("channelPhoto").files[0];
-        const channelBanner = document.getElementById("channelBanner").files[0];
+const stripeData = await stripeRes.json();
 
-        if(!channelName) return errorBox.textContent="Nom de chaîne obligatoire";
-        if(!channelDesc) return errorBox.textContent="Description obligatoire";
-        if(!channelPhoto) return errorBox.textContent="Photo de chaîne obligatoire";
+updateProgress(60);
 
-        const photoC = await toBase64(channelPhoto);
-        const bannerC = channelBanner ? await toBase64(channelBanner) : "";
+/* Sauvegarde utilisateur + Stripe */
+await set(ref(db,"users/"+uid),{
+  email,
+  username,
+  birthdate,
+  country,
+  stripe_account_id: stripeData.account_id,
+  stripe_onboarded:false,
+  role:"user",
+  createdAt: Date.now()
+});
 
-        const channelRef = push(ref(db,"channels"));
-        const channelId = channelRef.key;
+await set(ref(db,"usernames/"+username),uid);
 
-        await set(channelRef,{
-          name: channelName,
-          description: channelDesc,
-          owner: uid,
-          photoURL: photoC,
-          bannerURL: bannerC || "default_banner_base64",
-          language: language,
-          category: document.getElementById("channelCategory").value,
-          visibility: "public",
-          monetization: isAdult,
-          commentsEnabled: true,
-          mvEnabled: true,
-          createdAt: Date.now()
-        });
-        updateProgress(100);
+updateProgress(80);
 
-        alert("Compte et chaîne créés avec succès !");
-        location.href = `channel.html?id=${channelId}`;
-        return;
-      }
+/* Redirection vers onboarding Stripe */
+updateProgress(100);
+window.location.href = stripeData.onboarding_url;
 
-      updateProgress(100);
-      alert(isAdult ? "Compte créé avec succès. Vous pourrez monétiser plus tard." : "Compte créé. Vous pouvez publier mais pas gagner d’argent.");
-      location.href="index.html";
+}catch(err){
+console.error(err);
+errorBox.textContent = err.message;
+}
 
-    }catch(err){
-      console.error(err);
-      errorBox.textContent = err.message;
-    }
-  };
+};
+
 };
 </script>
 </head>
@@ -231,44 +175,20 @@ window.onload = ()=>{
 <input id="birthInput" type="date" required>
 
 <select id="countryInput" required>
-  <option value="">Pays</option>
-  <option value="HT">Haïti</option>
-  <option value="FR">France</option>
-  <option value="CA">Canada</option>
+<option value="">Pays</option>
+<option value="HT">Haïti</option>
+<option value="FR">France</option>
+<option value="US">États-Unis</option>
+<option value="+">autre</option>
 </select>
-
-<select id="languageInput">
-  <option value="fr">Français</option>
-  <option value="en">English</option>
-</select>
-
-<label>Photo de profil</label>
-<input id="photoInput" type="file" accept="image/*" required>
-
-<label><input type="checkbox" id="createChannel"> Créer une chaîne en même temps</label>
-
-<div id="channelSection" class="channel-section">
-  <input id="channelName" placeholder="Nom de la chaîne">
-  <textarea id="channelDesc" placeholder="Description de la chaîne"></textarea>
-  <label>Photo de la chaîne</label>
-  <input id="channelPhoto" type="file" accept="image/*">
-  <label>Bannière de la chaîne (optionnel)</label>
-  <input id="channelBanner" type="file" accept="image/*">
-  <label>Catégorie</label>
-  <select id="channelCategory">
-    <option value="Divers">Divers</option>
-    <option value="Musique">Musique</option>
-    <option value="Gaming">Gaming</option>
-    <option value="Éducation">Éducation</option>
-  </select>
-</div>
 
 <div class="progress-container">
-  <div id="progressBar" class="progress-bar"></div>
+<div id="progressBar" class="progress-bar"></div>
 </div>
 
 <div class="error" id="error"></div>
 <button type="submit">Créer le compte</button>
+
 </form>
 </div>
 </body>
