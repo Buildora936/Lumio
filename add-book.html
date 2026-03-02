@@ -56,7 +56,6 @@ button{
 
 <input id="title" placeholder="Titre du livre">
 <textarea id="desc" placeholder="Description"></textarea>
-<input id="price" type="number" placeholder="Prix ($)">
 <select id="lang">
 <option value="fr">Français</option>
 <option value="en">Anglais</option>
@@ -204,7 +203,6 @@ document.getElementById("publish").onclick=async()=>{
  await set(refBook,{
   title,
   description:desc.value,
-  price:parseFloat(price.value)||0,
   content,
   authorChannelId:channelId,
   language:lang.value,
