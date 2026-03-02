@@ -2,155 +2,124 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Paiement</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-
-<script src="https://checkout.flutterwave.com/v3.js"></script>
-
-<style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}
-.card{background:#181818;padding:30px;border-radius:16px;width:100%;max-width:420px;text-align:center}
-.title{font-size:22px;font-weight:700;margin-bottom:10px}
-.price{font-size:28px;font-weight:800;margin:20px 0;color:#00e676}
-button{width:100%;padding:14px;border:none;border-radius:12px;background:#00c853;color:white;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}
-button:disabled{background:#555}
-.status{margin-top:15px;color:#aaa;font-size:14px}
-.loader{margin:20px auto;border:4px solid #333;border-top:4px solid #00c853;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite}
-@keyframes spin{100%{transform:rotate(360deg)}}
-</style>
-</head>
-<body>
-
-<div class="card">
-<div class="title" id="title">Chargement...</div>
-<div class="price" id="price"></div>
-
-<div id="loader" class="loader"></div>
-
-<button id="payBtn" style="display:none">Payer maintenant</button>
-<button id="retryBtn" style="display:none;background:#2962ff">Réessayer</button>
-
-<div class="status" id="status"></div>
-</div>
+<title>Checkout – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const SUPABASE_URL="https://ymcrkbcsuloijemdbqzy.supabase.co";
-
-const app=initializeApp({
- apiKey:"AIzaSyD5uZ2jt01wJVCWfjdJ6IFa5fAVbdfoI_c",
- authDomain:"lumio-6efed.firebaseapp.com",
- databaseURL:"https://lumio-6efed-default-rtdb.firebaseio.com",
- projectId:"lumio-6efed"
-});
-
-const db=getDatabase(app);
-const auth=getAuth(app);
-
-const titleEl=document.getElementById("title");
-const priceEl=document.getElementById("price");
-const payBtn=document.getElementById("payBtn");
-const retryBtn=document.getElementById("retryBtn");
-const loader=document.getElementById("loader");
-const statusEl=document.getElementById("status");
-
-const id=new URLSearchParams(location.search).get("book");
-
-let bookData;
-let currentUser;
-let order;
-
-/* AUTH */
-onAuthStateChanged(auth,user=>{
- if(!user)return location.href="auth.html";
- currentUser=user;
- loadBook();
-});
-
-/* LOAD BOOK */
-async function loadBook(){
- const snap=await get(ref(db,"books/"+id));
- if(!snap.exists()){
-  titleEl.textContent="Livre introuvable";
-  return;
- }
-
- bookData=snap.val();
-
- titleEl.textContent=bookData.title;
- priceEl.textContent="$"+(bookData.price||0).toFixed(2);
-
- loader.style.display="none";
- payBtn.style.display="block";
-}
-
-/* CREATE ORDER */
-payBtn.onclick=async()=>{
- payBtn.disabled=true;
- statusEl.textContent="Création commande...";
-
- const res=await fetch(SUPABASE_URL+"/functions/v1/create-order",{
-  method:"POST",
-  headers:{ "Content-Type":"application/json" },
-  body:JSON.stringify({
-    user_id:currentUser.uid,
-    book_id:id,
-    amount:bookData.price||0
-  })
- });
-
- order=await res.json();
-
- if(!order.success){
-   statusEl.textContent="Erreur commande";
-   retryBtn.style.display="block";
-   return;
- }
-
- startPayment();
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain: "lumio-822f0.firebaseapp.com",
+  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId: "lumio-822f0",
+  storageBucket: "lumio-822f0.firebasestorage.app",
+  messagingSenderId: "833325770824",
+  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
 };
 
-/* PAYMENT */
-function startPayment(){
- statusEl.textContent="Ouverture paiement...";
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
 
- FlutterwaveCheckout({
-   public_key:"FLWPUBK_TEST-cebe5538e9c95213e15f146b0dfefaa1-X",
-   tx_ref:order.tx_ref,
-   amount:bookData.price||0,
-   currency:"USD",
-   customer:{email:currentUser.email},
+// Récupérer bookId depuis query string
+const params = new URLSearchParams(window.location.search);
+const bookId = params.get("id");
+if(!bookId) alert("Livre non spécifié");
 
-   callback: async function(data){
-     if(data.status==="successful"){
-        await set(ref(db,"purchases/"+currentUser.uid+"/"+id),{
-          bookId:id,
-          date:Date.now(),
-          tx:data.transaction_id
-        });
+// Elements DOM
+const titleEl = document.getElementById("title");
+const priceEl = document.getElementById("price");
+const buyBtn = document.getElementById("buyBtn");
+const statusEl = document.getElementById("status");
 
-        statusEl.textContent="Paiement réussi ✔";
-        payBtn.style.display="none";
-     }
-   },
+let userId, bookData, creatorStripeId;
 
-   onclose:function(){
-     statusEl.textContent="Paiement annulé";
-     retryBtn.style.display="block";
-   }
- });
-}
+onAuthStateChanged(auth, async user => {
+  if(!user) return location.href="auth.html";
+  userId = user.uid;
 
-/* RETRY */
-retryBtn.onclick=()=>{
- retryBtn.style.display="none";
- payBtn.disabled=false;
- statusEl.textContent="";
+  // Récupérer le livre
+  const snapBook = await get(ref(db,"books/"+bookId));
+  if(!snapBook.exists()) return statusEl.innerText="Livre introuvable";
+  bookData = snapBook.val();
+
+  // Récupérer compte stripe du créateur
+  const snapUser = await get(ref(db,"users/"+bookData.authorChannelId));
+  if(!snapUser.exists()) return statusEl.innerText="Auteur introuvable";
+  creatorStripeId = snapUser.val().stripe_account_id;
+
+  titleEl.innerText = bookData.title;
+  priceEl.innerText = "$"+bookData.price.toFixed(2);
+});
+
+// Fonction payer
+buyBtn.onclick = async ()=>{
+  buyBtn.disabled = true;
+  statusEl.innerText = "Création du paiement...";
+
+  try{
+    const res = await fetch("https://your-supabase-functions-url/functions/v1/create-payment-intent",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        amount: Math.round(bookData.price*100), // montant en cents
+        connectedAccountId: creatorStripeId
+      })
+    });
+
+    const data = await res.json();
+    if(!data.clientSecret) throw new Error("Impossible de créer le paiement");
+
+    statusEl.innerText = "Paiement en cours...";
+    
+    // Stripe Elements
+    const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
+    const {error, paymentIntent} = await stripe.confirmCardPayment(data.clientSecret, {
+      payment_method: {card: {token: "tok_visa"}} // simulation carte test
+    });
+
+    if(error) throw error;
+    if(paymentIntent.status==="succeeded"){
+      statusEl.innerText="Paiement réussi ✅ Déblocage du livre...";
+
+      // Ajouter le livre à la bibliothèque
+      await set(ref(db,"users/"+userId+"/library/"+bookId),{
+        unlockedAt: serverTimestamp(),
+        title: bookData.title,
+        authorChannelId: bookData.authorChannelId,
+        price: bookData.price
+      });
+
+      statusEl.innerText="Livre débloqué ! Vous pouvez le lire maintenant.";
+      buyBtn.style.display="none";
+    } else {
+      statusEl.innerText="Échec du paiement";
+      buyBtn.disabled=false;
+    }
+  }catch(err){
+    console.error(err);
+    statusEl.innerText="Erreur : "+err.message;
+    buyBtn.disabled=false;
+  }
 };
 </script>
 
+<style>
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+main{max-width:600px;margin:60px auto;padding:24px;background:#202020;border-radius:16px;text-align:center}
+button{padding:12px 20px;border:none;border-radius:10px;background:#ff6a00;color:white;font-weight:700;cursor:pointer;margin-top:16px}
+</style>
+</head>
+<body>
+<main>
+<h2 id="title">Chargement...</h2>
+<p>Prix : <span id="price">...</span></p>
+<button id="buyBtn">Acheter ce livre</button>
+<p id="status" style="margin-top:16px;color:#ff9800;"></p>
+</main>
 </body>
 </html>
