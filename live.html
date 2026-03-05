@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <title>Lumio Live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="stylesheet"
  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
 <style>
 body{
   margin:0;
@@ -15,7 +13,6 @@ body{
   font-family:system-ui;
   color:white;
 }
-
 header{
   height:56px;
   background:#181818;
@@ -24,12 +21,10 @@ header{
   justify-content:space-between;
   padding:0 16px;
 }
-
 header h2{
   margin:0;
   font-size:18px;
 }
-
 .main{
   display:flex;
   gap:16px;
@@ -37,24 +32,20 @@ header h2{
   max-width:1400px;
   margin:auto;
 }
-
 .video-area{
   flex:2;
 }
-
 video{
   width:100%;
   height:70vh;
   background:black;
   border-radius:12px;
 }
-
 .live-info{
   margin-top:10px;
   font-size:14px;
   color:#aaa;
 }
-
 .chat{
   flex:1;
   background:#181818;
@@ -63,29 +54,24 @@ video{
   flex-direction:column;
   height:75vh;
 }
-
 .chat-messages{
   flex:1;
   overflow-y:auto;
   padding:12px;
 }
-
 .msg{
   margin-bottom:10px;
   font-size:14px;
 }
-
 .msg span{
   font-weight:600;
 }
-
 .chat-input{
   display:flex;
   padding:10px;
   gap:8px;
   border-top:1px solid #333;
 }
-
 .chat-input input{
   flex:1;
   padding:10px;
@@ -94,7 +80,6 @@ video{
   background:#222;
   color:white;
 }
-
 .chat-input button{
   background:#ff0000;
   border:none;
@@ -103,9 +88,69 @@ video{
   color:white;
   cursor:pointer;
 }
+/* Soutenir button */
+#supportBtn{
+  background:#ff9800;
+  border:none;
+  padding:12px 20px;
+  border-radius:25px;
+  font-weight:700;
+  cursor:pointer;
+  margin-top:10px;
+}
+#supportBtn:hover{
+  background:#e68a00;
+}
+/* Modal */
+.modal{
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.7);
+  justify-content:center;
+  align-items:center;
+  z-index:100;
+}
+.modal-content{
+  background:#181818;
+  padding:20px;
+  border-radius:12px;
+  max-width:400px;
+  width:90%;
+}
+.modal h3{
+  margin-top:0;
+  color:#ff9800;
+}
+.modal label{
+  display:block;
+  margin:10px 0 5px;
+}
+.modal input{
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:none;
+  background:#222;
+  color:white;
+}
+.modal button{
+  margin-top:15px;
+  background:#ff9800;
+  color:black;
+  border:none;
+  padding:12px;
+  width:100%;
+  font-weight:700;
+  border-radius:20px;
+  cursor:pointer;
+}
+.modal button:hover{
+  background:#e68a00;
+}
 </style>
 </head>
-
 <body>
 
 <header>
@@ -114,18 +159,16 @@ video{
 </header>
 
 <div class="main">
-
   <div class="video-area">
     <video id="remoteVideo" autoplay playsinline></video>
-
     <div class="live-info">
       Chaîne : <span id="channelName"></span>
     </div>
+    <button id="supportBtn">💛 Soutenir ce live</button>
   </div>
 
   <div class="chat">
     <div class="chat-messages" id="messages"></div>
-
     <div class="chat-input">
       <input id="msgInput" placeholder="Écrire un message...">
       <button id="sendBtn">
@@ -133,19 +176,28 @@ video{
       </button>
     </div>
   </div>
+</div>
 
+<!-- Modal Soutenir -->
+<div class="modal" id="supportModal">
+  <div class="modal-content">
+    <h3>Soutenir le créateur</h3>
+    <label>Montant ($)</label>
+    <input type="number" id="supportAmount" min="1" value="5">
+    <label>Numéro de carte</label>
+    <div id="card-element"></div>
+    <button id="payBtn">Payer</button>
+    <div id="supportError" style="color:#ff5555;margin-top:8px;"></div>
+  </div>
 </div>
 
 <script type="module">
-import { initializeApp } from
- "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth,onAuthStateChanged }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,set,onValue,push,remove,get }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,set,onValue,push,remove,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig={
-apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
   authDomain: "lumio-822f0.firebaseapp.com",
   databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
   projectId: "lumio-822f0",
@@ -163,99 +215,28 @@ const liveId=params.get("id");
 if(!liveId) location.href="index.html";
 
 let currentUser=null;
-let viewerRef=null;
-
-const remoteVideo=document.getElementById("remoteVideo");
-
-/* ================= AUTH ================= */
+let creatorStripeId=null;
 
 onAuthStateChanged(auth,async u=>{
  currentUser=u;
 
- // Vérifie si banni
- if(u){
-   const banSnap=await get(ref(db,`liveBans/${liveId}/${u.uid}`));
-   if(banSnap.exists()){
-     alert("Vous êtes banni de ce live.");
-     location.href="index.html";
-     return;
-   }
- }
-
  // Ajouter viewer
- viewerRef=ref(db,`liveViewers/${liveId}/${u?.uid||("guest_"+Date.now())}`);
+ const viewerRef=ref(db,`liveViewers/${liveId}/${u?.uid||("guest_"+Date.now())}`);
  await set(viewerRef,true);
+ window.addEventListener("beforeunload",()=>{ remove(viewerRef); });
 
- window.addEventListener("beforeunload",()=>{
-   remove(viewerRef);
- });
-});
-
-/* ================= LIVE DATA ================= */
-
-onValue(ref(db,`lives/${liveId}`),snap=>{
- if(!snap.exists()){
-   alert("Live introuvable");
-   location.href="index.html";
-   return;
- }
-
+ // Récupérer info live et créateur
+ const snap=await get(ref(db,`lives/${liveId}`));
+ if(!snap.exists()) return alert("Live introuvable"),location.href="index.html";
  const l=snap.val();
- if(l.status==="ended"){
-   alert("Live terminé");
-   location.href="index.html";
-   return;
- }
-
  document.getElementById("liveTitle").textContent="🔴 "+l.title;
  document.getElementById("channelName").textContent=l.channelName;
+ creatorStripeId = l.creatorStripeId; // doit être enregistré lors création live
 });
 
-/* ================= VIEWERS ================= */
-
-onValue(ref(db,`liveViewers/${liveId}`),snap=>{
- const viewers=snap.val()||{};
- document.getElementById("viewerCount").textContent=
-   Object.keys(viewers).length+" spectateurs";
-});
-
-/* ================= WEBRTC ================= */
-
-const iceServers={
- iceServers:[
-   {urls:"stun:stun.l.google.com:19302"}
- ]
-};
-
-const pc=new RTCPeerConnection(iceServers);
-
-pc.ontrack=e=>{
- remoteVideo.srcObject=e.streams[0];
-};
-
-pc.onicecandidate=e=>{
- if(e.candidate){
-   push(ref(db,`liveSignals/${liveId}/viewerIce`),
-     e.candidate.toJSON());
- }
-};
-
-// 🔹 Lire offer du créateur
-onValue(ref(db,`liveSignals/${liveId}/offers`),async snap=>{
- snap.forEach(async child=>{
-   const offer=child.val();
-   if(!pc.currentRemoteDescription){
-     await pc.setRemoteDescription(new RTCSessionDescription(offer));
-     const answer=await pc.createAnswer();
-     await pc.setLocalDescription(answer);
-     await set(ref(db,`liveSignals/${liveId}/answers/${auth.currentUser?.uid||"guest"}`),answer);
-   }
- });
-});
-
-/* ================= CHAT ================= */
-
+// Chat simple
 onValue(ref(db,`liveChat/${liveId}`),snap=>{
+ const messages=document.getElementById("messages");
  messages.innerHTML="";
  snap.forEach(m=>{
    const div=document.createElement("div");
@@ -266,12 +247,12 @@ onValue(ref(db,`liveChat/${liveId}`),snap=>{
  messages.scrollTop=messages.scrollHeight;
 });
 
+const sendBtn=document.getElementById("sendBtn");
+const msgInput=document.getElementById("msgInput");
 sendBtn.onclick=async()=>{
  const text=msgInput.value.trim();
  if(!text) return;
-
  msgInput.value="";
-
  await push(ref(db,`liveChat/${liveId}`),{
    user:currentUser?.displayName||"Invité",
    text,
@@ -279,7 +260,54 @@ sendBtn.onclick=async()=>{
    createdAt:Date.now()
  });
 };
-</script>
 
+// 🔹 Modal Soutenir
+const supportBtn=document.getElementById("supportBtn");
+const modal=document.getElementById("supportModal");
+const payBtn=document.getElementById("payBtn");
+const amountInput=document.getElementById("supportAmount");
+const errorBox=document.getElementById("supportError");
+
+supportBtn.onclick=()=>{ modal.style.display="flex"; };
+window.onclick=(e)=>{ if(e.target===modal) modal.style.display="none"; };
+
+// Stripe Elements
+const stripeJs = await import("https://js.stripe.com/v3/index.js");
+const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA"); // public key
+const elements = stripe.elements();
+const cardElement = elements.create("card");
+cardElement.mount("#card-element");
+
+payBtn.onclick=async()=>{
+  errorBox.textContent="";
+  const amount = parseFloat(amountInput.value);
+  if(!amount || amount<1) return errorBox.textContent="Montant invalide";
+
+  try{
+    const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-support-payment-intent",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ amount, connectedAccountId: creatorStripeId })
+    });
+    const data = await res.json();
+    if(data.error) return errorBox.textContent=data.message||data.error;
+
+    const { clientSecret } = data;
+    const result = await stripe.confirmCardPayment(clientSecret, {
+      payment_method:{ card: cardElement }
+    });
+
+    if(result.error){
+      errorBox.textContent=result.error.message;
+    } else if(result.paymentIntent && result.paymentIntent.status==="succeeded"){
+      alert("Paiement réussi ! Merci pour votre soutien 💛");
+      modal.style.display="none";
+    }
+  } catch(err){
+    console.error(err);
+    errorBox.textContent="Erreur paiement";
+  }
+};
+</script>
 </body>
 </html>
