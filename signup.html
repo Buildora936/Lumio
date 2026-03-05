@@ -111,21 +111,7 @@ if(snap.exists()) return errorBox.textContent="Nom déjà pris";
 const cred = await createUserWithEmailAndPassword(auth,email,password);
 const uid = cred.user.uid;
 
-updateProgress(40);
 
-/* 🔵 CRÉATION AUTOMATIQUE COMPTE STRIPE */
-const stripeRes = await fetch(
-"https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-connected-account",
-{
-  method:"POST",
-  headers:{
-    "Content-Type":"application/json",
-    "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw"
-  },
-  body:JSON.stringify({ email })
-});
-
-const stripeData = await stripeRes.json();
 
 updateProgress(60);
 
@@ -135,8 +121,6 @@ await set(ref(db,"users/"+uid),{
   username,
   birthdate,
   country,
-  stripe_account_id: stripeData.account_id,
-  stripe_onboarded:false,
   role:"user",
   createdAt: Date.now()
 });
@@ -147,7 +131,7 @@ updateProgress(80);
 
 /* Redirection vers onboarding Stripe */
 updateProgress(100);
-window.location.href = stripeData.onboarding_url;
+window.location.href = index.html
 
 }catch(err){
 console.error(err);
