@@ -25,8 +25,13 @@ header{
   padding:0 20px;
 }
 
-header h2{
-  margin:0;
+header h2{ margin:0; }
+
+.stats-bar{
+  display:flex;
+  gap:20px;
+  font-size:14px;
+  color:#aaa;
 }
 
 .main{
@@ -68,12 +73,6 @@ video{
   background:#ff0000;
 }
 
-.stats{
-  margin-top:10px;
-  font-size:14px;
-  color:#aaa;
-}
-
 .chat{
   flex:1;
   background:#181818;
@@ -88,9 +87,7 @@ video{
   padding:12px;
 }
 
-.msg{
-  margin-bottom:10px;
-}
+.msg{ margin-bottom:10px; }
 
 .chat-input{
   display:flex;
@@ -129,6 +126,10 @@ video{
 
 <header>
   <h2>🔴 Lumio Live Studio</h2>
+  <div class="stats-bar">
+    <span id="viewerCount">0 spectateurs</span>
+    <span id="totalEarned">Gagné: $0</span>
+  </div>
   <button onclick="endLive()">Terminer le live</button>
 </header>
 
@@ -141,10 +142,6 @@ video{
       <button id="camBtn">Caméra</button>
       <button id="screenBtn">Écran</button>
       <button id="bothBtn">Cam + Écran</button>
-    </div>
-
-    <div class="stats">
-      <span id="viewerCount">0 spectateurs</span>
     </div>
   </div>
 
@@ -164,17 +161,17 @@ import { initializeApp } from
  "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged }
  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,set,onValue,push,remove }
+import { getDatabase,ref,set,onValue,push,remove,get } 
  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig={
-apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain: "lumio-822f0.firebaseapp.com",
+ databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId: "lumio-822f0",
+ storageBucket: "lumio-822f0.firebasestorage.app",
+ messagingSenderId: "833325770824",
+ appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
 };
 
 const app=initializeApp(firebaseConfig);
@@ -190,6 +187,8 @@ let localStream=null;
 let peerConnections={};
 
 const localVideo=document.getElementById("localVideo");
+const viewerCountEl=document.getElementById("viewerCount");
+const totalEarnedEl=document.getElementById("totalEarned");
 
 onAuthStateChanged(auth,u=>{
  if(!u) location.href="auth.html";
@@ -198,25 +197,16 @@ onAuthStateChanged(auth,u=>{
 
 /* ================= WEBRTC ================= */
 
-const iceServers={
- iceServers:[
-   {urls:"stun:stun.l.google.com:19302"}
- ]
-};
+const iceServers={ iceServers:[{urls:"stun:stun.l.google.com:19302"}] };
 
 async function createConnection(viewerId){
  const pc=new RTCPeerConnection(iceServers);
-
- localStream.getTracks().forEach(track=>{
-   pc.addTrack(track,localStream);
- });
-
+ localStream.getTracks().forEach(track=>{ pc.addTrack(track,localStream); });
  pc.onicecandidate=e=>{
    if(e.candidate){
      push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`),e.candidate.toJSON());
    }
  };
-
  peerConnections[viewerId]=pc;
  return pc;
 }
@@ -224,18 +214,12 @@ async function createConnection(viewerId){
 /* ================= STREAM CAPTURE ================= */
 
 async function startCamera(){
- localStream=await navigator.mediaDevices.getUserMedia({
-   video:true,
-   audio:true
- });
+ localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
  localVideo.srcObject=localStream;
 }
 
 async function startScreen(){
- const screen=await navigator.mediaDevices.getDisplayMedia({
-   video:true,
-   audio:true
- });
+ const screen=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
  const mic=await navigator.mediaDevices.getUserMedia({audio:true});
  screen.addTrack(mic.getAudioTracks()[0]);
  localStream=screen;
@@ -245,12 +229,11 @@ async function startScreen(){
 camBtn.onclick=startCamera;
 screenBtn.onclick=startScreen;
 
-/* ================= VIEWERS ================= */
+/* ================= VIEWERS & GAINS ================= */
 
 onValue(ref(db,`liveViewers/${liveId}`),snap=>{
  const viewers=snap.val()||{};
- document.getElementById("viewerCount").textContent=
-   Object.keys(viewers).length+" spectateurs";
+ viewerCountEl.textContent=Object.keys(viewers).length+" spectateurs";
 
  Object.keys(viewers).forEach(async uid=>{
    if(!peerConnections[uid]){
@@ -262,6 +245,13 @@ onValue(ref(db,`liveViewers/${liveId}`),snap=>{
  });
 });
 
+// 🔹 Gérer le total gagné en temps réel
+onValue(ref(db,`liveSupport/${liveId}`),snap=>{
+ const data=snap.val()||{};
+ const total=Object.values(data).reduce((acc,val)=>acc+(val.amount||0),0);
+ totalEarnedEl.textContent="Gagné: $"+total.toFixed(2);
+});
+
 /* ================= CHAT ================= */
 
 onValue(ref(db,`liveChat/${liveId}`),snap=>{
@@ -269,9 +259,8 @@ onValue(ref(db,`liveChat/${liveId}`),snap=>{
  snap.forEach(m=>{
    const d=document.createElement("div");
    d.className="msg";
-   d.innerHTML=
-     `<b>${m.val().user}</b>: ${m.val().text}
-      <span class="ban" onclick="ban('${m.val().uid}')">Ban</span>`;
+   d.innerHTML=`<b>${m.val().user}</b>: ${m.val().text}
+                  <span class="ban" onclick="ban('${m.val().uid}')">Ban</span>`;
    messages.appendChild(d);
  });
 });
