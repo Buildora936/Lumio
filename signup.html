@@ -59,7 +59,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/fireba
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
 
-/* 🔥 NOUVEAU FIREBASE */
+/* 🔥 Firebase configuration */
 const firebaseConfig = {
   apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
   authDomain: "lumio-822f0.firebaseapp.com",
@@ -80,66 +80,59 @@ function updateProgress(p){
 }
 
 window.onload = ()=>{
+  const form = document.getElementById("signupForm");
+  const errorBox = document.getElementById("error");
 
-const form = document.getElementById("signupForm");
-const errorBox = document.getElementById("error");
+  form.onsubmit = async (e)=>{
+    e.preventDefault();
+    errorBox.textContent="";
+    updateProgress(10);
 
-form.onsubmit = async (e)=>{
-e.preventDefault();
-errorBox.textContent="";
-updateProgress(10);
+    const email = document.getElementById("emailInput").value.trim();
+    const password = document.getElementById("passwordInput").value;
+    const confirm = document.getElementById("confirmInput").value;
+    const username = document.getElementById("usernameInput").value.trim().toLowerCase();
+    const birthdate = document.getElementById("birthInput").value;
+    const country = document.getElementById("countryInput").value;
 
-const email = document.getElementById("emailInput").value.trim();
-const password = document.getElementById("passwordInput").value;
-const confirm = document.getElementById("confirmInput").value;
-const username = document.getElementById("usernameInput").value.trim().toLowerCase();
-const birthdate = document.getElementById("birthInput").value;
-const country = document.getElementById("countryInput").value;
+    if(password !== confirm) return errorBox.textContent="Mots de passe différents";
+    if(password.length < 8) return errorBox.textContent="Mot de passe trop court";
 
-if(password !== confirm) return errorBox.textContent="Mots de passe différents";
-if(password.length < 8) return errorBox.textContent="Mot de passe trop court";
+    updateProgress(25);
 
-updateProgress(25);
+    try{
+      /* Vérifier username unique */
+      const snap = await get(ref(db,"usernames/"+username));
+      if(snap.exists()) return errorBox.textContent="Nom déjà pris";
 
-try{
+      /* Création utilisateur Firebase */
+      const cred = await createUserWithEmailAndPassword(auth,email,password);
+      const uid = cred.user.uid;
 
-/* Vérifier username unique */
-const snap = await get(ref(db,"usernames/"+username));
-if(snap.exists()) return errorBox.textContent="Nom déjà pris";
+      updateProgress(60);
 
-/* Création utilisateur Firebase */
-const cred = await createUserWithEmailAndPassword(auth,email,password);
-const uid = cred.user.uid;
+      /* Sauvegarde utilisateur */
+      await set(ref(db,"users/"+uid),{
+        email,
+        username,
+        birthdate,
+        country,
+        role:"user",
+        createdAt: Date.now()
+      });
 
+      await set(ref(db,"usernames/"+username),uid);
 
+      updateProgress(100);
 
-updateProgress(60);
+      /* Redirection vers le dashboard */
+      window.location.href = "index.html";
 
-/* Sauvegarde utilisateur + Stripe */
-await set(ref(db,"users/"+uid),{
-  email,
-  username,
-  birthdate,
-  country,
-  role:"user",
-  createdAt: Date.now()
-});
-
-await set(ref(db,"usernames/"+username),uid);
-
-updateProgress(80);
-
-/* Redirection vers onboarding Stripe */
-updateProgress(100);
-window.location.href = index.html
-
-}catch(err){
-console.error(err);
-errorBox.textContent = err.message;
-}
-
-};
-
+    }catch(err){
+      console.error(err);
+      errorBox.textContent = err.message;
+    }
+  };
 };
 </script>
 </head>
