@@ -127,13 +127,14 @@ video{
   display:block;
   margin:10px 0 5px;
 }
-.modal input{
+.modal input, .modal select{
   width:100%;
   padding:10px;
   border-radius:8px;
   border:none;
   background:#222;
   color:white;
+  margin-bottom:10px;
 }
 .modal button{
   margin-top:15px;
@@ -184,8 +185,18 @@ video{
     <h3>Soutenir le créateur</h3>
     <label>Montant ($)</label>
     <input type="number" id="supportAmount" min="1" value="5">
+
+    <!-- Nouvelle sélection pour méthode de paiement -->
+    <label>Méthode de paiement</label>
+    <select id="paymentMethod">
+      <option value="card">Carte bancaire</option>
+      <option value="paypal">PayPal</option>
+      <option value="samsung_pay">Samsung Pay</option>
+    </select>
+
     <label>Numéro de carte</label>
     <div id="card-element"></div>
+
     <button id="payBtn">Payer</button>
     <div id="supportError" style="color:#ff5555;margin-top:8px;"></div>
   </div>
@@ -231,7 +242,7 @@ onAuthStateChanged(auth,async u=>{
  const l=snap.val();
  document.getElementById("liveTitle").textContent="🔴 "+l.title;
  document.getElementById("channelName").textContent=l.channelName;
- creatorStripeId = l.creatorStripeId; // doit être enregistré lors création live
+ creatorStripeId = l.creatorStripeId;
 });
 
 // Chat simple
@@ -267,13 +278,14 @@ const modal=document.getElementById("supportModal");
 const payBtn=document.getElementById("payBtn");
 const amountInput=document.getElementById("supportAmount");
 const errorBox=document.getElementById("supportError");
+const paymentMethodSelect=document.getElementById("paymentMethod");
 
 supportBtn.onclick=()=>{ modal.style.display="flex"; };
 window.onclick=(e)=>{ if(e.target===modal) modal.style.display="none"; };
 
 // Stripe Elements
 const stripeJs = await import("https://js.stripe.com/v3/index.js");
-const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA"); // public key
+const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
 const elements = stripe.elements();
 const cardElement = elements.create("card");
 cardElement.mount("#card-element");
@@ -283,26 +295,39 @@ payBtn.onclick=async()=>{
   const amount = parseFloat(amountInput.value);
   if(!amount || amount<1) return errorBox.textContent="Montant invalide";
 
+  const selectedMethod = paymentMethodSelect.value;
+  let cpmtId = null;
+  if(selectedMethod==="paypal") cpmtId="cpmt_1T7nejDvG1O1eTGy9EdAUq9L";
+  else if(selectedMethod==="samsung_pay") cpmtId="cpmt_1T7nfEDvG1O1eTGypbG4QJn3";
+
   try{
     const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-support-payment-intent",{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ amount, connectedAccountId: creatorStripeId })
+      body:JSON.stringify({
+        amount,
+        connectedAccountId: creatorStripeId,
+        payment_method_type: selectedMethod==="card"?"card":cpmtId
+      })
     });
     const data = await res.json();
     if(data.error) return errorBox.textContent=data.message||data.error;
 
-    const { clientSecret } = data;
-    const result = await stripe.confirmCardPayment(clientSecret, {
-      payment_method:{ card: cardElement }
-    });
-
-    if(result.error){
-      errorBox.textContent=result.error.message;
-    } else if(result.paymentIntent && result.paymentIntent.status==="succeeded"){
-      alert("Paiement réussi ! Merci pour votre soutien 💛");
-      modal.style.display="none";
+    if(selectedMethod==="card"){
+      const { clientSecret } = data;
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method:{ card: cardElement }
+      });
+      if(result.error) errorBox.textContent=result.error.message;
+      else if(result.paymentIntent && result.paymentIntent.status==="succeeded"){
+        alert("Paiement réussi ! Merci pour votre soutien 💛");
+        modal.style.display="none";
+      }
+    } else {
+      // Pour PayPal et Samsung Pay, redirection Stripe Checkout
+      window.location.href = data.checkout_url;
     }
+
   } catch(err){
     console.error(err);
     errorBox.textContent="Erreur paiement";
