@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="fr">
+<!DOCTYPE html><html lang="fr">
 <head>
 <meta charset="UTF-8">
 <title>Studio Livre – Lumio</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>
 body{margin:0;font-family:system-ui;background:#181818;color:white}
 main{max-width:900px;margin:60px auto;padding:24px;background:#202020;border-radius:16px}
 h2{text-align:center;margin-bottom:18px}
@@ -24,6 +21,7 @@ button{
 .toolbar{
  display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap
 }
+
 .editor{
  min-height:300px;
  background:#111;
@@ -43,62 +41,56 @@ button{
 .progress{
  height:16px;background:#333;border-radius:10px;margin-bottom:16px;overflow:hidden
 }
+
 .bar{height:100%;width:0;background:#ff6a00}
+
 .stats{font-size:13px;color:#aaa;margin-bottom:10px}
-</style>
-</head>
-<body>
-
-<main>
-<h2>Studio Auteur</h2>
-
-<div class="progress"><div class="bar" id="bar"></div></div>
-
-<input id="title" placeholder="Titre du livre">
-<textarea id="desc" placeholder="Description"></textarea>
-<select id="lang">
+</style></head><body><main>
+<h2>Studio Auteur</h2><div class="progress"><div class="bar" id="bar"></div></div><input id="title" placeholder="Titre du livre">
+<textarea id="desc" placeholder="Description"></textarea><select id="lang">
 <option value="fr">Français</option>
 <option value="en">Anglais</option>
-</select>
-
-<div class="toolbar">
+</select><input id="price" type="number" placeholder="Prix ($)"><h3>Couverture</h3>
+<input id="cover" type="file" accept="image/*"><div class="toolbar">
 <button onclick="format('bold')">Gras</button>
 <button onclick="format('italic')">Italique</button>
 <button onclick="format('insertUnorderedList')">Liste</button>
 <button onclick="addImg()">Image</button>
 <button onclick="togglePreview()">Preview</button>
-</div>
+</div><div contenteditable class="editor" id="editor"></div><div class="stats" id="stats">0 mots • 0 pages</div><hr><h3>OU importer un fichier</h3>
+<input id="file" type="file" accept=".pdf,.epub,.txt"><button id="publish">Publier</button>
 
-<div contenteditable class="editor" id="editor"></div>
+<div class="preview" id="preview" style="display:none"></div></main><script type="module">
 
-<div class="stats" id="stats">0 mots • 0 pages</div>
-
-<hr>
-
-<h3>OU importer un fichier</h3>
-<input id="file" type="file" accept=".pdf,.epub,.txt">
-
-<button id="publish">Publier</button>
-
-<div class="preview" id="preview" style="display:none"></div>
-</main>
-
-<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase,ref,push,set,get,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/* ===== FIREBASE ===== */
+
 const app=initializeApp({
  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+ authDomain: "lumio-822f0.firebaseapp.com",
+ databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId: "lumio-822f0",
+ storageBucket: "lumio-822f0.firebasestorage.app",
+ messagingSenderId: "833325770824",
+ appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
 });
+
 const db=getDatabase(app);
 const auth=getAuth(app);
+
+/* ===== SUPABASE ===== */
+
+const supabase=createClient(
+"https://YOUR_PROJECT.supabase.co",
+"YOUR_PUBLIC_ANON_KEY"
+);
+
+/* ===== USER ===== */
 
 let uid=null;
 let channelId=null;
@@ -106,79 +98,154 @@ let channelId=null;
 onAuthStateChanged(auth, async u=>{
  if(!u) return location.href="auth.html";
  uid=u.uid;
+
  const snap=await get(ref(db,"userChannels/"+uid));
+
  if(!snap.exists()) location.href="add-channel.html";
+
  channelId=snap.val();
 });
 
-/* ====== TEXT EDITOR ====== */
+/* ===== TEXT EDITOR ===== */
+
 window.format=cmd=>document.execCommand(cmd);
 
 window.addImg=()=>{
  const input=document.createElement("input");
  input.type="file";
  input.accept="image/*";
+
  input.onchange=()=>{
   const f=input.files[0];
+
   const r=new FileReader();
+
   r.onload=e=>{
    document.execCommand("insertImage",false,e.target.result);
   };
+
   r.readAsDataURL(f);
  };
+
  input.click();
 };
 
 /* ===== WORD COUNT ===== */
+
 const editor=document.getElementById("editor");
+
 editor.oninput=()=>{
+
  const text=editor.innerText.trim();
+
  const words=text?text.split(/\s+/).length:0;
+
  const pages=Math.ceil(words/350);
+
  document.getElementById("stats").innerText=
  words+" mots • "+pages+" pages";
+
  localStorage.setItem("draft_book",editor.innerHTML);
 };
+
 editor.innerHTML=localStorage.getItem("draft_book")||"";
 
 /* ===== PREVIEW ===== */
+
 window.togglePreview=()=>{
+
  const box=document.getElementById("preview");
+
  box.style.display=box.style.display==="none"?"block":"none";
+
  box.innerHTML=editor.innerHTML;
 };
 
 /* ===== FILE PARSER ===== */
+
 async function fileToText(file){
+
  const text=await file.text();
+
  return text.replace(/\n/g,"<br>");
+
 }
 
 /* ===== IMAGE COMPRESS ===== */
+
 function compress(img){
+
  return new Promise(res=>{
+
   const c=document.createElement("canvas");
+
   const ctx=c.getContext("2d");
+
   const i=new Image();
+
   i.onload=()=>{
+
    const w=600;
+
    const h=i.height*(w/i.width);
-   c.width=w;c.height=h;
+
+   c.width=w;
+
+   c.height=h;
+
    ctx.drawImage(i,0,0,w,h);
+
    res(c.toDataURL("image/jpeg",0.7));
   };
+
   i.src=img;
+
  });
+
+}
+
+/* ===== UPLOAD COVER ===== */
+
+async function uploadCover(file){
+
+ const name=Date.now()+"_"+file.name;
+
+ const {data,error}=await supabase.storage
+  .from("corvers")
+  .upload(name,file);
+
+ if(error) throw error;
+
+ const {data:url}=supabase.storage
+  .from("corvers")
+  .getPublicUrl(name);
+
+ return url.publicUrl;
+
 }
 
 /* ===== PUBLISH ===== */
+
 document.getElementById("publish").onclick=async()=>{
+
  if(!channelId) return alert("Erreur channel");
 
  const title=document.getElementById("title").value.trim();
+
  if(!title) return alert("Titre requis");
 
+ const price=parseFloat(document.getElementById("price").value);
+
+ if(!price) return alert("Prix requis");
+
+ const coverFile=document.getElementById("cover").files[0];
+
+ if(!coverFile) return alert("Couverture requise");
+
+ const coverURL=await uploadCover(coverFile);
+
  const file=document.getElementById("file").files[0];
+
  let content="";
 
  if(file){
@@ -189,36 +256,51 @@ document.getElementById("publish").onclick=async()=>{
 
  if(!content) return alert("Livre vide");
 
- /* compress images */
+/* compress images */
+
  const imgs=[...content.matchAll(/src="(data:image.*?)"/g)];
+
  for(const m of imgs){
+
   const small=await compress(m[1]);
+
   content=content.replace(m[1],small);
+
  }
 
  const bar=document.getElementById("bar");
+
  bar.style.width="60%";
 
  const refBook=push(ref(db,"books"));
+
  await set(refBook,{
+
   title,
   description:desc.value,
   content,
+  price,
+  coverURL,
   authorChannelId:channelId,
   language:lang.value,
   createdAt:serverTimestamp(),
   sales:0,
   views:0,
   status:"public"
+
  });
 
  await set(ref(db,"channels/"+channelId+"/books/"+refBook.key),true);
 
  bar.style.width="100%";
+
  alert("Livre publié");
+
  localStorage.removeItem("draft_book");
+
  location.href="books.html";
+
 };
-</script>
-</body>
+
+</script></body>
 </html>
