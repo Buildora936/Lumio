@@ -1,0 +1,206 @@
+<!DOCTYPE html><html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Studio Art – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+main{max-width:900px;margin:60px auto;padding:24px;background:#202020;border-radius:16px}
+
+h2{text-align:center;margin-bottom:18px}
+
+input,textarea,select{
+width:100%;
+padding:12px;
+margin-bottom:12px;
+background:#2a2a2a;
+border:none;
+border-radius:8px;
+color:white
+}
+
+button{
+background:#ff6a00;
+border:none;
+color:white;
+padding:12px 18px;
+border-radius:30px;
+font-weight:700;
+cursor:pointer
+}
+
+.progress{
+height:16px;
+background:#333;
+border-radius:10px;
+margin-bottom:16px;
+overflow:hidden
+}
+
+.bar{
+height:100%;
+width:0;
+background:#ff6a00
+}
+
+.preview{
+margin-top:12px;
+background:#111;
+padding:12px;
+border-radius:10px
+}
+</style></head><body><main><h2>Studio Art</h2><div class="progress">
+<div class="bar" id="bar"></div>
+</div><input id="title" placeholder="Titre de l'œuvre"><textarea id="desc" placeholder="Description"></textarea><select id="category">
+<option>Illustration</option>
+<option>Photographie</option>
+<option>Wallpaper</option>
+<option>Design</option>
+<option>3D Art</option>
+<option>Autre</option>
+</select><input id="price" type="number" placeholder="Prix ($)"><h3>Cover principale</h3>
+<input id="cover1" type="file" accept="image/*"><h3>Cover secondaire</h3>
+<input id="cover2" type="file" accept="image/*"><h3>Fichier HD (acheté)</h3>
+<input id="artFile" type="file" accept="image/*"><h3>Pack optionnel (zip)</h3>
+<input id="packFile" type="file" accept=".zip"><button id="publish">Publier l'art</button>
+
+<div class="preview" id="preview"></div></main><script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,push,set,get,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/* FIREBASE */
+
+const app=initializeApp({
+apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+authDomain:"lumio-822f0.firebaseapp.com",
+databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+projectId:"lumio-822f0",
+storageBucket:"lumio-822f0.firebasestorage.app",
+messagingSenderId:"833325770824",
+appId:"1:833325770824:web:b1a87a7bda0b00ee20907d"
+});
+
+const db=getDatabase(app);
+const auth=getAuth(app);
+
+/* SUPABASE */
+
+const supabase=createClient(
+"https://ymcrkbcsuloijemdbqzy.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+);
+
+let uid=null;
+let channelId=null;
+
+onAuthStateChanged(auth,async u=>{
+
+if(!u) return location.href="auth.html";
+
+uid=u.uid;
+
+const snap=await get(ref(db,"userChannels/"+uid));
+
+if(!snap.exists()) location.href="add-channel.html";
+
+channelId=snap.val();
+
+});
+
+/* UPLOAD */
+
+async function upload(bucket,file){
+
+const name=Date.now()+"_"+file.name;
+
+const {error}=await supabase.storage
+.from(bucket)
+.upload(name,file);
+
+if(error) throw error;
+
+const {data}=supabase.storage
+.from(bucket)
+.getPublicUrl(name);
+
+return data.publicUrl;
+
+}
+
+/* PUBLISH */
+
+document.getElementById("publish").onclick=async()=>{
+
+if(!channelId) return alert("Erreur channel");
+
+const title=document.getElementById("title").value.trim();
+const price=parseFloat(document.getElementById("price").value);
+
+if(!title) return alert("Titre requis");
+if(!price) return alert("Prix requis");
+
+const cover1=document.getElementById("cover1").files[0];
+const cover2=document.getElementById("cover2").files[0];
+const art=document.getElementById("artFile").files[0];
+const pack=document.getElementById("packFile").files[0];
+
+if(!cover1||!cover2) return alert("Deux covers requises");
+if(!art) return alert("Fichier HD requis");
+
+const bar=document.getElementById("bar");
+
+bar.style.width="20%";
+
+const cover1URL=await upload("art-covers",cover1);
+
+bar.style.width="40%";
+
+const cover2URL=await upload("art-covers",cover2);
+
+bar.style.width="60%";
+
+const artURL=await upload("art-files",art);
+
+let packURL=null;
+
+if(pack){
+packURL=await upload("art-packs",pack);
+}
+
+bar.style.width="90%";
+
+const refArt=push(ref(db,"arts"));
+
+await set(refArt,{
+
+title,
+description:desc.value,
+category:category.value,
+price,
+cover1URL,
+cover2URL,
+artURL,
+packURL,
+creatorChannelId:channelId,
+createdAt:serverTimestamp(),
+sales:0,
+views:0,
+status:"public"
+
+});
+
+await set(ref(db,"channels/"+channelId+"/arts/"+refArt.key),true);
+
+bar.style.width="100%";
+
+alert("Art publié");
+
+location.href="creator-products.html";
+
+};
+
+</script></body>
+</html>
