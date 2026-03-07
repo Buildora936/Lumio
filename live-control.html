@@ -188,7 +188,12 @@ let peerConnections={};
 
 const localVideo=document.getElementById("localVideo");
 const viewerCountEl=document.getElementById("viewerCount");
-const totalEarnedEl=document.getElementById("totalEarned");
+const totalBox = document.getElementById("totalEarned");
+
+onValue(ref(db,`lives/${liveId}/totalSupport`),snap=>{
+  const total = snap.val() || 0;
+  totalBox.textContent = "💰 $" + total + " gagnés";
+});
 
 onAuthStateChanged(auth,u=>{
  if(!u) location.href="auth.html";
