@@ -119,6 +119,17 @@ video{
   cursor:pointer;
   margin-left:6px;
 }
+ #topSupportersBox{
+  margin-top:20px;
+  background:#181818;
+  padding:12px;
+  border-radius:10px;
+}
+
+#topSupporters div{
+  margin:6px 0;
+  font-weight:600;
+}
 </style>
 </head>
 
@@ -130,6 +141,10 @@ video{
     <span id="viewerCount">0 spectateurs</span>
     <span id="totalEarned">Gagné: $0</span>
   </div>
+ <div id="topSupportersBox">
+  <h3>🏆 Top supporters</h3>
+  <div id="topSupporters"></div>
+</div>
   <button onclick="endLive()">Terminer le live</button>
 </header>
 
@@ -294,6 +309,39 @@ window.endLive=async()=>{
  alert("Live terminé");
  location.href="index.html";
 };
+ const topBox = document.getElementById("topSupporters");
+
+onValue(ref(db,"supports"),snap=>{
+
+  const supporters = {};
+
+  snap.forEach(s=>{
+    const data = s.val();
+
+    if(data.liveId !== liveId) return;
+
+    const name = data.userEmail || "Anonyme";
+
+    if(!supporters[name]) supporters[name] = 0;
+
+    supporters[name] += Number(data.amount);
+  });
+
+  const sorted = Object.entries(supporters)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3);
+
+  topBox.innerHTML="";
+
+  const medals = ["🥇","🥈","🥉"];
+
+  sorted.forEach((s,i)=>{
+    const div = document.createElement("div");
+    div.textContent = `${medals[i]} ${s[0]} — $${s[1]}`;
+    topBox.appendChild(div);
+  });
+
+});
 </script>
 
 </body>
