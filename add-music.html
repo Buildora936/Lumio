@@ -1,0 +1,190 @@
+<!DOCTYPE html><html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Studio Musique – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+main{max-width:900px;margin:60px auto;padding:24px;background:#202020;border-radius:16px}
+h2{text-align:center;margin-bottom:20px}
+
+input,textarea,select{
+ width:100%;padding:12px;margin-bottom:12px;
+ background:#2a2a2a;border:none;border-radius:8px;color:white
+}
+
+button{
+ background:#ff6a00;border:none;color:white;
+ padding:12px 18px;border-radius:30px;
+ font-weight:700;cursor:pointer
+}
+
+.progress{
+ height:16px;background:#333;border-radius:10px;margin-bottom:16px;overflow:hidden
+}
+
+.bar{height:100%;width:0;background:#ff6a00}
+.previewBox{background:#111;padding:14px;border-radius:10px;margin-top:10px}
+</style></head><body><main><h2>Studio Musique</h2><div class="progress"><div class="bar" id="bar"></div></div><input id="title" placeholder="Nom de la musique"><textarea id="desc" placeholder="Description"></textarea><select id="genre">
+<option>Pop</option>
+<option>Rap</option>
+<option>Afro</option>
+<option>Classique</option>
+<option>Electro</option>
+<option>Autre</option>
+</select><select id="lang">
+<option value="fr">Français</option>
+<option value="en">Anglais</option>
+</select><input id="price" type="number" placeholder="Prix ($)"><h3>Cover principale</h3>
+<input id="coverMain" type="file" accept="image/*"><h3>Cover secondaire</h3>
+<input id="coverSecond" type="file" accept="image/*"><h3>Aperçu gratuit (refrain)</h3>
+<input id="previewAudio" type="file" accept="audio/*"><h3>Musique complète</h3>
+<input id="musicFile" type="file" accept="audio/*"><h3>OU vidéo musique</h3>
+<input id="musicVideo" type="file" accept="video/*"><button id="publish">Publier musique</button>
+
+<div class="previewBox" id="previewBox"></div></main><script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase,ref,push,set,get,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/* FIREBASE */
+
+const app=initializeApp({
+ apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain:"lumio-822f0.firebaseapp.com",
+ databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId:"lumio-822f0",
+ storageBucket:"lumio-822f0.firebasestorage.app",
+ messagingSenderId:"833325770824",
+ appId:"1:833325770824:web:b1a87a7bda0b00ee20907d"
+});
+
+const db=getDatabase(app);
+const auth=getAuth(app);
+
+/* SUPABASE */
+
+const supabase=createClient(
+"https://ymcrkbcsuloijemdbqzy.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw"
+);
+
+let uid=null;
+let channelId=null;
+
+onAuthStateChanged(auth,async u=>{
+ if(!u) return location.href="auth.html";
+
+ uid=u.uid;
+
+ const snap=await get(ref(db,"userChannels/"+uid));
+
+ if(!snap.exists()) location.href="add-channel.html";
+
+ channelId=snap.val();
+});
+
+/* UPLOAD FUNCTION */
+
+async function upload(bucket,file){
+
+ const name=Date.now()+"_"+file.name;
+
+ const {error}=await supabase.storage
+  .from(bucket)
+  .upload(name,file);
+
+ if(error) throw error;
+
+ const {data}=supabase.storage
+  .from(bucket)
+  .getPublicUrl(name);
+
+ return data.publicUrl;
+}
+
+/* PUBLISH */
+
+document.getElementById("publish").onclick=async()=>{
+
+ if(!channelId) return alert("Erreur channel");
+
+ const title=title.value.trim();
+ const price=parseFloat(price.value);
+
+ if(!title) return alert("Nom requis");
+ if(!price) return alert("Prix requis");
+
+ const coverMainFile=coverMain.files[0];
+ const coverSecondFile=coverSecond.files[0];
+ const previewFile=previewAudio.files[0];
+ const musicFileInput=musicFile.files[0];
+ const videoFile=musicVideo.files[0];
+
+ if(!coverMainFile||!coverSecondFile) return alert("Deux covers requises");
+
+ if(!previewFile) return alert("Preview requis");
+
+ if(!musicFileInput && !videoFile) return alert("Musique ou vidéo requise");
+
+ const bar=document.getElementById("bar");
+
+ bar.style.width="20%";
+
+ const coverMainURL=await upload("music-covers",coverMainFile);
+
+ bar.style.width="40%";
+
+ const coverSecondURL=await upload("music-covers",coverSecondFile);
+
+ bar.style.width="60%";
+
+ const previewURL=await upload("music-preview",previewFile);
+
+ let musicURL=null;
+ let videoURL=null;
+
+ if(musicFileInput){
+  musicURL=await upload("music-files",musicFileInput);
+ }
+
+ if(videoFile){
+  videoURL=await upload("music-video",videoFile);
+ }
+
+ bar.style.width="90%";
+
+ const refMusic=push(ref(db,"music"));
+
+ await set(refMusic,{
+  title,
+  description:desc.value,
+  genre:genre.value,
+  language:lang.value,
+  price,
+  coverMainURL,
+  coverSecondURL,
+  previewURL,
+  musicURL,
+  videoURL,
+  creatorChannelId:channelId,
+  createdAt:serverTimestamp(),
+  sales:0,
+  views:0,
+  status:"public"
+ });
+
+ await set(ref(db,"channels/"+channelId+"/music/"+refMusic.key),true);
+
+ bar.style.width="100%";
+
+ alert("Musique publiée");
+
+ location.href="creator-products.html";
+
+};
+
+</script></body>
+</html>
