@@ -318,11 +318,37 @@ payBtn.onclick=async()=>{
       const result = await stripe.confirmCardPayment(clientSecret, {
         payment_method:{ card: cardElement }
       });
-      if(result.error) errorBox.textContent=result.error.message;
-      else if(result.paymentIntent && result.paymentIntent.status==="succeeded"){
-        alert("Paiement réussi ! Merci pour votre soutien 💛");
-        modal.style.display="none";
-      }
+      if(result.paymentIntent && result.paymentIntent.status==="succeeded"){
+
+  alert("Paiement réussi ! Merci pour votre soutien 💛");
+  modal.style.display="none";
+
+  try{
+
+    const liveSnap = await get(ref(db, `lives/${liveId}`));
+    const liveData = liveSnap.val();
+
+    const creatorUid = liveData.creatorUid || null;
+
+    // 1️⃣ enregistrer le soutien
+    await push(ref(db,"supports"),{
+      liveId: liveId,
+      userEmail: currentUser?.email || "guest",
+      amount: amount,
+      creatorUid: creatorUid,
+      timestamp: Date.now()
+    });
+
+    // 2️⃣ mettre à jour totalSupport du live
+    const currentTotal = liveData.totalSupport || 0;
+
+    await set(ref(db,`lives/${liveId}/totalSupport`), currentTotal + amount);
+
+  }catch(err){
+    console.error("Erreur enregistrement soutien",err);
+  }
+
+}
     } else {
       // Pour PayPal et Samsung Pay, redirection Stripe Checkout
       window.location.href = data.checkout_url;
