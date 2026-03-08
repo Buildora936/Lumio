@@ -46,7 +46,7 @@ th{color:#aaa}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, push, set, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, push, set, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
@@ -79,8 +79,9 @@ onAuthStateChanged(auth, async user=>{
 async function loadWallet(){
   const walletRef = ref(db, "wallets/"+currentUser.uid);
   const snap = await get(walletRef);
-  let wallet = { totalEarned:0, totalWithdrawn:0 };
+  let wallet = { totalEarned:0, totalWithdrawn:0, stripeAccountId: "" };
   if(snap.exists()) wallet = snap.val();
+
   const available = (wallet.totalEarned*0.8) - wallet.totalWithdrawn;
   balanceEl.textContent = "$"+available.toFixed(2);
   earnedEl.textContent = "$"+wallet.totalEarned.toFixed(2);
@@ -114,6 +115,7 @@ async function loadHistory(){
   }
 }
 
+// 💳 Retrait via Stripe Connect
 async function requestPayout(){
   payoutBtn.disabled = true;
   payoutBtn.innerText = "Traitement...";
@@ -126,19 +128,36 @@ async function requestPayout(){
     const available = (wallet.totalEarned*0.8) - wallet.totalWithdrawn;
     if(available < 10) throw new Error("Solde insuffisant (min 10$)");
 
-    // Créer la demande
+    // 🔹 Créer PaymentIntent via API côté serveur
+    const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payment-intent", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        amount: Math.floor(available*100),  // cents
+        currency:"usd",
+        stripeAccount: wallet.stripeAccountId,
+        description:"Retrait Lumio",
+        transfer_data: { destination: wallet.stripeAccountId }
+      })
+    });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.message||"Erreur Stripe");
+
+    // ✅ Enregistrer la demande après confirmation
     const reqRef = push(ref(db,"payoutRequests/"+currentUser.uid));
     await set(reqRef,{
       amount: available,
       date: Date.now(),
-      status: "pending"
+      status: "pending",
+      stripePaymentIntent: data.paymentIntentId
     });
 
     // Déduire le solde
-    await update(walletRef,{ totalWithdrawn: (wallet.totalWithdrawn ||0) + available });
+    await update(walletRef,{ totalWithdrawn: (wallet.totalWithdrawn||0)+available });
 
-    alert("Demande de retrait enregistrée ✅");
+    alert("Demande de retrait créée avec succès !");
     location.reload();
+
   }catch(err){
     alert(err.message);
     payoutBtn.disabled=false;
@@ -147,7 +166,6 @@ async function requestPayout(){
 }
 
 payoutBtn.onclick = requestPayout;
-
 </script>
 </body>
 </html>
