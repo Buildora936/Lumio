@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Mes Produits – Lumio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{margin:0;font-family:system-ui;background:#181818;color:white}
+header{padding:20px;text-align:center;background:#222;font-size:24px;font-weight:700;color:#ff9800}
+.container{max-width:1100px;margin:30px auto;padding:10px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.filters button{padding:10px 16px;border:none;border-radius:20px;background:#333;color:white;cursor:pointer}
+.filters button.active{background:#ff9800;color:black}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.card{background:#1c1c1c;padding:10px;border-radius:12px;display:flex;flex-direction:column;justify-content:space-between}
+.card img{width:100%;height:160px;object-fit:cover;border-radius:10px}
+.card h4{margin:10px 0 4px;font-size:16px}
+.card p{color:#aaa;font-size:13px;flex:1}
+.card .price{font-weight:700;margin:6px 0;color:#ff9800}
+.card button{padding:8px 10px;border:none;border-radius:12px;background:#00c853;color:black;font-weight:700;cursor:pointer;margin-top:4px}
+.card button.delete{background:#ff3d00;color:white}
+
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);justify-content:center;align-items:center;z-index:100}
+.modal-content{background:#222;padding:20px;border-radius:12px;width:90%;max-width:500px}
+.modal-content h3{color:#ff9800;margin-top:0}
+.modal-content input, .modal-content textarea, .modal-content select{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:none;background:#333;color:white}
+.modal-content button{padding:12px;border:none;border-radius:20px;font-weight:700;cursor:pointer;margin-top:10px}
+.modal-content button.save{background:#00c853;color:black}
+.modal-content button.cancel{background:#ff3d00;color:white;margin-left:10px}
+
+.progress{height:12px;background:#333;border-radius:10px;overflow:hidden;margin-bottom:16px}
+.bar{height:100%;width:0;background:#ff9800}
+
+.notice{margin-top:10px;color:#aaa;font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+
+<header>Mes Produits</header>
+
+<div class="container">
+<div class="filters">
+  <button class="active" data-type="all">Tous</button>
+  <button data-type="books">Livres</button>
+  <button data-type="music">Musique</button>
+  <button data-type="arts">Art</button>
+</div>
+
+<div class="progress"><div class="bar" id="bar"></div></div>
+
+<div class="grid" id="grid"></div>
+<div class="notice" id="notice"></div>
+</div>
+
+<!-- MODAL MODIFIER -->
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <h3>Modifier Produit</h3>
+    <input id="editTitle" placeholder="Titre">
+    <textarea id="editDesc" placeholder="Description"></textarea>
+    <input id="editPrice" type="number" min="0" placeholder="Prix $">
+    <select id="editType">
+      <option value="books">Livre</option>
+      <option value="music">Musique</option>
+      <option value="arts">Art</option>
+    </select>
+    <input id="editCover" type="file" accept="image/*">
+    <button class="save" id="saveBtn">Enregistrer</button>
+    <button class="cancel" id="cancelBtn">Annuler</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get, set, update, remove, onValue, push } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
+
+const app = initializeApp({
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain: "lumio-822f0.firebaseapp.com",
+ databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId: "lumio-822f0",
+ storageBucket: "lumio-822f0.appspot.com",
+ messagingSenderId: "833325770824",
+ appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+});
+
+const db = getDatabase(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
+
+let user = null;
+let products = {};
+let currentEditId = null;
+let currentEditType = null;
+
+const grid = document.getElementById("grid");
+const bar = document.getElementById("bar");
+const notice = document.getElementById("notice");
+
+const editModal = document.getElementById("editModal");
+const editTitle = document.getElementById("editTitle");
+const editDesc = document.getElementById("editDesc");
+const editPrice = document.getElementById("editPrice");
+const editType = document.getElementById("editType");
+const editCover = document.getElementById("editCover");
+const saveBtn = document.getElementById("saveBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+
+/* AUTH */
+onAuthStateChanged(auth, u => {
+ if(!u) location.href="auth.html";
+ user = u;
+ loadProducts();
+});
+
+/* FILTER BUTTONS */
+document.querySelectorAll(".filters button").forEach(btn => {
+ btn.onclick = () => {
+   document.querySelectorAll(".filters button").forEach(b=>b.classList.remove("active"));
+   btn.classList.add("active");
+   displayProducts(btn.dataset.type);
+ };
+});
+
+/* LOAD PRODUCTS */
+async function loadProducts(){
+ bar.style.width="20%";
+ const types = ["books","music","arts"];
+ products = {};
+ for(const t of types){
+   const snap = await get(ref(db, t));
+   if(!snap.exists()) continue;
+   Object.entries(snap.val()).forEach(([id,p])=>{
+     if(p.authorChannelId === user.uid){
+       products[id] = {...p, type: t, id};
+     }
+   });
+ }
+ bar.style.width="80%";
+ displayProducts("all");
+ bar.style.width="100%";
+}
+
+/* DISPLAY PRODUCTS */
+function displayProducts(filter){
+ grid.innerHTML="";
+ Object.values(products).forEach(p=>{
+   if(filter !== "all" && p.type !== filter) return;
+   const card = document.createElement("div");
+   card.className="card";
+   card.innerHTML=`
+     <img src="${p.coverURL||''}" alt="">
+     <h4>${p.title}</h4>
+     <p>${p.description?.slice(0,60)||''}</p>
+     <div class="price">$${p.price||0}</div>
+     <button class="editBtn">Modifier</button>
+     <button class="deleteBtn delete">Supprimer</button>
+   `;
+   card.querySelector(".editBtn").onclick = ()=>openEditModal(p);
+   card.querySelector(".deleteBtn").onclick = ()=>deleteProduct(p);
+   grid.appendChild(card);
+ });
+}
+
+/* OPEN MODAL EDIT */
+function openEditModal(p){
+ currentEditId = p.id;
+ currentEditType = p.type;
+ editTitle.value = p.title||'';
+ editDesc.value = p.description||'';
+ editPrice.value = p.price||0;
+ editType.value = p.type;
+ editCover.value = '';
+ editModal.style.display = "flex";
+}
+
+/* CLOSE MODAL */
+cancelBtn.onclick = ()=> editModal.style.display = "none";
+
+/* SAVE EDIT */
+saveBtn.onclick = async ()=>{
+ if(!currentEditId) return;
+ saveBtn.disabled = true;
+ notice.textContent = "Enregistrement en cours...";
+
+ let coverURL = products[currentEditId].coverURL || '';
+ if(editCover.files[0]){
+   const file = editCover.files[0];
+   const storageRef = sRef(storage, `covers/${currentEditType}/${currentEditId}`);
+   await uploadBytes(storageRef, file);
+   coverURL = await getDownloadURL(storageRef);
+ }
+
+ await update(ref(db, `${currentEditType}/${currentEditId}`),{
+   title: editTitle.value,
+   description: editDesc.value,
+   price: parseFloat(editPrice.value),
+   coverURL
+ });
+
+ products[currentEditId] = {...products[currentEditId], title: editTitle.value, description: editDesc.value, price: parseFloat(editPrice.value), coverURL};
+
+ notice.textContent = "Produit mis à jour ✅";
+ editModal.style.display = "none";
+ saveBtn.disabled = false;
+ displayProducts(document.querySelector(".filters button.active").dataset.type);
+};
+
+/* DELETE PRODUCT */
+async function deleteProduct(p){
+ if(!confirm(`Supprimer "${p.title}" ?`)) return;
+ notice.textContent = "Suppression en cours...";
+ try{
+   if(p.coverURL){
+     const storageRef = sRef(storage, `covers/${p.type}/${p.id}`);
+     await deleteObject(storageRef);
+   }
+   await remove(ref(db, `${p.type}/${p.id}`));
+   delete products[p.id];
+   notice.textContent = "Produit supprimé ✅";
+   displayProducts(document.querySelector(".filters button.active").dataset.type);
+ }catch(err){
+   console.error(err);
+   notice.textContent = "Erreur suppression ❌";
+ }
+}
+
+/* CLOSE MODAL ON CLICK OUTSIDE */
+window.onclick = e => { if(e.target === editModal) editModal.style.display = "none"; };
+
+</script>
+
+</body>
+</html>
