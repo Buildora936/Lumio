@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Creator Sales</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#111;
+color:white;
+padding:40px;
+}
+
+.stats{
+display:flex;
+gap:20px;
+margin-bottom:40px;
+}
+
+.stat{
+background:#1c1c1c;
+padding:20px;
+border-radius:10px;
+flex:1;
+text-align:center;
+}
+
+.stat h2{
+margin:0;
+font-size:32px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+padding:12px;
+border-bottom:1px solid #333;
+}
+
+</style>
+
+</head>
+<body>
+
+<h1>Creator Dashboard</h1>
+
+<div class="stats">
+
+<div class="stat">
+<p>Total Revenue</p>
+<h2 id="revenue">$0</h2>
+</div>
+
+<div class="stat">
+<p>Total Sales</p>
+<h2 id="sales">0</h2>
+</div>
+
+<div class="stat">
+<p>Products Sold</p>
+<h2 id="products">0</h2>
+</div>
+
+</div>
+
+<table>
+
+<thead>
+<tr>
+<th>Product</th>
+<th>Price</th>
+<th>Date</th>
+</tr>
+</thead>
+
+<tbody id="salesTable"></tbody>
+
+</table>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
+
+const firebaseConfig={
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain: "lumio-822f0.firebaseapp.com",
+  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId: "lumio-822f0",
+  storageBucket: "lumio-822f0.firebasestorage.app",
+  messagingSenderId: "833325770824",
+  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+
+}
+
+const app=initializeApp(firebaseConfig)
+
+const auth=getAuth(app)
+const db=getDatabase(app)
+
+const revenueEl=document.getElementById("revenue")
+const salesEl=document.getElementById("sales")
+const productsEl=document.getElementById("products")
+const table=document.getElementById("salesTable")
+
+onAuthStateChanged(auth, async(user)=>{
+
+if(!user) return
+
+const uid=user.uid
+
+const snapshot=await get(
+ref(db,"creatorSales/"+uid)
+)
+
+if(!snapshot.exists()) return
+
+const salesData=snapshot.val()
+
+let totalRevenue=0
+let totalSales=0
+
+const productsSet=new Set()
+
+Object.values(salesData).forEach(sale=>{
+
+totalSales++
+
+totalRevenue+=sale.creatorAmount
+
+productsSet.add(sale.productId)
+
+const row=document.createElement("tr")
+
+row.innerHTML=`
+
+<td>${sale.productTitle}</td>
+<td>$${sale.price}</td>
+<td>${new Date(sale.date).toLocaleDateString()}</td>
+
+`
+
+table.appendChild(row)
+
+})
+
+revenueEl.innerText="$"+totalRevenue.toFixed(2)
+salesEl.innerText=totalSales
+productsEl.innerText=productsSet.size
+
+})
+
+</script>
+
+</body>
+</html>
