@@ -38,15 +38,17 @@ th{color:#aaa}
   <table>
     <thead>
       <tr><th>Date</th><th>Montant</th><th>Statut</th></tr>
-    </thead>
-    <tbody id="payoutHistory"></tbody>
+  </thead>
+  <tbody id="payoutHistory"></tbody>
   </table>
 </div>
 
 <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase, ref, get, push, set, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
   authDomain: "lumio-822f0.firebaseapp.com",
   databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
@@ -59,75 +61,93 @@ import { getDatabase, ref, get, push, set, update, serverTimestamp } from "https
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
-async function securePayout(uid, walletRef, amount) {
-  const db = getDatabase();
 
-  // 1️⃣ Charger le wallet
+let currentUser = null;
+const balanceEl = document.getElementById("balance");
+const earnedEl = document.getElementById("earned");
+const withdrawnEl = document.getElementById("withdrawn");
+const payoutBtn = document.getElementById("payoutBtn");
+const payoutHistoryEl = document.getElementById("payoutHistory");
+
+onAuthStateChanged(auth, async user=>{
+  if(!user) return location.href="auth.html";
+  currentUser = user;
+  await loadWallet();
+  await loadHistory();
+});
+
+async function loadWallet(){
+  const walletRef = ref(db, "wallets/"+currentUser.uid);
   const snap = await get(walletRef);
-  if(!snap.exists()) throw new Error("Wallet inexistant");
-  const w = snap.val();
-  const totalEarned = w.totalEarned || 0;
-  const totalWithdrawn = w.totalWithdrawn || 0;
+  let wallet = { totalEarned:0, totalWithdrawn:0 };
+  if(snap.exists()) wallet = snap.val();
+  const available = (wallet.totalEarned*0.8) - wallet.totalWithdrawn;
+  balanceEl.textContent = "$"+available.toFixed(2);
+  earnedEl.textContent = "$"+wallet.totalEarned.toFixed(2);
+  withdrawnEl.textContent = "$"+wallet.totalWithdrawn.toFixed(2);
 
-  const available = (totalEarned * 0.85) - totalWithdrawn; // solde réel après commission
-  if(amount > available) throw new Error("Solde insuffisant pour cette demande");
-
-  // 2️⃣ Vérifier la dernière demande
-  const histRef = ref(db,"payoutRequests/"+uid);
-  const histSnap = await get(histRef);
+  // Check 28 days cooldown
+  const histSnap = await get(ref(db,"payoutRequests/"+currentUser.uid));
   if(histSnap.exists()){
-    const lastReq = Object.values(histSnap.val()).sort((a,b)=>b.date-a.date)[0];
+    const requests = Object.values(histSnap.val()).sort((a,b)=>b.date-a.date);
+    const lastReq = requests[0];
     const now = Date.now();
-    if(lastReq && lastReq.date && now - lastReq.date < 5*60*1000){
-      throw new Error("Vous devez attendre 5 minutes avant de créer une nouvelle demande");
+    if(lastReq && (now - lastReq.date < 28*24*3600*1000)) {
+      payoutBtn.disabled = true;
+      payoutBtn.innerText = "Retrait disponible dans 28 jours";
     }
   }
-
-  // 3️⃣ Créer le log
-  const logRef = push(ref(db,"payoutLogs/"+uid));
-  await set(logRef,{
-    type:"request",
-    amount,
-    date:serverTimestamp(),
-    status:"pending"
-  });
-
-  // 4️⃣ Créer la demande
-  const reqRef = push(histRef);
-  await set(reqRef,{
-    amount,
-    status:"pending",
-    date:serverTimestamp()
-  });
-
-  // 5️⃣ Déduire du wallet
-  await update(walletRef,{ totalWithdrawn: totalWithdrawn + amount });
-
-  return { success:true, message:"Demande de retrait créée avec succès" };
 }
 
-// Exemple d'utilisation sur le bouton
-payoutBtn.onclick = async () => {
+async function loadHistory(){
+  const histRef = ref(db,"payoutRequests/"+currentUser.uid);
+  const snap = await get(histRef);
+  payoutHistoryEl.innerHTML="";
+  if(snap.exists()){
+    Object.values(snap.val()).sort((a,b)=>b.date-a.date).forEach(req=>{
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${new Date(req.date).toLocaleDateString()}</td>
+                       <td>$${req.amount.toFixed(2)}</td>
+                       <td>${req.status}</td>`;
+      payoutHistoryEl.appendChild(row);
+    });
+  }
+}
+
+async function requestPayout(){
   payoutBtn.disabled = true;
-  payoutBtn.innerText = "Vérification...";
+  payoutBtn.innerText = "Traitement...";
 
   try{
     const walletRef = ref(db,"wallets/"+currentUser.uid);
     const snap = await get(walletRef);
-    const w = snap.exists() ? snap.val() : { totalEarned:0, totalWithdrawn:0 };
-    let balance = (w.totalEarned||0)*0.85 - (w.totalWithdrawn||0);
-    if(balance < 10) throw new Error("Solde insuffisant, minimum retrait = 10$");
+    if(!snap.exists()) throw new Error("Wallet inexistant");
+    const wallet = snap.val();
+    const available = (wallet.totalEarned*0.8) - wallet.totalWithdrawn;
+    if(available < 10) throw new Error("Solde insuffisant (min 10$)");
 
-    const res = await securePayout(currentUser.uid, walletRef, balance);
-    alert(res.message);
+    // Créer la demande
+    const reqRef = push(ref(db,"payoutRequests/"+currentUser.uid));
+    await set(reqRef,{
+      amount: available,
+      date: Date.now(),
+      status: "pending"
+    });
+
+    // Déduire le solde
+    await update(walletRef,{ totalWithdrawn: (wallet.totalWithdrawn ||0) + available });
+
+    alert("Demande de retrait enregistrée ✅");
     location.reload();
   }catch(err){
     alert(err.message);
-    payoutBtn.disabled = false;
-    payoutBtn.innerText = "Demander un retrait";
+    payoutBtn.disabled=false;
+    payoutBtn.innerText="Demander un retrait";
   }
-};
+}
+
+payoutBtn.onclick = requestPayout;
+
 </script>
-  
 </body>
 </html>
