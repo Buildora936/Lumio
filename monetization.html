@@ -11,7 +11,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
@@ -31,12 +31,12 @@ let channelId = null;
 
 // Elements
 const subsElem = document.getElementById("subs");
+const ageElem = document.getElementById("age");
 const blockedElem = document.getElementById("blocked");
 const panelElem = document.getElementById("panel");
+const monetizationBtn = document.getElementById("monetizationBtn");
 const ads = document.getElementById("ads");
 const donations = document.getElementById("donations");
-const saveBtn = document.getElementById("saveBtn");
-const certBtn = document.getElementById("certBtn");
 
 onAuthStateChanged(auth, async user => {
   if (!user) return location.href = "auth.html";
@@ -54,47 +54,45 @@ onAuthStateChanged(auth, async user => {
   const subs = subSnap.exists() ? Object.keys(subSnap.val()).length : 0;
   subsElem.textContent = subs;
 
-  if (subs < 1000) {
+  // Vérifier âge du créateur
+  const ageSnap = await get(ref(db, "users/" + user.uid + "/age"));
+  const age = ageSnap.exists() ? ageSnap.val() : 0;
+  ageElem.textContent = age;
+
+  // Bloquer si conditions non remplies
+  if (subs < 10000 || age < 18) {
     blockedElem.style.display = "block";
     panelElem.style.display = "none";
-    certBtn.style.display = "none";
     return;
   }
 
-  // Débloquer monétisation et certificat
   blockedElem.style.display = "none";
   panelElem.style.display = "block";
-  certBtn.style.display = "block";
 
   // Charger config existante
   const mSnap = await get(ref(db, "monetization/" + channelId));
+  let enabled = false;
   if (mSnap.exists()) {
     const m = mSnap.val();
+    enabled = m.enabled;
     ads.checked = m.ads;
     donations.checked = m.donations;
   }
+  monetizationBtn.textContent = enabled ? "Désactiver la monétisation" : "Activer la monétisation";
+
+  monetizationBtn.onclick = async () => {
+    enabled = !enabled;
+    await set(ref(db, "monetization/" + channelId), {
+      enabled: enabled,
+      ads: ads.checked,
+      donations: donations.checked,
+      live: false,
+      createdAt: Date.now()
+    });
+    monetizationBtn.textContent = enabled ? "Désactiver la monétisation" : "Activer la monétisation";
+    alert(`Monétisation ${enabled ? "activée ✅" : "désactivée ❌"}`);
+  };
 });
-
-// Sauvegarder les options
-saveBtn.onclick = async () => {
-  if (!channelId) return;
-  await set(ref(db, "monetization/" + channelId), {
-    enabled: true,
-    ads: ads.checked,
-    donations: donations.checked,
-    live: false,
-    createdAt: Date.now()
-  });
-  alert("Monétisation enregistrée ✅");
-};
-
-// Bouton certificat
-certBtn.onclick = () => {
-  const message = encodeURIComponent(
-    "Bonjour Lumio, je souhaite recevoir mon certificat pour avoir atteint 1000 abonnés sur ma chaîne. 🎉"
-  );
-  window.open(`https://wa.me/50941040511?text=${message}`, "_blank");
-};
 </script>
 
 <style>
@@ -152,11 +150,7 @@ button{
   padding:16px;
   border-radius:14px;
   margin-bottom:16px;
-}
-#certBtn{
-  display:none;
-  background:#1a73e8;
-  margin-top:10px;
+  font-size:14px;
 }
 </style>
 </head>
@@ -171,11 +165,12 @@ button{
 <main>
 
   <div class="notice">
-    👥 Abonnés actuels : <b id="subs">0</b> / 1000 requis
+    👥 Abonnés : <b id="subs">0</b> / 10 000 requis<br>
+    🎂 Âge : <b id="age">0</b> / 18 requis
   </div>
 
   <div id="blocked" class="blocked">
-    ❌ Vous devez atteindre <b>1000 abonnés</b> pour activer la monétisation.
+    ❌ Vous devez avoir au moins <b>10 000 abonnés</b> et être âgé de <b>18 ans</b> pour activer la monétisation.
   </div>
 
   <div id="panel" class="box">
@@ -191,9 +186,7 @@ button{
       <input type="checkbox" id="donations">
     </div>
 
-    <button id="saveBtn">Enregistrer la monétisation</button>
-
-    <button id="certBtn">Demander un certificat 🎓</button>
+    <button id="monetizationBtn">Activer la monétisation</button>
   </div>
 
 </main>
