@@ -2,124 +2,290 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Checkout – Lumio</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lumio Checkout</title>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, set, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-
-// Récupérer bookId depuis query string
-const params = new URLSearchParams(window.location.search);
-const bookId = params.get("id");
-if(!bookId) alert("Livre non spécifié");
-
-// Elements DOM
-const titleEl = document.getElementById("title");
-const priceEl = document.getElementById("price");
-const buyBtn = document.getElementById("buyBtn");
-const statusEl = document.getElementById("status");
-
-let userId, bookData, creatorStripeId;
-
-onAuthStateChanged(auth, async user => {
-  if(!user) return location.href="auth.html";
-  userId = user.uid;
-
-  // Récupérer le livre
-  const snapBook = await get(ref(db,"books/"+bookId));
-  if(!snapBook.exists()) return statusEl.innerText="Livre introuvable";
-  bookData = snapBook.val();
-
-  // Récupérer compte stripe du créateur
-  const snapUser = await get(ref(db,"users/"+bookData.authorChannelId));
-  if(!snapUser.exists()) return statusEl.innerText="Auteur introuvable";
-  creatorStripeId = snapUser.val().stripe_account_id;
-
-  titleEl.innerText = bookData.title;
-  priceEl.innerText = "$"+bookData.price.toFixed(2);
-});
-
-// Fonction payer
-buyBtn.onclick = async ()=>{
-  buyBtn.disabled = true;
-  statusEl.innerText = "Création du paiement...";
-
-  try{
-    const res = await fetch("https://your-supabase-functions-url/functions/v1/create-payment-intent",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        amount: Math.round(bookData.price*100), // montant en cents
-        connectedAccountId: creatorStripeId
-      })
-    });
-
-    const data = await res.json();
-    if(!data.clientSecret) throw new Error("Impossible de créer le paiement");
-
-    statusEl.innerText = "Paiement en cours...";
-    
-    // Stripe Elements
-    const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
-    const {error, paymentIntent} = await stripe.confirmCardPayment(data.clientSecret, {
-      payment_method: {card: {token: "tok_visa"}} // simulation carte test
-    });
-
-    if(error) throw error;
-    if(paymentIntent.status==="succeeded"){
-      statusEl.innerText="Paiement réussi ✅ Déblocage du livre...";
-
-      // Ajouter le livre à la bibliothèque
-      await set(ref(db,"users/"+userId+"/library/"+bookId),{
-        unlockedAt: serverTimestamp(),
-        title: bookData.title,
-        authorChannelId: bookData.authorChannelId,
-        price: bookData.price
-      });
-
-      statusEl.innerText="Livre débloqué ! Vous pouvez le lire maintenant.";
-      buyBtn.style.display="none";
-    } else {
-      statusEl.innerText="Échec du paiement";
-      buyBtn.disabled=false;
-    }
-  }catch(err){
-    console.error(err);
-    statusEl.innerText="Erreur : "+err.message;
-    buyBtn.disabled=false;
-  }
-};
-</script>
+<script src="https://js.stripe.com/v3/"></script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#181818;color:white}
-main{max-width:600px;margin:60px auto;padding:24px;background:#202020;border-radius:16px;text-align:center}
-button{padding:12px 20px;border:none;border-radius:10px;background:#ff6a00;color:white;font-weight:700;cursor:pointer;margin-top:16px}
+
+body{
+font-family:Arial;
+background:#0f0f0f;
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+margin:0;
+}
+
+.container{
+width:400px;
+background:#1c1c1c;
+padding:25px;
+border-radius:12px;
+}
+
+img{
+width:100%;
+border-radius:8px;
+margin-bottom:10px;
+}
+
+button{
+width:100%;
+padding:14px;
+border:none;
+background:orange;
+color:white;
+font-size:16px;
+border-radius:8px;
+cursor:pointer;
+margin-top:10px;
+}
+
+#payment-element{
+margin-top:15px;
+}
+
+.success{
+display:none;
+text-align:center;
+}
+
+.download{
+background:#00c853;
+}
+
 </style>
 </head>
+
 <body>
-<main>
-<h2 id="title">Chargement...</h2>
-<p>Prix : <span id="price">...</span></p>
-<button id="buyBtn">Acheter ce livre</button>
-<p id="status" style="margin-top:16px;color:#ff9800;"></p>
-</main>
+
+<div class="container">
+
+<div id="checkout">
+
+<h2>Paiement</h2>
+
+<img id="productImage">
+
+<h3 id="productTitle"></h3>
+
+<p id="productPrice"></p>
+
+<form id="payment-form">
+
+<div id="payment-element"></div>
+
+<button id="submit">Payer</button>
+
+</form>
+
+</div>
+
+<div class="success" id="success">
+
+<h2>Paiement réussi 🎉</h2>
+
+<p>Produit ajouté à votre bibliothèque</p>
+
+<a id="downloadLink">
+<button class="download">Télécharger</button>
+</a>
+
+</div>
+
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"
+import { getDatabase, ref, get, push, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
+
+const firebaseConfig = {
+
+apiKey: "AIza...",
+authDomain: "app.firebaseapp.com",
+databaseURL: "https://app.firebaseio.com",
+projectId: "app",
+
+}
+
+const app = initializeApp(firebaseConfig)
+
+const db = getDatabase(app)
+
+const auth = getAuth()
+
+/* STRIPE */
+
+const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA")
+
+let elements
+let clientSecret
+let product
+let creatorStripe
+
+/* GET PRODUCT ID */
+
+const params = new URLSearchParams(window.location.search)
+
+const productId = params.get("id")
+const type = params.get("type")
+
+/* LOAD PRODUCT */
+
+async function loadProduct(){
+
+const snap = await get(ref(db,"products/"+productId))
+
+product = snap.val()
+
+document.getElementById("productImage").src = product.image
+
+document.getElementById("productTitle").innerText = product.title
+
+document.getElementById("productPrice").innerText = "$"+product.price
+
+/* GET CREATOR STRIPE */
+
+const ch = await get(ref(db,"channels/"+product.creator))
+
+creatorStripe = ch.val().stripe_account_id
+
+createPaymentIntent()
+
+}
+
+loadProduct()
+
+/* CREATE PAYMENT */
+
+async function createPaymentIntent(){
+
+const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+
+price:product.price,
+
+stripeAccount:creatorStripe,
+
+productId:productId
+
+})
+
+})
+
+const data = await res.json()
+
+clientSecret = data.clientSecret
+
+elements = stripe.elements({clientSecret})
+
+const paymentElement = elements.create("payment")
+
+paymentElement.mount("#payment-element")
+
+}
+
+/* SUBMIT PAYMENT */
+
+const form = document.getElementById("payment-form")
+
+form.addEventListener("submit", async(e)=>{
+
+e.preventDefault()
+
+const {error} = await stripe.confirmPayment({
+
+elements,
+
+confirmParams:{
+return_url:window.location.href
+}
+
+})
+
+if(error){
+
+alert(error.message)
+
+}
+
+})
+
+/* CHECK SUCCESS */
+
+const url = new URL(window.location)
+
+if(url.searchParams.get("payment_intent_client_secret")){
+
+checkPayment()
+
+}
+
+async function checkPayment(){
+
+const clientSecret = url.searchParams.get("payment_intent_client_secret")
+
+const {paymentIntent} = await stripe.retrievePaymentIntent(clientSecret)
+
+if(paymentIntent.status==="succeeded"){
+
+savePurchase()
+
+}
+
+}
+
+/* SAVE PURCHASE */
+
+async function savePurchase(){
+
+const user = auth.currentUser
+
+const purchaseRef = push(ref(db,"purchases"))
+
+await set(purchaseRef,{
+
+user:user.uid,
+
+productId:productId,
+
+price:product.price,
+
+date:Date.now()
+
+})
+
+await set(ref(db,"userLibrary/"+user.uid+"/"+productId),{
+
+title:product.title,
+
+download:product.file,
+
+image:product.image
+
+})
+
+document.getElementById("checkout").style.display="none"
+
+document.getElementById("success").style.display="block"
+
+document.getElementById("downloadLink").href = product.file
+
+}
+
+</script>
+
 </body>
 </html>
