@@ -5,10 +5,12 @@
 <title>Analytics – Lumio Studio</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
@@ -25,99 +27,137 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 // Elements
-const walletEl = document.createElement("div");
-walletEl.className = "wallet";
-
 const statsGrid = document.getElementById("statsGrid");
 const revenuePanel = document.getElementById("revenuePanel");
-const salesTable = document.getElementById("salesTable");
+const totalRevenueEl = document.getElementById("totalRevenue");
+const withdrawBtn = document.getElementById("withdrawBtn");
+const exportBtn = document.getElementById("exportBtn");
+
+function getLast30DaysTimestamps() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30);
+  return [start.getTime(), today.getTime()];
+}
 
 onAuthStateChanged(auth, async user => {
   if(!user) return location.href="auth.html";
   const uid = user.uid;
 
-  // Wallet & earnings
-  const walletSnap = await get(ref(db,"wallets/"+uid));
-  let balance = 0, totalEarned = 0, totalWithdrawn = 0;
-  if(walletSnap.exists()){
-    const w = walletSnap.val();
-    balance = w.balance || 0;
-    totalEarned = w.totalEarned || 0;
-    totalWithdrawn = w.totalWithdrawn || 0;
+  // Vérifier si monétisation activée
+  const monetSnap = await get(ref(db, `monetization/${uid}`));
+  let monetEnabled = false;
+  if(monetSnap.exists()) {
+    monetEnabled = monetSnap.val().enabled;
+  }
+
+  if(monetEnabled) {
+    withdrawBtn.style.display = "inline-block";
   } else {
-    await set(ref(db,"wallets/"+uid),{balance:0,totalEarned:0,totalWithdrawn:0});
-  }
-  walletEl.innerHTML = `
-    <h2>💰 Wallet</h2>
-    <p>Solde disponible : $${balance.toFixed(2)}</p>
-    <p>Total gagné : $${totalEarned.toFixed(2)}</p>
-    <p>Total retiré : $${totalWithdrawn.toFixed(2)}</p>
-  `;
-  document.body.prepend(walletEl);
-
-  // Load stats for books
-  const booksSnap = await get(ref(db,"books"));
-  let totalViews=0, totalLikes=0, totalComments=0, totalBooks=0, totalRevenue=0;
-
-  if(booksSnap.exists()){
-    Object.entries(booksSnap.val()).forEach(([bid,b])=>{
-      if(b.authorChannelId !== uid) return;
-      totalBooks++;
-      totalViews += b.views || 0;
-      totalLikes += b.likes ? Object.keys(b.likes).length : 0;
-      totalComments += b.comments ? Object.keys(b.comments).length : 0;
-      totalRevenue += b.salesRevenue || 0;
-    });
+    withdrawBtn.style.display = "none";
   }
 
-  // Update dashboard
-  document.getElementById("totalBooks").innerText = totalBooks;
+  // Stats variables
+  let totalViews = 0, totalLikes = 0, totalSubs = 0;
+  let totalRevenue = 0;
+
+  const [startTs, endTs] = getLast30DaysTimestamps();
+
+  // Récupérer vidéos
+  const videosSnap = await get(ref(db, "videos"));
+  if(videosSnap.exists()) {
+    for(const [id, v] of Object.entries(videosSnap.val())) {
+      if(v.channelId !== uid) continue;
+      // watchTime par user
+      const wSnap = await get(ref(db, `watchTime/${id}`));
+      if(wSnap.exists()) {
+        let dailyViews = 0;
+        Object.values(wSnap.val()).forEach(w=>{
+          if(w.watchTime && w.watchTime >= 5) { // au moins 5s pour compter
+            dailyViews +=1;
+          }
+        });
+        totalViews += dailyViews;
+        totalRevenue += dailyViews * 0.0014; // 1.4$/1000 vues
+      }
+      if(v.likes) {
+        totalLikes += Object.keys(v.likes).length;
+      }
+    }
+  }
+
+  // Récupérer shorts
+  const shortsSnap = await get(ref(db, "shorts"));
+  if(shortsSnap.exists()) {
+    for(const [id, s] of Object.entries(shortsSnap.val())) {
+      if(s.channelId !== uid) continue;
+      const svSnap = await get(ref(db, `shortViews/${id}`));
+      if(svSnap.exists()) {
+        let dailyViews = 0;
+        Object.entries(svSnap.val()).forEach(([userId, val])=>{
+          if(val && val.timestamp && val.timestamp >= startTs && val.timestamp <= endTs) dailyViews += 1;
+        });
+        totalViews += dailyViews;
+        totalRevenue += dailyViews * 0.0014;
+      }
+      if(s.likes) totalLikes += Object.keys(s.likes).length;
+    }
+  }
+
+  // Récupérer abonnés
+  const subsSnap = await get(ref(db, `subscriptions/${uid}`));
+  if(subsSnap.exists()) totalSubs = Object.keys(subsSnap.val()).length;
+
   document.getElementById("totalViews").innerText = totalViews;
   document.getElementById("totalLikes").innerText = totalLikes;
-  document.getElementById("totalComments").innerText = totalComments;
-  document.getElementById("totalRevenue").innerText = "$"+totalRevenue.toFixed(2);
+  document.getElementById("totalSubs").innerText = totalSubs;
+  totalRevenueEl.innerText = "$" + totalRevenue.toFixed(2);
 
-  revenuePanel.style.display = "flex";
+  // Bouton retrait
+  withdrawBtn.onclick = ()=>location.href="payout.html";
 
-  // Sales history table
-  const ordersSnap = await get(ref(db,"orders"));
-  if(ordersSnap.exists()){
-    salesTable.innerHTML = "";
-    Object.entries(ordersSnap.val()).forEach(([oid,o])=>{
-      if(o.authorId !== uid) return;
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${o.bookTitle}</td>
-        <td>${o.buyerEmail}</td>
-        <td>$${o.amount.toFixed(2)}</td>
-        <td>${new Date(o.date).toLocaleDateString()}</td>
-      `;
-      salesTable.appendChild(row);
-    });
-  }
+  // Export CSV
+  exportBtn.onclick = () => {
+    let csv = "Type,Titre,Views,Likes,Revenue\n";
+    if(videosSnap.exists()){
+      Object.entries(videosSnap.val()).forEach(([id,v])=>{
+        if(v.channelId !== uid) return;
+        const views = v.viewsLast30 || 0;
+        const likes = v.likes ? Object.keys(v.likes).length : 0;
+        const rev = (views*0.0014).toFixed(2);
+        csv += `Video,${v.title},${views},${likes},${rev}\n`;
+      });
+    }
+    if(shortsSnap.exists()){
+      Object.entries(shortsSnap.val()).forEach(([id,s])=>{
+        if(s.channelId !== uid) return;
+        const views = s.viewsLast30 || 0;
+        const likes = s.likes ? Object.keys(s.likes).length : 0;
+        const rev = (views*0.0014).toFixed(2);
+        csv += `Short,${s.title},${views},${likes},${rev}\n`;
+      });
+    }
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "analytics.csv";
+    link.click();
+  };
 });
 </script>
 
 <style>
 body{
   margin:0;
-  background:#0f0f0f;
-  color:white;
   font-family:system-ui;
+  background:#181818;
+  color:white;
 }
 header{
-  padding:20px;
+  text-align:center;
   font-size:24px;
   font-weight:600;
-  text-align:center;
+  padding:20px;
   background:#111;
-}
-.wallet{
-  max-width:900px;
-  margin:20px auto;
-  background:#1c1c1c;
-  padding:16px;
-  border-radius:12px;
 }
 .stats{
   max-width:900px;
@@ -137,14 +177,23 @@ header{
 .revenue{
   max-width:900px;
   margin:20px auto;
-  display:flex;
-  gap:16px;
   background:#1c1c1c;
   padding:16px;
   border-radius:12px;
-  display:none;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
 }
-.revenue div{flex:1}
+button{
+  padding:10px 16px;
+  background:#ff6a00;
+  border:none;
+  border-radius:16px;
+  font-weight:700;
+  cursor:pointer;
+  color:black;
+}
 table{
   width:90%;
   max-width:900px;
@@ -161,29 +210,32 @@ th{color:#aaa;text-align:left;}
 </head>
 
 <body>
-<header>📊 Dashboard – Lumio Studio</header>
+<header>📊 Analytics – Lumio Studio</header>
 
 <div class="stats" id="statsGrid">
-  <div class="card"><span>Livres</span><h2 id="totalBooks">0</h2></div>
   <div class="card"><span>Vues</span><h2 id="totalViews">0</h2></div>
   <div class="card"><span>Likes</span><h2 id="totalLikes">0</h2></div>
-  <div class="card"><span>Commentaires</span><h2 id="totalComments">0</h2></div>
+  <div class="card"><span>Abonnés</span><h2 id="totalSubs">0</h2></div>
 </div>
 
 <div class="revenue" id="revenuePanel">
   <div>💰 Revenu total : <b id="totalRevenue">$0</b></div>
+  <button id="withdrawBtn">Faire un retrait</button>
+  <button id="exportBtn">Exporter CSV</button>
 </div>
 
 <table>
   <thead>
     <tr>
-      <th>Livre</th>
-      <th>Acheteur</th>
-      <th>Montant</th>
-      <th>Date</th>
+      <th>Type</th>
+      <th>Titre</th>
+      <th>Vues (30j)</th>
+      <th>Likes</th>
+      <th>Revenue</th>
     </tr>
   </thead>
   <tbody id="salesTable"></tbody>
 </table>
+
 </body>
 </html>
