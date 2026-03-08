@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Shorts – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
@@ -16,108 +15,31 @@ body{background:#000;color:white;overflow:hidden}
   overflow-y:scroll;
   scroll-snap-type:y mandatory;
 }
-
 .short{
   height:100vh;
   position:relative;
   scroll-snap-align:start;
 }
-
 video{
   width:100%;
   height:100%;
   object-fit:cover;
 }
-
-/* PROGRESS BAR */
-.progress{
-  position:absolute;
-  bottom:0;
-  left:0;
-  height:3px;
-  background:#ff9800;
-  width:0%;
-}
-
-/* DOUBLE TAP LIKE */
-.like-anim{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%) scale(0);
-  font-size:80px;
-  color:#ff9800;
-  opacity:0;
-  transition:.3s;
-}
-.like-anim.show{
-  transform:translate(-50%,-50%) scale(1);
-  opacity:1;
-}
-
-/* OVERLAY */
-.overlay{
-  position:absolute;
-  bottom:0;
-  left:0;
-  right:0;
-  padding:16px;
-  background:linear-gradient(transparent,rgba(0,0,0,.7));
-}
-
-.channel{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+.progress{position:absolute;bottom:0;left:0;height:3px;background:#ff9800;width:0%}
+.like-anim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);font-size:80px;color:#ff9800;opacity:0;transition:.3s}
+.like-anim.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.overlay{position:absolute;bottom:0;left:0;right:0;padding:16px;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+.channel{display:flex;align-items:center;gap:10px}
 .channel img{width:36px;height:36px;border-radius:50%}
-
-.subscribe{
-  margin-left:auto;
-  background:#ff9800;
-  border:none;
-  padding:6px 14px;
-  border-radius:20px;
-  font-weight:700;
-}
-.subscribe.subbed{
-  background:white;
-  color:black;
-}
-
+.subscribe{margin-left:auto;background:#ff9800;border:none;padding:6px 14px;border-radius:20px;font-weight:700}
+.subscribe.subbed{background:white;color:black}
 .desc{font-size:14px;margin-top:6px}
-
-/* ACTIONS */
-.actions{
-  position:absolute;
-  right:12px;
-  bottom:140px;
-  display:flex;
-  flex-direction:column;
-  gap:18px;
-  text-align:center;
-}
-.actions button{
-  background:none;
-  border:none;
-  color:white;
-  font-size:22px;
-}
+.actions{position:absolute;right:12px;bottom:140px;display:flex;flex-direction:column;gap:18px;text-align:center}
+.actions button{background:none;border:none;color:white;font-size:22px}
 .count{font-size:12px;opacity:.8}
 
-/* COMMENTS MODAL (inchangé) */
-#commentModal{
-  position:fixed;
-  left:0;right:0;bottom:0;
-  height:60%;
-  background:#111;
-  border-radius:16px 16px 0 0;
-  transform:translateY(100%);
-  transition:.25s;
-  z-index:20;
-  display:flex;
-  flex-direction:column;
-}
+/* COMMENTS MODAL */
+#commentModal{position:fixed;left:0;right:0;bottom:0;height:60%;background:#111;border-radius:16px 16px 0 0;transform:translateY(100%);transition:.25s;z-index:20;display:flex;flex-direction:column}
 #commentModal.open{transform:translateY(0)}
 .comment{background:#202020;padding:8px;border-radius:10px;margin-bottom:6px}
 </style>
@@ -142,10 +64,10 @@ video{
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,get,set,push,remove,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,set,push,onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app=initializeApp({
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
   authDomain: "lumio-822f0.firebaseapp.com",
   databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
   projectId: "lumio-822f0",
@@ -159,43 +81,57 @@ const db=getDatabase(app);
 let currentUser=null;
 onAuthStateChanged(auth,u=>currentUser=u);
 
-const shown=new Set();
+const shortsContainer=document.getElementById("shortsContainer");
+const commentModal=document.getElementById("commentModal");
+const commentList=document.getElementById("commentList");
+const commentInput=document.getElementById("commentInput");
+
+let currentShortId=null;
+const seen=new Set();
 const forcedId=new URLSearchParams(location.search).get("id");
 
-/* LOAD SHORTS */
-(async()=>{
- const snap=await get(ref(db,"shorts"));
- let list=Object.entries(snap.val());
+// --- Fonction principale pour charger les shorts
+async function loadShorts(){
+  const snap=await get(ref(db,"shorts"));
+  if(!snap.exists()) return;
 
- list.sort((a,b)=>{
-   const va=(b[1].views||0)+(b[1].likes||0);
-   const vb=(a[1].views||0)+(a[1].likes||0);
-   return va-vb;
- });
+  let shorts=Object.entries(snap.val());
 
- if(forcedId){
-   list.sort(([a])=>a===forcedId?-1:1);
- }
+  // Tri pour recommendation intelligente (likes+views), éviter ceux déjà vus
+  shorts.sort((a,b)=>{
+    const va=(b[1].views||0)+(b[1].likes||0);
+    const vb=(a[1].views||0)+(a[1].likes||0);
+    return va-vb;
+  });
 
- list.forEach(([id,s])=>{
-  if(shown.has(id)) return;
-  shown.add(id);
+  // Si forcedId, le mettre en premier
+  if(forcedId){
+    shorts.sort(([id])=>id===forcedId?-1:1);
+  }
 
+  // Charger un short après l’autre avec logique intelligente
+  for(const [id,s] of shorts){
+    if(seen.has(id)) continue;
+    seen.add(id);
+    appendShort(id,s);
+    if(forcedId && id===forcedId) forcedId=null; // force load first
+  }
+}
+
+function appendShort(id,s){
   const div=document.createElement("div");
   div.className="short";
   div.innerHTML=`
    <video src="${s.videoURL}" muted playsinline></video>
    <div class="progress"></div>
    <div class="like-anim"><i class="fa fa-thumbs-up"></i></div>
-
-       <div class="actions">
+   <div class="actions">
       <button onclick="like('${id}',this)"><i class="fa fa-thumbs-up"></i></button>
       <button onclick="dislike('${id}',this)"><i class="fa fa-thumbs-down"></i></button>
       ${s.allowComments!==false?`<button onclick="openComments('${id}')"><i class="fa fa-comment"></i></button>`:""}
       <button onclick="shareShort('${id}')"><i class="fa fa-share"></i></button>
       <button onclick="report('${id}')"><i class="fa fa-flag"></i></button>
     </div>
-   
    <div class="overlay">
     <div class="channel">
      <img src="${s.channelPhotoURL}">
@@ -212,112 +148,91 @@ const forcedId=new URLSearchParams(location.search).get("id");
   const anim=div.querySelector(".like-anim");
 
   video.play();
-
-  video.ontimeupdate=()=>{
-   bar.style.width=(video.currentTime/video.duration*100)+"%";
-  };
+  video.ontimeupdate=()=>bar.style.width=(video.currentTime/video.duration*100)+"%";
 
   let tap=0;
   video.onclick=()=>{
-   tap++;
-   setTimeout(()=>tap=0,300);
-   if(tap===1){
-    video.paused?video.play():video.pause();
-   }
-   if(tap===2){
-    like(id);
-    anim.classList.add("show");
-    setTimeout(()=>anim.classList.remove("show"),400);
-   }
+    tap++; setTimeout(()=>tap=0,300);
+    if(tap===1) video.paused?video.play():video.pause();
+    if(tap===2){
+      like(id); anim.classList.add("show");
+      setTimeout(()=>anim.classList.remove("show"),400);
+    }
   };
 
+  // Marquer comme vu
   set(ref(db,`shortViews/${id}/${currentUser?.uid||"guest"}`),true);
- });
-})();
-/* LIKE / DISLIKE */
+}
+
+// --- LIKE / DISLIKE
 window.like=async(id,btn)=>{
- if(!currentUser) return location.href="auth.html";
- await set(ref(db,`shortLikes/${id}/${currentUser.uid}`),true);
- await remove(ref(db,`shortDislikes/${id}/${currentUser.uid}`));
- btn.classList.add("active");
+  if(!currentUser) return location.href="auth.html";
+  await set(ref(db,`shortLikes/${id}/${currentUser.uid}`),true);
+  await set(ref(db,`shortDislikes/${id}/${currentUser.uid}`),null);
+  if(btn) btn.classList.add("active");
 };
 
 window.dislike=async(id,btn)=>{
- if(!currentUser) return location.href="auth.html";
- await set(ref(db,`shortDislikes/${id}/${currentUser.uid}`),true);
- await remove(ref(db,`shortLikes/${id}/${currentUser.uid}`));
- btn.classList.add("active");
+  if(!currentUser) return location.href="auth.html";
+  await set(ref(db,`shortDislikes/${id}/${currentUser.uid}`),true);
+  await set(ref(db,`shortLikes/${id}/${currentUser.uid}`),null);
+  if(btn) btn.classList.add("active");
 };
 
-/* SUBSCRIBE */
-async function checkSub(cid,btn){
- if(!currentUser) return;
- const r=ref(db,`subscriptions/${currentUser.uid}/${cid}`);
- if((await get(r)).exists()){
-   btn.classList.add("subbed");
-   btn.textContent="Abonné";
- }
-}
+// --- SUBSCRIBE
 window.subscribe=async(cid,btn)=>{
- if(!currentUser) return location.href="auth.html";
- const r=ref(db,`subscriptions/${currentUser.uid}/${cid}`);
- if((await get(r)).exists()){
-   await remove(r);
-   btn.classList.remove("subbed");
-   btn.textContent="S’abonner";
- }else{
-   await set(r,true);
-   btn.classList.add("subbed");
-   btn.textContent="Abonné";
- }
+  if(!currentUser) return location.href="auth.html";
+  const r=ref(db,`subscriptions/${currentUser.uid}/${cid}`);
+  if((await get(r)).exists()){
+    await set(r,null);
+    btn.classList.remove("subbed");
+    btn.textContent="S’abonner";
+  } else{
+    await set(r,true);
+    btn.classList.add("subbed");
+    btn.textContent="Abonné";
+  }
 };
 
-/* COMMENTS */
+// --- COMMENTS
 window.openComments=id=>{
- currentShortId=id;
- commentList.innerHTML="";
- commentModal.classList.add("open");
- onValue(ref(db,"shortComments/"+id),snap=>{
-   commentList.innerHTML="";
-   snap.forEach(c=>{
-     const d=document.createElement("div");
-     d.className="comment";
-     d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b> ${c.val().text}`;
-     commentList.appendChild(d);
-   });
- });
+  currentShortId=id;
+  commentList.innerHTML="";
+  commentModal.classList.add("open");
+  onValue(ref(db,"shortComments/"+id),snap=>{
+    commentList.innerHTML="";
+    snap.forEach(c=>{
+      const d=document.createElement("div");
+      d.className="comment";
+      d.innerHTML=`<b>${c.val().userName||"Anonyme"}</b> ${c.val().text}`;
+      commentList.appendChild(d);
+    });
+  });
 };
 window.closeComments=()=>commentModal.classList.remove("open");
-
 window.sendComment=async()=>{
- if(!currentUser) return location.href="auth.html";
- const text=commentInput.value.trim();
- if(!text) return;
- await push(ref(db,"shortComments/"+currentShortId),{
-   text,
-   uid:currentUser.uid,
-   createdAt:Date.now()
- });
- commentInput.value="";
+  if(!currentUser) return location.href="auth.html";
+  const text=commentInput.value.trim(); if(!text) return;
+  await push(ref(db,"shortComments/"+currentShortId),{
+    text, uid:currentUser.uid, createdAt:Date.now()
+  });
+  commentInput.value="";
 };
 
-/* SHARE */
+// --- SHARE / REPORT
 window.shareShort=id=>{
- const url=location.origin+"/shorts.html?id="+id;
- if(navigator.share){
-   navigator.share({url});
- }else{
-   navigator.clipboard.writeText(url);
-   alert("Lien copié");
- }
+  const url=location.origin+"/shorts.html?id="+id;
+  if(navigator.share) navigator.share({url});
+  else {navigator.clipboard.writeText(url); alert("Lien copié");}
+};
+window.report=async id=>{
+  if(!currentUser) return location.href="auth.html";
+  await set(ref(db,`reports/shorts/${id}/${currentUser.uid}`),true);
+  alert("Merci pour le signalement");
 };
 
-/* REPORT */
-window.report=async id=>{
- if(!currentUser) return location.href="auth.html";
- await set(ref(db,`reports/shorts/${id}/${currentUser.uid}`),true);
- alert("Merci pour le signalement");
-};
+// --- INITIAL LOAD
+loadShorts();
 </script>
 
 </body>
