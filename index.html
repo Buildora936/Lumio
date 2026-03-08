@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://richinfo.co/richpartners/in-page/js/richads-ob.js?pubid=1002313&siteid=387989" async></script>
+<script src="https://richinfo.co/richpartners/in-page/js/richads-ob.js?pubid=1002313&siteid=387989" async></script>
 <meta name="theme-color" content="#181818">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
@@ -75,7 +75,7 @@ button{
   scroll-behavior:smooth;
 }
 .short-card{
-  min-width:100px;           
+  min-width:100px;
   aspect-ratio:9/16;
   border-radius:10px;
   background:#222;
@@ -100,7 +100,7 @@ button{
 /* VIDEOS GRID */
 .grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); 
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
   gap:12px
 }
 .card{
@@ -118,7 +118,7 @@ button{
   background-position:center
 }
 .card-body{padding:6px}
-.title{font-size:13px;font-weight:600} 
+.title{font-size:13px;font-weight:600}
 .meta{font-size:11px;color:#aaa}
 
 /* SKELETON */
@@ -159,22 +159,22 @@ button{
   <a href="trending.html"><i class="fa fa-fire"></i><span>Tendance</span></a>
   <a href="shorts.html"><i class="fa fa-bolt"></i><span>MV</span></a>
   <a href="subscriptions.html"><i class="fa fa-tv"></i><span>Subs</span></a>
-  <a href="books.html"><i class="fa fa-book"></i><span>Livre</span></a>
+  <a href="Lumio-Shop.html"><i class="fa fa-shop"></i><span>Shop</span></a>
   <button onclick="toggleMoreMenu()"><i class="fa fa-ellipsis"></i><span>Plus</span></button>
 </nav>
 
-<div class="more-menu" id="moreMenu">                             
-  <a href="studio.html">🎬 Studio</a>                
-  <a href="analytics.html">📊 Analytics</a>                
-  <a href="monetization.html">💰 Monétisation</a>                
+<div class="more-menu" id="moreMenu">
+  <a href="studio.html">🎬 Studio</a>
+  <a href="analytics.html">📊 Analytics</a>
+  <a href="monetization.html">💰 Monétisation</a>
   <a href="settings.html">⚙️ Paramètres</a>
-  <a href="regles-communautaires.html">règles caummunautaires</a>                
-  <a href="droits-auteur.html">droits d'auteur</a>                
-  <a href="contact.html">nous contacter?</a>                
-   <a href="avis-lumio.html">evaluer lumio</a>                
-  <a href="help.html">Centre d'aide</a>                
-  <a href="library.html">library</a>                
-  <a href="live.html">Lives</a>    
+  <a href="regles-communautaires.html">règles caummunautaires</a>
+  <a href="droits-auteur.html">droits d'auteur</a>
+  <a href="contact.html">nous contacter?</a>
+  <a href="avis-lumio.html">evaluer lumio</a>
+  <a href="help.html">Centre d'aide</a>
+  <a href="library.html">library</a>
+  <a href="live.html">Lives</a>
 </div>
 
 <main class="content">
@@ -212,10 +212,8 @@ const headerRight=document.getElementById("headerRight");
 
 /* CHECK AUTH */
 onAuthStateChanged(auth,user=>{
-  headerRight.innerHTML=""; // reset
-
+  headerRight.innerHTML="";
   if(user){
-    // connecté -> montrer tous les boutons
     headerRight.innerHTML=`
       <button id="searchBtn"><i class="fa fa-search"></i></button>
       <button id="notifBtn"><i class="fa fa-bell"></i></button>
@@ -227,7 +225,6 @@ onAuthStateChanged(auth,user=>{
     document.getElementById("uploadBtn").onclick = ()=>location.href="publish.html";
     document.getElementById("profileBtn").onclick = ()=>location.href="profile.html";
   } else {
-    // pas connecté -> montrer bouton start
     const startBtn = document.createElement("button");
     startBtn.textContent="Start";
     startBtn.onclick=()=>location.href="auth.html";
@@ -238,14 +235,20 @@ onAuthStateChanged(auth,user=>{
 /* LOAD SHORTS */
 (async()=>{
   const snap=await get(ref(db,"shorts"));
-  Object.entries(snap.val()||{}).forEach(([id,s])=>{
+  const shorts = Object.entries(snap.val()||{}).map(([id,s])=>({...s,id}));
+  const rankedShorts = shorts.sort((a,b)=>{
+    const scoreA = (a.views||0)*0.5 + (a.likes||0)*0.3 + (Date.now()-a.createdAt)/1e7;
+    const scoreB = (b.views||0)*0.5 + (b.likes||0)*0.3 + (Date.now()-b.createdAt)/1e7;
+    return scoreB - scoreA;
+  });
+  rankedShorts.forEach(s=>{
     const div=document.createElement("div");
     div.className="short-card";
     div.style.backgroundImage=`url('${s.thumbnailURL}')`;
-    div.onclick=()=>location.href=`shorts.html?id=${id}`;
+    div.onclick=()=>location.href=`shorts.html?id=${s.id}`;
     div.innerHTML=`
       <div class="short-overlay">
-        <div class="title">${v.title}</div>
+        <div class="title">${s.title}</div>
         <img src="${s.channelPhotoURL}">
         <div>${s.channelName}</div>
         <div>${s.views||0} vues</div>
@@ -257,15 +260,22 @@ onAuthStateChanged(auth,user=>{
 /* LOAD VIDEOS */
 (async()=>{
   const snap=await get(ref(db,"videos"));
-  Object.entries(snap.val()||{}).forEach(([id,v])=>{
+  const videos = Object.entries(snap.val()||{}).map(([id,v])=>({...v,id}));
+  // Recommendation scoring intelligent
+  const rankedVideos = videos.sort((a,b)=>{
+    const scoreA = (a.views||0)*0.4 + (a.likes||0)*0.4 + (Date.now()-a.createdAt)/1e8;
+    const scoreB = (b.views||0)*0.4 + (b.likes||0)*0.4 + (Date.now()-b.createdAt)/1e8;
+    return scoreB - scoreA;
+  });
+  rankedVideos.forEach(v=>{
     const card=document.createElement("div");
     card.className="card";
-    card.onclick=()=>location.href=`player.html?id=${id}`;
+    card.onclick=()=>location.href=`player.html?id=${v.id}`;
     card.innerHTML=`
       <div class="thumb" style="background-image:url('${v.thumbnail}')"></div>
       <div class="card-body">
         <div class="title">${v.title}</div>
-        <img src="${s.channelPhotoURL}">
+        <img src="${v.channelPhotoURL}">
         <div class="meta">${v.channelName} • ${v.views||0} vues</div>
       </div>`;
     grid.appendChild(card);
