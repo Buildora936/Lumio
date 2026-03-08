@@ -165,24 +165,22 @@ loadProduct()
 
 async function createPaymentIntent(){
 
-const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
+const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent", {
+ method:"POST",
+ headers:{
+  "Content-Type":"application/json"
+ },
+ body:JSON.stringify({
 
-method:"POST",
+  price:product.price,
+  productId:product.id,
+  creatorId:product.owner,
+  userId:user.uid,
+  title:product.title,
+  downloadURL:product.downloadURL,
+  stripeAccount:product.stripe_account_id
 
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-
-price:product.price,
-
-stripeAccount:creatorStripe,
-
-productId:productId
-
-})
-
+ })
 })
 
 const data = await res.json()
