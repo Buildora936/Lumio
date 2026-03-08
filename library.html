@@ -1,114 +1,174 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Ma Bibliothèque</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>My Library</title>
 
 <style>
-body{margin:0;background:#0f0f0f;color:white;font-family:system-ui}
-header{padding:20px;font-size:22px;font-weight:600}
+
+body{
+font-family:Arial;
+background:#111;
+color:white;
+padding:40px;
+}
+
 .grid{
- display:grid;
- grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
- gap:16px;
- padding:16px
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+gap:20px;
 }
+
 .card{
- background:#1c1c1c;
- border-radius:14px;
- overflow:hidden;
- cursor:pointer;
- transition:.2s;
+background:#1c1c1c;
+padding:15px;
+border-radius:10px;
 }
-.card:hover{transform:scale(1.03)}
-.cover{
- height:200px;
- background:#222;
- background-size:cover;
- background-position:center
+
+.card img{
+width:100%;
+border-radius:8px;
 }
-.info{padding:12px}
-.title{font-weight:600;margin-bottom:6px}
-.author{color:#aaa;font-size:13px}
-.empty{
- text-align:center;
- margin-top:60px;
- color:#aaa;
- font-size:18px
+
+button{
+margin-top:10px;
+padding:8px 12px;
+border:none;
+border-radius:6px;
+background:#4CAF50;
+color:white;
+cursor:pointer;
 }
+
 </style>
+
 </head>
 <body>
 
-<header>📚 Ma Bibliothèque</header>
+<h1>My Library</h1>
 
-<div id="grid" class="grid"></div>
-<div id="empty" class="empty" style="display:none;">Aucun livre acheté</div>
+<div id="library" class="grid"></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app=initializeApp({
-apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-});
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
 
-const auth=getAuth(app);
-const db=getDatabase(app);
+const firebaseConfig = {
 
-const grid=document.getElementById("grid");
-const empty=document.getElementById("empty");
+apiKey:"YOUR_KEY",
+authDomain:"YOUR_DOMAIN",
+databaseURL:"YOUR_DATABASE",
+projectId:"YOUR_PROJECT"
 
-onAuthStateChanged(auth,async user=>{
- if(!user){
-  location.href="auth.html";
-  return;
- }
+}
 
- const purchasesSnap=await get(ref(db,"purchases/"+user.uid));
+const app = initializeApp(firebaseConfig)
 
- if(!purchasesSnap.exists()){
-  empty.style.display="block";
-  return;
- }
+const auth = getAuth(app)
+const db = getDatabase(app)
 
- const purchases=purchasesSnap.val();
- const booksSnap=await get(ref(db,"books"));
- const books=booksSnap.exists()?booksSnap.val():{};
+const container = document.getElementById("library")
 
- let count=0;
+/* ---------- render ---------- */
 
- Object.keys(purchases).forEach(id=>{
-  const b=books[id];
-  if(!b) return;
+function render(products){
 
-  count++;
+container.innerHTML=""
 
-  const card=document.createElement("div");
-  card.className="card";
-  card.onclick=()=>location.href="book.html?id="+id;
+products.forEach(product=>{
 
-  card.innerHTML=`
-   <div class="cover" style="background-image:url('${b.coverBase64||""}')"></div>
-   <div class="info">
-    <div class="title">${b.title}</div>
-    <div class="author">${b.authorChannelName||"Auteur"}</div>
-   </div>
-  `;
+const card=document.createElement("div")
+card.className="card"
 
-  grid.appendChild(card);
- });
+card.innerHTML=`
 
- if(count===0) empty.style.display="block";
-});
+<img src="${product.cover}">
+
+<h3>${product.title}</h3>
+
+<button onclick="download('${product.downloadURL}')">
+Download
+</button>
+
+`
+
+container.appendChild(card)
+
+})
+
+}
+
+/* ---------- download ---------- */
+
+window.download=(url)=>{
+
+window.open(url,"_blank")
+
+}
+
+/* ---------- cache ---------- */
+
+function saveCache(data){
+
+localStorage.setItem(
+"lumio_library",
+JSON.stringify(data)
+)
+
+}
+
+function loadCache(){
+
+const data=localStorage.getItem("lumio_library")
+
+if(!data) return null
+
+return JSON.parse(data)
+
+}
+
+/* ---------- auth ---------- */
+
+onAuthStateChanged(auth, async(user)=>{
+
+if(!user) return
+
+const uid=user.uid
+
+/* 1️⃣ charger cache */
+
+const cache=loadCache()
+
+if(cache){
+
+render(cache)
+
+}
+
+/* 2️⃣ charger firebase */
+
+const snapshot=await get(
+ref(db,"userLibrary/"+uid)
+)
+
+if(!snapshot.exists()) return
+
+const data=snapshot.val()
+
+const products=Object.values(data)
+
+/* 3️⃣ render */
+
+render(products)
+
+/* 4️⃣ sauver cache */
+
+saveCache(products)
+
+})
+
 </script>
 
 </body>
