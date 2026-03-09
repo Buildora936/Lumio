@@ -12,7 +12,7 @@
 body{margin:0;background:#181818;color:white}
 main{max-width:1200px;margin:auto;padding:16px}
 
-/* ================= VIDEO ================= */
+/* VIDEO */
 .video-box{
   position:sticky;
   top:12px;
@@ -28,7 +28,6 @@ video{
   display:block;
 }
 
-/* VIDEO TITLE BELOW VIDEO */
 .video-title-under{
   margin-top:8px;
   font-size:18px;
@@ -37,7 +36,7 @@ video{
   padding:0 4px;
 }
 
-/* ================= CONTROLS ================= */
+/* CONTROLS */
 .controls{
   position:absolute;
   bottom:10px;
@@ -69,11 +68,11 @@ video{
   border-radius:10px;
 }
 
-/* ================= INFOS ================= */
+/* INFOS */
 .video-info{margin-top:12px}
 .description{font-size:14px;color:#ccc}
 
-/* ================= CHANNEL ================= */
+/* CHANNEL */
 .channel{
   display:flex;
   align-items:center;
@@ -92,7 +91,7 @@ video{
 }
 .subscribe.subbed{background:white;color:black}
 
-/* ================= ACTIONS ================= */
+/* ACTIONS */
 .actions{
   display:flex;
   gap:18px;
@@ -107,48 +106,86 @@ video{
 }
 .actions button.active{color:#ff9800}
 
-/* ================= LAYOUT ================= */
+/* LAYOUT */
 .layout{
   display:grid;
   grid-template-columns:2fr 1fr;
   gap:16px;
 }
 
-/* ================= LISTS ================= */
-.list{display:flex;flex-direction:column;gap:10px}
+/* NEXT VIDEO LIST STYLE (YouTube style) */
+
+.list{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
 .card{
   display:flex;
-  gap:8px;
+  gap:10px;
   cursor:pointer;
 }
+
 .thumb{
-  width:160px;
-  height:90px;
+  width:168px;
+  height:94px;
   border-radius:10px;
   background:#333 center/cover no-repeat;
 }
 
-/* ================= SHORTS ================= */
+.card-info{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.card-title{
+  font-size:14px;
+  font-weight:600;
+}
+
+.card-channel{
+  font-size:12px;
+  color:#aaa;
+}
+
+/* SHORTS */
+
 .shortList{
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:12px;
 }
+
 .shortCard{
-  position:relative;
   display:flex;
-  gap:8px;
+  gap:10px;
   cursor:pointer;
 }
+
 .shortCard .thumb{
   width:90px;
   height:160px;
 }
+
 .shortOverlay{
-  font-size:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
 }
 
-/* ================= COMMENTS ================= */
+.shortTitle{
+  font-size:13px;
+  font-weight:600;
+}
+
+.shortChannel{
+  font-size:11px;
+  color:#aaa;
+}
+
+/* COMMENTS */
 .comments{margin-top:20px}
 .comment-form{display:flex;gap:8px}
 .comment-form input{
@@ -173,7 +210,6 @@ video{
   font-size:13px;
 }
 
-/* ================= SKELETON ================= */
 .skeleton{
   background:#2a2a2a;
   animation:pulse 1.2s infinite
@@ -229,13 +265,14 @@ video{
 
 <!-- RIGHT -->
 <div>
-  <h3>Shorts</h3>
-  <div class="shortList" id="shortList"></div>
 
-  <h3>À regarder ensuite</h3>
-  <div class="list" id="nextList"></div>
+<h3>Shorts recommandés</h3>
+<div class="shortList" id="shortList"></div>
+
+<h3>À regarder ensuite</h3>
+<div class="list" id="nextList"></div>
+
 </div>
-
 </div>
 </main>
 
@@ -246,72 +283,71 @@ import { getDatabase,ref,get,set,push,onValue,update } from "https://www.gstatic
 
 const app=initializeApp({
 apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+authDomain: "lumio-822f0.firebaseapp.com",
+databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+projectId: "lumio-822f0",
+storageBucket: "lumio-822f0.firebasestorage.app",
+messagingSenderId: "833325770824",
+appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
 });
+
 const auth=getAuth(app);
 const db=getDatabase(app);
 
 const id=new URLSearchParams(location.search).get("id");
+
 let currentUser=null;
 let watchTime=0;
 let nextVideoId=null;
+let currentChannel=null;
 
 onAuthStateChanged(auth,u=>currentUser=u);
 
 /* LOAD VIDEO */
 (async()=>{
- const snap=await get(ref(db,"videos/"+id));
- if(!snap.exists()) return;
- const v=snap.val();
+const snap=await get(ref(db,"videos/"+id));
+if(!snap.exists()) return;
 
- // Changer le titre de la page dynamiquement
- document.title = v.title + " – Lumio";
+const v=snap.val();
+currentChannel=v.channelId;
 
- const box=document.getElementById("videoBox");
- box.classList.remove("skeleton");
+document.title=v.title+" – Lumio";
 
- const video=document.createElement("video");
- video.src=v.videoURL;
- video.preload="metadata";
- video.playsInline=true;
+const box=document.getElementById("videoBox");
+box.classList.remove("skeleton");
 
- const controls=document.createElement("div");
- controls.className="controls";
- controls.innerHTML=`
-  <button id="playBtn"><i class="fa fa-play"></i></button>
-  <div class="progress"><div class="progress-bar" id="pbar"></div></div>
-  <button id="muteBtn"><i class="fa fa-volume-up"></i></button>
-  <button id="fsBtn"><i class="fa fa-expand"></i></button>
- `;
+const video=document.createElement("video");
+video.src=v.videoURL;
+video.preload="metadata";
+video.playsInline=true;
 
- box.append(video,controls);
+const controls=document.createElement("div");
+controls.className="controls";
+controls.innerHTML=`
+<button id="playBtn"><i class="fa fa-play"></i></button>
+<div class="progress"><div class="progress-bar" id="pbar"></div></div>
+<button id="muteBtn"><i class="fa fa-volume-up"></i></button>
+<button id="fsBtn"><i class="fa fa-expand"></i></button>
+`;
 
- // TITRE sous la vidéo
- const videoTitle=document.getElementById("videoTitle");
- videoTitle.textContent = v.title;
- videoTitle.classList.remove("skeleton");
+box.append(video,controls);
 
- // Contrôles
+videoTitle.textContent=v.title;
+videoTitle.classList.remove("skeleton");
+
 playBtn.onclick=()=>video.paused?video.play():video.pause();
 muteBtn.onclick=()=>video.muted=!video.muted;
 fsBtn.onclick=()=>video.requestFullscreen();
 
-// Barre progression + watchTime
 video.ontimeupdate=()=>{
-   pbar.style.width=(video.currentTime/video.duration*100)+"%";
-   watchTime=Math.floor(video.currentTime);
-   if(currentUser)
-     update(ref(db,`watchTime/${id}/${currentUser.uid}`),{watchTime});
+pbar.style.width=(video.currentTime/video.duration*100)+"%";
+watchTime=Math.floor(video.currentTime);
+if(currentUser)
+update(ref(db,`watchTime/${id}/${currentUser.uid}`),{watchTime});
 };
 
-// autoplay prochaine vidéo
 video.onended=()=>{
-   if(nextVideoId) location.href=`player.html?id=${nextVideoId}`;
+if(nextVideoId) location.href=`player.html?id=${nextVideoId}`;
 };
 
 descBox.textContent=v.description;
@@ -320,82 +356,143 @@ descBox.classList.remove("skeleton");
 loadComments();
 loadNext();
 loadShorts();
+
 })();
 
-/* COMMENTS REALTIME */
-function loadComments(){
- const r=ref(db,"comments/"+id);
- onValue(r,s=>{
-  commentList.innerHTML="";
-  s.forEach(c=>{
-    const d=document.createElement("div");
-    d.className="comment";
-    d.textContent=c.val().text;
-    commentList.appendChild(d);
-  });
- });
- commentBtn.onclick=async()=>{
-  if(!currentUser) return location.href="auth.html";
-  const text=commentInput.value.trim();
-  if(!text) return;
-  commentInput.value="";
-  await push(r,{text,createdAt:Date.now()});
- };
-}
+/* NEXT VIDEOS (INTELLIGENT RECOMMENDATION) */
 
-/* LIKE / DISLIKE / FAV / REPORT */
-likeBtn.onclick=()=>{
- likeBtn.classList.toggle("active");
- if(currentUser) set(ref(db,`likes/${id}/${currentUser.uid}`),true);
-};
-favBtn.onclick=()=>{
- favBtn.classList.toggle("active");
- if(currentUser) set(ref(db,`favorites/${id}/${currentUser.uid}`),true);
-};
-reportBtn.onclick=()=>{
- if(currentUser) push(ref(db,"reports"),{video:id,user:currentUser.uid});
- alert("Vidéo signalée");
-};
-
-/* NEXT VIDEOS */
 async function loadNext(){
- const snap=await get(ref(db,"videos"));
- let first=true;
- snap.forEach(c=>{
-  if(c.key===id) return;
-  if(first){ nextVideoId=c.key; first=false; }
-  const v=c.val();
-  const d=document.createElement("div");
-  d.className="card skeleton";
-  setTimeout(()=>d.classList.remove("skeleton"),600);
-  d.onclick=()=>location.href=`player.html?id=${c.key}`;
-  d.innerHTML=`
-   <div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
-   <div>${v.title}</div>
-   <div style="font-size:12px;color:#ccc">${v.channelName}</div>
-  `;
-  nextList.appendChild(d);
- });
+
+const snap=await get(ref(db,"videos"));
+let videos=[];
+
+snap.forEach(c=>{
+if(c.key===id) return;
+videos.push({id:c.key,...c.val()});
+});
+
+videos.sort((a,b)=>{
+
+if(a.channelId===currentChannel) return -1;
+if(b.channelId===currentChannel) return 1;
+
+let scoreA=(a.views||0)+(a.likes||0);
+let scoreB=(b.views||0)+(b.likes||0);
+
+return scoreB-scoreA;
+
+});
+
+videos.slice(0,12).forEach((v,i)=>{
+
+if(i===0) nextVideoId=v.id;
+
+const d=document.createElement("div");
+d.className="card";
+
+d.onclick=()=>location.href=`player.html?id=${v.id}`;
+
+d.innerHTML=`
+<div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
+<div class="card-info">
+<div class="card-title">${v.title}</div>
+<div class="card-channel">${v.channelName}</div>
+</div>
+`;
+
+nextList.appendChild(d);
+
+});
+
 }
 
-/* SHORTS */
+/* SHORTS RECOMMENDATION */
+
 async function loadShorts(){
- const snap=await get(ref(db,"shorts"));
- snap.forEach(c=>{
-  const v=c.val();
-  const d=document.createElement("div");
-  d.className="shortCard skeleton";
-  setTimeout(()=>d.classList.remove("skeleton"),500);
-  d.onclick=()=>location.href=`shorts.html?id=${c.key}`;
-  d.innerHTML=`
-    <div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
-    <div class="shortOverlay">
-      <b>${v.title}</b><br>${v.channelName}
-    </div>
-  `;
-  shortList.appendChild(d);
- });
+
+const snap=await get(ref(db,"shorts"));
+let shorts=[];
+
+snap.forEach(c=>{
+shorts.push({id:c.key,...c.val()});
+});
+
+shorts.sort((a,b)=>{
+
+if(a.channelId===currentChannel) return -1;
+if(b.channelId===currentChannel) return 1;
+
+let scoreA=(a.views||0)+(a.likes||0);
+let scoreB=(b.views||0)+(b.likes||0);
+
+return scoreB-scoreA;
+
+});
+
+shorts.slice(0,10).forEach(v=>{
+
+const d=document.createElement("div");
+d.className="shortCard";
+
+d.onclick=()=>location.href=`shorts.html?id=${v.id}`;
+
+d.innerHTML=`
+<div class="thumb" style="background-image:url('${v.thumbnailURL}')"></div>
+<div class="shortOverlay">
+<div class="shortTitle">${v.title}</div>
+<div class="shortChannel">${v.channelName}</div>
+</div>
+`;
+
+shortList.appendChild(d);
+
+});
+
 }
+
+/* COMMENTS */
+
+function loadComments(){
+
+const r=ref(db,"comments/"+id);
+
+onValue(r,s=>{
+commentList.innerHTML="";
+s.forEach(c=>{
+const d=document.createElement("div");
+d.className="comment";
+d.textContent=c.val().text;
+commentList.appendChild(d);
+});
+});
+
+commentBtn.onclick=async()=>{
+if(!currentUser) return location.href="auth.html";
+const text=commentInput.value.trim();
+if(!text) return;
+commentInput.value="";
+await push(r,{text,createdAt:Date.now()});
+};
+
+}
+
+/* ACTIONS */
+
+likeBtn.onclick=()=>{
+likeBtn.classList.toggle("active");
+if(currentUser) set(ref(db,`likes/${id}/${currentUser.uid}`),true);
+};
+
+favBtn.onclick=()=>{
+favBtn.classList.toggle("active");
+if(currentUser) set(ref(db,`favorites/${id}/${currentUser.uid}`),true);
+};
+
+reportBtn.onclick=()=>{
+if(currentUser) push(ref(db,"reports"),{video:id,user:currentUser.uid});
+alert("Vidéo signalée");
+};
+
 </script>
 </body>
 </html>
