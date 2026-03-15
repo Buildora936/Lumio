@@ -1,8 +1,11 @@
-<!DOCTYPE html><html lang="fr">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <title>Studio Art – Lumio</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
 body{margin:0;font-family:system-ui;background:#181818;color:white}
 main{max-width:900px;margin:60px auto;padding:24px;background:#202020;border-radius:16px}
 
@@ -28,6 +31,8 @@ font-weight:700;
 cursor:pointer
 }
 
+button:disabled{opacity:0.6;cursor:not-allowed}
+
 .progress{
 height:16px;
 background:#333;
@@ -39,7 +44,8 @@ overflow:hidden
 .bar{
 height:100%;
 width:0;
-background:#ff6a00
+background:#ff6a00;
+transition:.3s
 }
 
 .preview{
@@ -48,22 +54,52 @@ background:#111;
 padding:12px;
 border-radius:10px
 }
-</style></head><body><main><h2>Studio Art</h2><div class="progress">
+</style>
+</head>
+
+<body>
+
+<main>
+
+<h2>Studio Art</h2>
+
+<div class="progress">
 <div class="bar" id="bar"></div>
-</div><input id="title" placeholder="Titre de l'œuvre"><textarea id="desc" placeholder="Description"></textarea><select id="category">
+</div>
+
+<input id="title" placeholder="Titre de l'œuvre">
+<textarea id="desc" placeholder="Description"></textarea>
+
+<select id="category">
 <option>Illustration</option>
 <option>Photographie</option>
 <option>Wallpaper</option>
 <option>Design</option>
 <option>3D Art</option>
 <option>Autres</option>
-</select><input id="price" type="number" placeholder="Prix ($)"><h3>Cover principale</h3>
-<input id="cover1" type="file" accept="image/*"><h3>Cover secondaire</h3>
-<input id="cover2" type="file" accept="image/*"><h3>Fichier HD (acheté)</h3>
-<input id="artFile" type="file" accept="image/*"><h3>Pack optionnel (zip)</h3>
-<input id="packFile" type="file" accept=".zip"><button id="publish">Publier l'art</button>
+</select>
 
-<div class="preview" id="preview"></div></main><script type="module">
+<input id="price" type="number" placeholder="Prix ($)">
+
+<h3>Cover principale</h3>
+<input id="cover1" type="file" accept="image/*">
+
+<h3>Cover secondaire</h3>
+<input id="cover2" type="file" accept="image/*">
+
+<h3>Fichier HD (acheté)</h3>
+<input id="artFile" type="file" accept="image/*">
+
+<h3>Pack optionnel (zip)</h3>
+<input id="packFile" type="file" accept=".zip">
+
+<button id="publish">Publier l'art</button>
+
+<div class="preview" id="preview"></div>
+
+</main>
+
+<script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -91,11 +127,28 @@ const auth=getAuth(app);
 const supabase=createClient(
 "https://ymcrkbcsuloijemdbqzy.supabase.co",
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw"
-"
 );
+
+/* VARIABLES */
+
+const title=document.getElementById("title");
+const desc=document.getElementById("desc");
+const category=document.getElementById("category");
+const price=document.getElementById("price");
+
+const cover1Input=document.getElementById("cover1");
+const cover2Input=document.getElementById("cover2");
+const artInput=document.getElementById("artFile");
+const packInput=document.getElementById("packFile");
+
+const bar=document.getElementById("bar");
+const preview=document.getElementById("preview");
+const publishBtn=document.getElementById("publish");
 
 let uid=null;
 let channelId=null;
+
+/* AUTH */
 
 onAuthStateChanged(auth,async u=>{
 
@@ -105,13 +158,13 @@ uid=u.uid;
 
 const snap=await get(ref(db,"userChannels/"+uid));
 
-if(!snap.exists()) location.href="add-channel.html";
+if(!snap.exists()) return location.href="add-channel.html";
 
 channelId=snap.val();
 
 });
 
-/* UPLOAD */
+/* UPLOAD FUNCTION */
 
 async function upload(bucket,file){
 
@@ -133,37 +186,41 @@ return data.publicUrl;
 
 /* PUBLISH */
 
-document.getElementById("publish").onclick=async()=>{
+publishBtn.onclick=async()=>{
 
 if(!channelId) return alert("Erreur channel");
 
-const title=document.getElementById("title").value.trim();
-const price=parseFloat(document.getElementById("price").value);
+const t=title.value.trim();
+const p=parseFloat(price.value);
 
-if(!title) return alert("Titre requis");
-if(!price) return alert("Prix requis");
+if(!t) return alert("Titre requis");
+if(!p) return alert("Prix requis");
 
-const cover1=document.getElementById("cover1").files[0];
-const cover2=document.getElementById("cover2").files[0];
-const art=document.getElementById("artFile").files[0];
-const pack=document.getElementById("packFile").files[0];
+const cover1=cover1Input.files[0];
+const cover2=cover2Input.files[0];
+const art=artInput.files[0];
+const pack=packInput.files[0];
 
 if(!cover1||!cover2) return alert("Deux covers requises");
 if(!art) return alert("Fichier HD requis");
 
-const bar=document.getElementById("bar");
+publishBtn.disabled=true;
 
-bar.style.width="20%";
+try{
+
+bar.style.width="10%";
 
 const cover1URL=await upload("art-covers",cover1);
 
-bar.style.width="40%";
+bar.style.width="30%";
 
 const cover2URL=await upload("art-covers",cover2);
 
-bar.style.width="60%";
+bar.style.width="50%";
 
 const artURL=await upload("art-files",art);
+
+bar.style.width="70%";
 
 let packURL=null;
 
@@ -171,16 +228,15 @@ if(pack){
 packURL=await upload("art-packs",pack);
 }
 
-bar.style.width="90%";
+bar.style.width="85%";
 
 const refArt=push(ref(db,"arts"));
 
 await set(refArt,{
-
-title,
+title:t,
 description:desc.value,
 category:category.value,
-price,
+price:p,
 cover1URL,
 cover2URL,
 artURL,
@@ -190,18 +246,31 @@ createdAt:serverTimestamp(),
 sales:0,
 views:0,
 status:"public"
-
 });
 
 await set(ref(db,"channels/"+channelId+"/arts/"+refArt.key),true);
 
 bar.style.width="100%";
 
-alert("Art publié");
+preview.innerHTML="✅ Art publié avec succès";
 
+setTimeout(()=>{
 location.href="creator-products.html";
+},1200);
+
+}catch(err){
+
+console.error(err);
+alert("Erreur upload : "+err.message);
+
+publishBtn.disabled=false;
+bar.style.width="0%";
+
+}
 
 };
 
-</script></body>
+</script>
+
+</body>
 </html>
