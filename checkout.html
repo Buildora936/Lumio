@@ -102,92 +102,102 @@ background:#00c853;
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"
 import { getDatabase, ref, get, push, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
 
 const firebaseConfig = {
 
 apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+authDomain: "lumio-822f0.firebaseapp.com",
+databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+projectId: "lumio-822f0",
+storageBucket: "lumio-822f0.firebasestorage.app",
+messagingSenderId: "833325770824",
+appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+
 }
 
 const app = initializeApp(firebaseConfig)
 
 const db = getDatabase(app)
-
-const auth = getAuth()
+const auth = getAuth(app)
 
 /* STRIPE */
 
 const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA")
 
 let elements
-let clientSecret
 let product
-let creatorStripe
+let user
 
-/* GET PRODUCT ID */
+/* URL PARAMS */
 
 const params = new URLSearchParams(window.location.search)
-
 const productId = params.get("id")
-const type = params.get("type")
+
+/* WAIT USER */
+
+onAuthStateChanged(auth, async(u)=>{
+
+if(!u){
+location.href="auth.html"
+return
+}
+
+user = u
+
+loadProduct()
+
+})
 
 /* LOAD PRODUCT */
 
 async function loadProduct(){
 
-const snap = await get(ref(db,"products/"+productId))
+const snap = await get(ref(db,"arts/"+productId))
+
+if(!snap.exists()){
+alert("Produit introuvable")
+return
+}
 
 product = snap.val()
 
-document.getElementById("productImage").src = product.image
-
+document.getElementById("productImage").src = product.cover1URL
 document.getElementById("productTitle").innerText = product.title
-
 document.getElementById("productPrice").innerText = "$"+product.price
-
-/* GET CREATOR STRIPE */
-
-const ch = await get(ref(db,"channels/"+product.creator))
-
-creatorStripe = ch.val().stripe_account_id
 
 createPaymentIntent()
 
 }
 
-loadProduct()
-
 /* CREATE PAYMENT */
 
 async function createPaymentIntent(){
 
-const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent", {
- method:"POST",
- headers:{
-  "Content-Type":"application/json"
- },
- body:JSON.stringify({
+const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
 
-  price:product.price,
-  productId:product.id,
-  creatorId:product.owner,
-  userId:user.uid,
-  title:product.title,
-  downloadURL:product.downloadURL,
-  stripeAccount:product.stripe_account_id
+method:"POST",
 
- })
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+
+price:product.price,
+productId:productId,
+creatorId:product.creatorChannelId,
+userId:user.uid,
+title:product.title,
+downloadURL:product.artURL
+
+})
+
 })
 
 const data = await res.json()
 
-clientSecret = data.clientSecret
+const clientSecret = data.clientSecret
 
 elements = stripe.elements({clientSecret})
 
@@ -197,21 +207,18 @@ paymentElement.mount("#payment-element")
 
 }
 
-/* SUBMIT PAYMENT */
+/* SUBMIT */
 
 const form = document.getElementById("payment-form")
 
-form.addEventListener("submit", async(e)=>{
+form.addEventListener("submit",async(e)=>{
 
 e.preventDefault()
 
-const {error} = await stripe.confirmPayment({
+const {error,paymentIntent} = await stripe.confirmPayment({
 
 elements,
-
-confirmParams:{
-return_url:window.location.href
-}
+redirect:"if_required"
 
 })
 
@@ -219,50 +226,25 @@ if(error){
 
 alert(error.message)
 
-}
-
-})
-
-/* CHECK SUCCESS */
-
-const url = new URL(window.location)
-
-if(url.searchParams.get("payment_intent_client_secret")){
-
-checkPayment()
-
-}
-
-async function checkPayment(){
-
-const clientSecret = url.searchParams.get("payment_intent_client_secret")
-
-const {paymentIntent} = await stripe.retrievePaymentIntent(clientSecret)
-
-if(paymentIntent.status==="succeeded"){
+}else if(paymentIntent.status==="succeeded"){
 
 savePurchase()
 
 }
 
-}
+})
 
 /* SAVE PURCHASE */
 
 async function savePurchase(){
-
-const user = auth.currentUser
 
 const purchaseRef = push(ref(db,"purchases"))
 
 await set(purchaseRef,{
 
 user:user.uid,
-
 productId:productId,
-
 price:product.price,
-
 date:Date.now()
 
 })
@@ -270,18 +252,15 @@ date:Date.now()
 await set(ref(db,"userLibrary/"+user.uid+"/"+productId),{
 
 title:product.title,
-
-download:product.file,
-
-image:product.image
+download:product.artURL,
+image:product.cover1URL
 
 })
 
 document.getElementById("checkout").style.display="none"
-
 document.getElementById("success").style.display="block"
 
-document.getElementById("downloadLink").href = product.file
+document.getElementById("downloadLink").href = product.artURL
 
 }
 
