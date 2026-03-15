@@ -174,14 +174,13 @@ createPaymentIntent()
 
 async function createPaymentIntent(){
 
-const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
-
+const res = await fetch(
+"https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",
+{
 method:"POST",
-
 headers:{
 "Content-Type":"application/json"
 },
-
 body:JSON.stringify({
 
 price:product.price,
@@ -189,17 +188,24 @@ productId:productId,
 creatorId:product.creatorChannelId,
 userId:user.uid,
 title:product.title,
-downloadURL:product.artURL
+downloadURL:product.artURL,
+stripeAccount:product.stripe_account_id
 
 })
-
 })
 
 const data = await res.json()
 
+if(data.error){
+alert(data.error)
+return
+}
+
 const clientSecret = data.clientSecret
 
-elements = stripe.elements({clientSecret})
+elements = stripe.elements({
+clientSecret
+})
 
 const paymentElement = elements.create("payment")
 
