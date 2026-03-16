@@ -127,19 +127,22 @@ async function requestPayout(){
     const wallet = snap.val();
     const available = wallet.totalEarned - wallet.totalWithdrawn;
     if(available < 10) throw new Error("Solde insuffisant (min 10$)");
-
+if(!wallet.stripeAccountId){
+throw new Error("Compte Stripe non connecté");
+}
     // 🔹 Créer PaymentIntent via API côté serveur
-    const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payment-intent", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        amount: Math.floor(available*100),  // cents
-        currency:"usd",
-        stripeAccount: wallet.stripeAccountId,
-        description:"Retrait Lumio",
-        transfer_data: { destination: wallet.stripeAccountId }
-      })
-    });
+   const res = await fetch(
+"https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-payout",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body: JSON.stringify({
+amount: Math.floor(available*100),
+stripeAccountId: wallet.stripeAccountId
+})
+});
     const data = await res.json();
     if(!data.success) throw new Error(data.message||"Erreur Stripe");
 
