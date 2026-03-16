@@ -125,7 +125,7 @@ async function requestPayout(){
     const snap = await get(walletRef);
     if(!snap.exists()) throw new Error("Wallet inexistant");
     const wallet = snap.val();
-    const available = (wallet.totalEarned*0.8) - wallet.totalWithdrawn;
+    const available = wallet.totalEarned - wallet.totalWithdrawn;
     if(available < 10) throw new Error("Solde insuffisant (min 10$)");
 
     // 🔹 Créer PaymentIntent via API côté serveur
