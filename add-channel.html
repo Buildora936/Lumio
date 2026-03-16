@@ -156,9 +156,18 @@ window.createChannel=async(e)=>{
   progress(70);
 
   await set(ref(db,"userChannels/"+user.uid),id);
+  /* CREATION WALLET */
+
+await set(ref(db,"wallets/"+user.uid),{
+ totalEarned:0,
+ totalWithdrawn:0,
+ stripeAccountId:accountId,
+ createdAt:Date.now()
+});
 
   /* sauvegarde stripe dans user */
 
+  
   await set(ref(db,"users/"+user.uid+"/stripe_account_id"),accountId);
   await set(ref(db,"users/"+user.uid+"/stripe_onboarded"),false);
 
