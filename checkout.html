@@ -151,6 +151,7 @@ await createPaymentIntent()
 }
 
 /* CREATE PAYMENT */
+}
 async function createPaymentIntent(){
 
 try{
@@ -183,7 +184,10 @@ throw new Error("clientSecret manquant")
 elements = stripe.elements({
 clientSecret: data.clientSecret
 })
-
+if(!product.stripe_account_id){
+  alert("Créateur non configuré (Stripe manquant)")
+  return
+}
 const paymentElement = elements.create("payment")
 paymentElement.mount("#payment-element")
 
