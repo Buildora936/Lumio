@@ -16,18 +16,32 @@ body{
   overflow-x:hidden;
 }
 
-/* DISABLE RIGHT CLICK */
-body{user-select:none}
-img{pointer-events:none}
+.container{
+  max-width:1000px;
+  margin:auto;
+  padding:20px;
+}
+
+/* COVER */
+.cover{
+  width:100%;
+  height:340px;
+  border-radius:16px;
+  background-size:cover;
+  background-position:center;
+  position:relative;
+  overflow:hidden;
+}
 
 /* WATERMARK */
-.watermark{
+.cover::after{
+  content:"LUMIO";
   position:absolute;
-  top:10px;
-  left:10px;
-  font-size:22px;
-  font-weight:bold;
-  color:rgba(255,255,255,0.2);
+  bottom:10px;
+  right:10px;
+  font-size:24px;
+  color:rgba(255,255,255,0.3);
+  font-weight:700;
 }
 
 /* MODAL */
@@ -43,66 +57,43 @@ img{pointer-events:none}
   align-items:center;
   z-index:999;
 }
+
 .modal-content{
   background:#1c1c1c;
   padding:20px;
   border-radius:12px;
-  width:400px;
+  width:350px;
   position:relative;
 }
+
 .close{
   position:absolute;
   top:10px;
-  right:12px;
-  font-size:20px;
+  right:10px;
   cursor:pointer;
+  font-size:18px;
 }
 
-/* EXISTING STYLE (inchangé) */
-.container{max-width:1000px;margin:auto;padding:20px;}
-.cover{width:100%;height:340px;border-radius:16px;background-size:cover;background-position:center;position:relative;overflow:hidden;}
-.music-bg::before{content:"";position:absolute;width:200%;height:200%;background:radial-gradient(circle,rgba(255,140,0,0.2),transparent);animation:spin 8s linear infinite;}
-@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.book-bg::before{content:"";position:absolute;width:100%;height:100%;background-image:radial-gradient(#ff7b00 1px,transparent 1px);background-size:20px 20px;animation:move 6s linear infinite;}
-@keyframes move{from{background-position:0 0}to{background-position:0 40px}}
-.art-bg::before{content:"";position:absolute;width:100%;height:100%;background:linear-gradient(45deg,transparent,rgba(255,140,0,0.4),transparent);animation:brush 4s infinite;}
-@keyframes brush{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+/* STARS */
+.star{font-size:24px;color:#555}
+.star.full{color:gold}
+.star.half{
+  background:linear-gradient(90deg,gold 50%,#555 50%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
 
-h1{margin-top:20px}
-.author{color:#aaa}
-.price{font-size:22px;margin-top:10px}
+/* DISABLE RIGHT CLICK */
+img{pointer-events:none}
 
-.actions{display:flex;gap:10px;margin-top:16px;}
-button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;color:white;font-weight:700;cursor:pointer;}
-#buyBtn{background:#00c853;color:black;}
-
-#likeCount{margin-top:8px;color:#ffb347;}
-
-.rating{margin-top:20px;}
-.star{font-size:24px;color:#555;}
-.star.full{color:gold;}
-.star.half{background:linear-gradient(90deg,gold 50%,#555 50%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-
-.comments{margin-top:30px;}
-.comment{padding:10px;border-bottom:1px solid #333;}
-
-.related{margin-top:40px;}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;}
-.card{background:#1c1c1c;padding:10px;border-radius:10px;cursor:pointer;}
-.card img{width:100%;height:150px;object-fit:cover;border-radius:8px;}
-
-.preview{margin-top:20px;}
-audio{width:100%;margin-top:10px}
 </style>
 </head>
 
-<body>
+<body oncontextmenu="return false">
 
 <div class="container">
 
-<div id="cover" class="cover">
-<div class="watermark">LUMIO</div>
-</div>
+<div id="cover" class="cover"></div>
 
 <h1 id="title"></h1>
 <div class="author" id="author"></div>
@@ -119,13 +110,20 @@ audio{width:100%;margin-top:10px}
 <div id="likeCount"></div>
 
 <div class="rating">
-  <div>Note :</div>
-  <div id="starsDisplay"></div>
+  <div>Note moyenne :</div>
+  <div id="ratingDisplay"></div>
+
+  <div>Donner une note :</div>
+  <span class="star" data-v="1">★</span>
+  <span class="star" data-v="2">★</span>
+  <span class="star" data-v="3">★</span>
+  <span class="star" data-v="4">★</span>
+  <span class="star" data-v="5">★</span>
 </div>
 
 <div class="comments">
   <h3>Commentaires</h3>
-  <input id="commentInput">
+  <input id="commentInput" placeholder="Commenter..." style="width:100%;padding:10px;border-radius:8px;border:none;background:#222;color:white">
   <div id="commentsList"></div>
 </div>
 
@@ -137,14 +135,12 @@ audio{width:100%;margin-top:10px}
 </div>
 
 <!-- MODAL PAIEMENT -->
-<div id="modal" class="modal">
+<div class="modal" id="paymentModal">
   <div class="modal-content">
     <div class="close" id="closeModal">✖</div>
-    <h2>Paiement</h2>
-    <form id="payment-form">
-      <div id="payment-element"></div>
-      <button id="payBtn">Payer</button>
-    </form>
+    <h3>Paiement</h3>
+    <div id="payment-element"></div>
+    <button id="payNow">Payer</button>
   </div>
 </div>
 
@@ -155,83 +151,52 @@ import { getDatabase,ref,get,push,onValue,update,increment,set } from "https://w
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
-apiKey:"AIza...",
-authDomain:"lumio-822f0.firebaseapp.com",
-databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
-projectId:"lumio-822f0"
+  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain:"lumio-822f0.firebaseapp.com",
+  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId:"lumio-822f0"
 });
 
 const db=getDatabase(app);
 const auth=getAuth(app);
 
-const stripe = Stripe("pk_test_...");
+const stripe = Stripe("pk_test_XXXXX"); // remplace
 
-let user, data, elements;
+let elements, clientSecret;
 
+let user=null;
 onAuthStateChanged(auth,u=>user=u);
 
 const params=new URLSearchParams(location.search);
 const id=params.get("id");
 const type=params.get("type");
 
-/* LOAD PRODUCT */
+const title=document.getElementById("title");
+const author=document.getElementById("author");
+const price=document.getElementById("price");
+const cover=document.getElementById("cover");
+
+const modal=document.getElementById("paymentModal");
+
+/* LOAD */
 const snap=await get(ref(db,type+"s/"+id));
-data=snap.val();
+const data=snap.val();
 
-document.getElementById("title").textContent=data.title;
-document.getElementById("author").textContent=data.creatorName||"Créateur";
-document.getElementById("price").textContent="$"+data.price;
+title.textContent=data.title;
+author.textContent=data.creatorName||"Créateur";
+price.textContent="$"+data.price;
 
-document.getElementById("cover").style.backgroundImage=`url(${data.cover1URL})`;
+cover.style.backgroundImage=`url(${data.cover1URL})`;
 
-/* SHARE FIX */
-document.getElementById("shareBtn").onclick=()=>{
-  if(navigator.share){
-    navigator.share({
-      title:data.title,
-      url:location.href
-    });
-  }else{
-    navigator.clipboard.writeText(location.href);
-    alert("Lien copié");
-  }
-};
-
-/* RATING SYSTEM */
-onValue(ref(db,type+"Ratings/"+id),snap=>{
-  if(!snap.exists()) return;
-  const values=Object.values(snap.val());
-  const avg = values.reduce((a,b)=>a+b,0)/values.length;
-
-  const container=document.getElementById("starsDisplay");
-  container.innerHTML="";
-
-  for(let i=1;i<=5;i++){
-    const span=document.createElement("span");
-    span.className="star";
-
-    if(avg>=i){
-      span.classList.add("full");
-    }else if(avg>=i-0.5){
-      span.classList.add("half");
-    }
-
-    span.textContent="★";
-    container.appendChild(span);
-  }
-});
-
-/* MODAL */
-const modal=document.getElementById("modal");
-
-document.getElementById("buyBtn").onclick=async()=>{
+/* BUY -> OPEN MODAL */
+buyBtn.onclick=async()=>{
   if(!user) return alert("Connexion requise");
 
   modal.style.display="flex";
 
   const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
     method:"POST",
-    headers:{ "Content-Type":"application/json" },
+    headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
       price:data.price,
       productId:id,
@@ -243,20 +208,19 @@ document.getElementById("buyBtn").onclick=async()=>{
     })
   });
 
-  const json=await res.json();
+  const d=await res.json();
+  clientSecret=d.clientSecret;
 
-  elements=stripe.elements({clientSecret:json.clientSecret});
-  elements.create("payment").mount("#payment-element");
+  elements=stripe.elements({clientSecret});
+  const el=elements.create("payment");
+  el.mount("#payment-element");
 };
 
-document.getElementById("closeModal").onclick=()=>{
-  modal.style.display="none";
-};
+/* CLOSE MODAL */
+closeModal.onclick=()=> modal.style.display="none";
 
-/* PAYMENT */
-document.getElementById("payment-form").addEventListener("submit",async(e)=>{
-  e.preventDefault();
-
+/* PAY */
+payNow.onclick=async()=>{
   const {error,paymentIntent}=await stripe.confirmPayment({
     elements,
     redirect:"if_required"
@@ -268,18 +232,49 @@ document.getElementById("payment-form").addEventListener("submit",async(e)=>{
   }
 
   if(paymentIntent.status==="succeeded"){
+    alert("Paiement réussi");
+
     await set(ref(db,"userLibrary/"+user.uid+"/"+id),{
       title:data.title,
       download:data.artURL
     });
 
-    alert("Paiement réussi");
     modal.style.display="none";
   }
+};
+
+/* SHARE MOBILE */
+shareBtn.onclick=()=>{
+  if(navigator.share){
+    navigator.share({
+      title:data.title,
+      url:location.href
+    });
+  }
+};
+
+/* RATING SYSTEM */
+onValue(ref(db,type+"Ratings/"+id),snap=>{
+  if(!snap.exists()) return;
+
+  const values=Object.values(snap.val());
+  const avg=values.reduce((a,b)=>a+b,0)/values.length;
+
+  const percent=(avg/5)*100;
+
+  let starsHTML="";
+  let full=Math.floor(avg);
+  let half=(avg%1)>=0.5;
+
+  for(let i=0;i<full;i++) starsHTML+='<span class="star full">★</span>';
+  if(half) starsHTML+='<span class="star half">★</span>';
+
+  document.getElementById("ratingDisplay").innerHTML=
+    starsHTML+" ("+Math.round(percent)+"%)";
 });
 
-/* DISABLE RIGHT CLICK */
-document.addEventListener("contextmenu",e=>e.preventDefault());
+/* DISABLE DRAG */
+document.addEventListener("dragstart",e=>e.preventDefault());
 
 </script>
 
