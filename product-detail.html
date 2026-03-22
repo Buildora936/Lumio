@@ -5,8 +5,6 @@
 <title>Lumio Product</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
-<script src="https://js.stripe.com/v3/"></script>
-
 <style>
 body{
   margin:0;
@@ -33,63 +31,170 @@ body{
   overflow:hidden;
 }
 
-/* WATERMARK */
-.cover::after{
-  content:"LUMIO";
+/* ANIMATION MUSIC */
+.music-bg::before{
+  content:"";
   position:absolute;
-  bottom:10px;
-  right:10px;
-  font-size:24px;
-  color:rgba(255,255,255,0.3);
-  font-weight:700;
+  width:200%;
+  height:200%;
+  background:radial-gradient(circle,rgba(255,140,0,0.2),transparent);
+  animation:spin 8s linear infinite;
+}
+@keyframes spin{
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
 }
 
-/* MODAL */
-.modal{
-  position:fixed;
-  top:0;
-  left:0;
+/* BOOK BUBBLES */
+.book-bg::before{
+  content:"";
+  position:absolute;
   width:100%;
   height:100%;
-  background:rgba(0,0,0,0.8);
-  display:none;
-  justify-content:center;
-  align-items:center;
-  z-index:999;
+  background-image:radial-gradient(#ff7b00 1px,transparent 1px);
+  background-size:20px 20px;
+  animation:move 6s linear infinite;
+}
+@keyframes move{
+  from{background-position:0 0}
+  to{background-position:0 40px}
 }
 
-.modal-content{
-  background:#1c1c1c;
-  padding:20px;
-  border-radius:12px;
-  width:350px;
-  position:relative;
-}
-
-.close{
+/* ART BRUSH */
+.art-bg::before{
+  content:"";
   position:absolute;
-  top:10px;
-  right:10px;
+  width:100%;
+  height:100%;
+  background:linear-gradient(45deg,transparent,rgba(255,140,0,0.4),transparent);
+  animation:brush 4s infinite;
+}
+@keyframes brush{
+  0%{transform:translateX(-100%)}
+  100%{transform:translateX(100%)}
+}
+
+/* WATERMARK ART */
+.art-bg::after {
+  content: "LUMIO";
+  position: absolute;
+  color: rgba(255,255,255,0.15);
+  font-size: 80px;
+  font-weight: 900;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-25deg);
+  pointer-events: none;
+}
+
+/* TEXT */
+h1{margin-top:20px}
+.author{color:#aaa}
+.price{font-size:22px;margin-top:10px}
+
+/* BUTTONS */
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:16px;
+}
+button{
+  flex:1;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#ff7b00;
+  color:white;
+  font-weight:700;
   cursor:pointer;
-  font-size:18px;
 }
 
-/* STARS */
-.star{font-size:24px;color:#555}
-.star.full{color:gold}
-.star.half{
-  background:linear-gradient(90deg,gold 50%,#555 50%);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
+/* BUY BUTTON */
+#buyBtn{
+  background:#00c853;
+  color:black;
 }
 
-/* DISABLE RIGHT CLICK */
-img{pointer-events:none}
+/* LIKE */
+#likeCount{
+  margin-top:8px;
+  color:#ffb347;
+}
 
+/* RATING */
+.rating{
+  margin-top:20px;
+  position: relative;
+}
+.star{
+  font-size:24px;
+  cursor:pointer;
+  color:#555;
+  position: relative;
+}
+.star.active{ color:gold; }
+.star.half::after{
+  content: "★";
+  position: absolute;
+  color: gold;
+  width: 50%;
+  overflow: hidden;
+  display: inline-block;
+}
+
+/* COMMENTS */
+.comments{
+  margin-top:30px;
+}
+.comment{
+  padding:10px;
+  border-bottom:1px solid #333;
+}
+
+/* RELATED */
+.related{
+  margin-top:40px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px;
+}
+.card{
+  background:#1c1c1c;
+  padding:10px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.card img{
+  width:100%;
+  height:150px;
+  object-fit:cover;
+  border-radius:8px;
+}
+
+/* PREVIEW */
+.preview{
+  margin-top:20px;
+}
+audio{
+  width:100%;
+  margin-top:10px;
+}
+
+/* DESACTIVER CLICK DROIT SUR IMAGE */
+#cover, .preview img {
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: auto;
+  -webkit-touch-callout: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
 </style>
 </head>
-
-<body oncontextmenu="return false">
+<body>
 
 <div class="container">
 
@@ -110,9 +215,6 @@ img{pointer-events:none}
 <div id="likeCount"></div>
 
 <div class="rating">
-  <div>Note moyenne :</div>
-  <div id="ratingDisplay"></div>
-
   <div>Donner une note :</div>
   <span class="star" data-v="1">★</span>
   <span class="star" data-v="2">★</span>
@@ -134,20 +236,10 @@ img{pointer-events:none}
 
 </div>
 
-<!-- MODAL PAIEMENT -->
-<div class="modal" id="paymentModal">
-  <div class="modal-content">
-    <div class="close" id="closeModal">✖</div>
-    <h3>Paiement</h3>
-    <div id="payment-element"></div>
-    <button id="payNow">Payer</button>
-  </div>
-</div>
-
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase,ref,get,push,onValue,update,increment,set } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,get,push,onValue,update,increment } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app=initializeApp({
@@ -160,10 +252,6 @@ const app=initializeApp({
 const db=getDatabase(app);
 const auth=getAuth(app);
 
-const stripe = Stripe("pk_test_XXXXX"); // remplace
-
-let elements, clientSecret;
-
 let user=null;
 onAuthStateChanged(auth,u=>user=u);
 
@@ -175,108 +263,172 @@ const title=document.getElementById("title");
 const author=document.getElementById("author");
 const price=document.getElementById("price");
 const cover=document.getElementById("cover");
+const preview=document.getElementById("preview");
+const buyBtn=document.getElementById("buyBtn");
 
-const modal=document.getElementById("paymentModal");
+let data;
 
-/* LOAD */
+/* LOAD PRODUCT */
 const snap=await get(ref(db,type+"s/"+id));
-const data=snap.val();
+if(!snap.exists()){
+  title.textContent="Produit introuvable";
+  buyBtn.disabled=true;
+  throw "";
+}
+data=snap.val();
 
+/* VIEW COUNT */
+update(ref(db,type+"Views/"+id),{count:increment(1)});
+
+/* UI */
 title.textContent=data.title;
 author.textContent=data.creatorName||"Créateur";
-price.textContent="$"+data.price;
+price.textContent="$"+(data.price||0);
 
-cover.style.backgroundImage=`url(${data.cover1URL})`;
+/* COVER & TYPE */
+cover.style.backgroundImage=`url(${data.cover1URL||data.coverBase64})`;
 
-/* BUY -> OPEN MODAL */
-buyBtn.onclick=async()=>{
-  if(!user) return alert("Connexion requise");
+if(type==="music"){
+  cover.classList.add("music-bg");
+  preview.innerHTML=`<audio controls><source src="${data.musicURL}"></audio>`;
+}
+if(type==="book"){
+  cover.classList.add("book-bg");
+  preview.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;
+}
+if(type==="art"){
+  cover.classList.add("art-bg");
+  preview.innerHTML=`<img src="${data.cover1URL}" style="width:100%;border-radius:10px">`;
+}
 
-  modal.style.display="flex";
-
-  const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      price:data.price,
-      productId:id,
-      creatorId:data.creatorChannelId,
-      userId:user.uid,
-      title:data.title,
-      downloadURL:data.artURL,
-      stripeAccount:data.stripe_account_id
-    })
-  });
-
-  const d=await res.json();
-  clientSecret=d.clientSecret;
-
-  elements=stripe.elements({clientSecret});
-  const el=elements.create("payment");
-  el.mount("#payment-element");
+/* BUY BUTTON => checkout.html */
+buyBtn.onclick = ()=>{
+  if(!user){alert("Connexion requise"); return;}
+  location.href=`checkout.html?id=${id}&type=${type}`;
 };
 
-/* CLOSE MODAL */
-closeModal.onclick=()=> modal.style.display="none";
-
-/* PAY */
-payNow.onclick=async()=>{
-  const {error,paymentIntent}=await stripe.confirmPayment({
-    elements,
-    redirect:"if_required"
-  });
-
-  if(error){
-    alert(error.message);
-    return;
-  }
-
-  if(paymentIntent.status==="succeeded"){
-    alert("Paiement réussi");
-
-    await set(ref(db,"userLibrary/"+user.uid+"/"+id),{
-      title:data.title,
-      download:data.artURL
-    });
-
-    modal.style.display="none";
-  }
+/* LIKE */
+document.getElementById("likeBtn").onclick=async()=>{
+  if(!user) return alert("Connecte toi");
+  await update(ref(db,type+"Likes/"+id),{[user.uid]:true});
 };
 
-/* SHARE MOBILE */
-shareBtn.onclick=()=>{
-  if(navigator.share){
-    navigator.share({
-      title:data.title,
-      url:location.href
-    });
-  }
-};
-
-/* RATING SYSTEM */
-onValue(ref(db,type+"Ratings/"+id),snap=>{
-  if(!snap.exists()) return;
-
-  const values=Object.values(snap.val());
-  const avg=values.reduce((a,b)=>a+b,0)/values.length;
-
-  const percent=(avg/5)*100;
-
-  let starsHTML="";
-  let full=Math.floor(avg);
-  let half=(avg%1)>=0.5;
-
-  for(let i=0;i<full;i++) starsHTML+='<span class="star full">★</span>';
-  if(half) starsHTML+='<span class="star half">★</span>';
-
-  document.getElementById("ratingDisplay").innerHTML=
-    starsHTML+" ("+Math.round(percent)+"%)";
+onValue(ref(db,type+"Likes/"+id),snap=>{
+  if(!snap.exists())return;
+  document.getElementById("likeCount").textContent=
+    Object.keys(snap.val()).length+" likes";
 });
 
-/* DISABLE DRAG */
-document.addEventListener("dragstart",e=>e.preventDefault());
+/* SHARE */
+document.getElementById("shareBtn").onclick=()=>{
+  if(navigator.share){
+    navigator.share({title:data.title,url:location.href})
+      .catch(err=>console.log("Partage annulé:",err));
+  }else{
+    navigator.clipboard.writeText(location.href);
+    alert("Lien copié");
+  }
+};
+
+/* RATING */
+function updateRatingUI(type,id){
+  const stars = document.querySelectorAll(".star");
+  get(ref(db,type+"Ratings/"+id)).then(snap=>{
+    if(!snap.exists()) return;
+    const ratings = Object.values(snap.val());
+    const total = ratings.length;
+    const sum = ratings.reduce((a,b)=>a+b,0);
+    const avgPercent = (sum/(total*5))*100;
+    stars.forEach((star,index)=>{
+      const starValue = (index+1)*20;
+      if(avgPercent>=starValue){
+        star.classList.add("active");
+        star.classList.remove("half");
+      } else if(avgPercent>starValue-20 && avgPercent<starValue){
+        star.classList.add("half");
+        star.classList.remove("active");
+      } else {
+        star.classList.remove("active","half");
+      }
+    });
+  });
+}
+updateRatingUI(type,id);
+
+document.querySelectorAll(".star").forEach(star=>{
+  star.onclick=async()=>{
+    if(!user) return alert("Connexion requise");
+    const value=star.dataset.v;
+    await update(ref(db,type+"Ratings/"+id),{[user.uid]:Number(value)});
+    updateRatingUI(type,id);
+  };
+});
+
+/* COMMENTS */
+const input=document.getElementById("commentInput");
+input.addEventListener("keypress",async e=>{
+  if(e.key==="Enter"){
+    if(!user)return alert("Connexion requise");
+    const text=input.value.trim();
+    if(!text)return;
+    await push(ref(db,type+"Comments/"+id),{
+      user:user.email,
+      text,
+      date:Date.now()
+    });
+    input.value="";
+  }
+});
+
+onValue(ref(db,type+"Comments/"+id),snap=>{
+  const list=document.getElementById("commentsList");
+  list.innerHTML="";
+  if(!snap.exists())return;
+  Object.values(snap.val()).sort((a,b)=>b.date-a.date)
+  .forEach(c=>{
+    const div=document.createElement("div");
+    div.className="comment";
+    div.textContent=c.user+" : "+c.text;
+    list.appendChild(div);
+  });
+});
+
+/* RELATED */
+async function loadRelated(){
+  const snap=await get(ref(db,type+"s"));
+  if(!snap.exists()) return;
+  const grid=document.getElementById("relatedGrid");
+  Object.entries(snap.val()).slice(0,20).forEach(([pid,p])=>{
+    if(pid===id) return;
+    const card=document.createElement("div");
+    card.className="card";
+    card.innerHTML=`<img src="${p.cover1URL||p.coverBase64}"><div>${p.title}</div>`;
+    card.onclick=()=>location.href=`product-detail.html?id=${pid}&type=${type}`;
+    grid.appendChild(card);
+  });
+}
+loadRelated();
+
+/* PROTECTION CLICK DROIT SUR COVER ET PREVIEW */
+const protectedElements = [document.getElementById("cover"), document.querySelector(".preview img")];
+protectedElements.forEach(el=>{
+  if(el){
+    el.addEventListener("contextmenu", e=>e.preventDefault());
+  }
+});
+
+/* CROIX MODAL FUTUR */
+const modalClose = document.createElement("div");
+modalClose.textContent = "✖";
+modalClose.style.position = "absolute";
+modalClose.style.top = "10px";
+modalClose.style.right = "10px";
+modalClose.style.fontSize = "22px";
+modalClose.style.cursor = "pointer";
+modalClose.style.color = "white";
+document.body.appendChild(modalClose);
+modalClose.onclick = ()=>{ alert("voulez vous vraiment Fermer le modal"); };
 
 </script>
-
 </body>
 </html>
