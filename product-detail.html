@@ -4,93 +4,31 @@
 <meta charset="UTF-8">
 <title>Lumio Product</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-
 <style>
-body{
-  margin:0;
-  font-family:system-ui;
-  color:white;
-  background:#111;
-  overflow-x:hidden;
-}
-.container{
-  max-width:1000px;
-  margin:auto;
-  padding:20px;
-}
-h1{margin-top:20px}
-.author{color:#aaa}
-.price{font-size:22px;margin-top:10px}
-
-/* PREVIEW */
-.preview{
-  margin-top:20px;
-  max-height:400px;
-}
-.preview img,audio{
-  width:100%;
-  border-radius:10px;
-}
-
-/* BUTTONS */
-.actions{
-  display:flex;
-  gap:10px;
-  margin-top:16px;
-}
-button{
-  flex:1;
-  padding:12px;
-  border:none;
-  border-radius:10px;
-  background:#ff7b00;
-  color:white;
-  font-weight:700;
-  cursor:pointer;
-}
-#buyBtn{ background:#00c853; color:black; }
-
-/* LIKE */
-#likeCount{ margin-top:8px; color:#ffb347; }
-
-/* RATING */
-.rating{ margin-top:20px; position: relative; }
-.star{ font-size:24px; cursor:pointer; color:#555; position: relative; }
-.star.active{ color:gold; }
-.star.half::after{ content:"★"; position:absolute; color:gold; width:50%; overflow:hidden; display:inline-block; }
-
-/* COMMENTS */
-.comments{ margin-top:30px; }
-.comment{ padding:10px; border-bottom:1px solid #333; }
-
-/* RELATED */
-.related{ margin-top:40px; }
-.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
-.card{ background:#1c1c1c; padding:10px; border-radius:10px; cursor:pointer; }
-.card img{ width:100%; height:150px; object-fit:cover; border-radius:8px; }
-
-/* MODAL */
-#paymentModal{
-  display:none;
-  position:fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:#000000cc;
-  justify-content:center;
-  align-items:center;
-  z-index:999;
-}
-#paymentModalContent{
-  width:400px;
-  background:#1c1c1c;
-  padding:20px;
-  border-radius:12px;
-}
-#paymentModalContent img{
-  width:100%;
-  border-radius:8px;
-  margin-bottom:10px;
-}
+body{margin:0;font-family:system-ui;color:white;background:#111;overflow-x:hidden;}
+.container{max-width:1000px;margin:auto;padding:20px;}
+h1{margin-top:20px;}
+.author{color:#aaa;}
+.price{font-size:22px;margin-top:10px;}
+.actions{display:flex;gap:10px;margin-top:16px;}
+button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;color:white;font-weight:700;cursor:pointer;}
+#buyBtn{background:#00c853;color:black;}
+#likeCount{margin-top:8px;color:#ffb347;}
+.rating{margin-top:20px;}
+.star{font-size:24px;cursor:pointer;color:#555;position: relative;}
+.star.active{color:gold;}
+.star.half::after{content:"★";position:absolute;color:gold;width:50%;overflow:hidden;display:inline-block;}
+.comments{margin-top:30px;}
+.comment{padding:10px;border-bottom:1px solid #333;}
+.related{margin-top:40px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;}
+.card{background:#1c1c1c;padding:10px;border-radius:10px;cursor:pointer;}
+.card img{width:100%;height:150px;object-fit:cover;border-radius:8px;}
+.preview{margin-top:20px;}
+.preview img,audio{width:100%;}
+#paymentModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000000cc;justify-content:center;align-items:center;z-index:999;}
+#paymentModalContent{width:400px;background:#1c1c1c;padding:20px;border-radius:12px;}
+#paymentModalContent img{width:100%;border-radius:8px;margin-bottom:10px;}
 </style>
 </head>
 <body>
@@ -99,7 +37,6 @@ button{
   <h1 id="title"></h1>
   <div class="author" id="author"></div>
   <div class="price" id="price"></div>
-
   <div id="preview" class="preview"></div>
 
   <div class="actions">
@@ -107,6 +44,7 @@ button{
     <button id="likeBtn">👍 Like</button>
     <button id="shareBtn">🔗 Partager</button>
   </div>
+
   <div id="likeCount"></div>
 
   <div class="rating">
@@ -158,7 +96,7 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 
 let user = null;
-onAuthStateChanged(auth,u=>user=u);
+onAuthStateChanged(auth, u => user = u);
 
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
@@ -169,6 +107,7 @@ const authorEl = document.getElementById("author");
 const priceEl = document.getElementById("price");
 const previewEl = document.getElementById("preview");
 const buyBtn = document.getElementById("buyBtn");
+
 let product;
 
 // LOAD PRODUCT
@@ -181,42 +120,43 @@ let product;
   }
   product = snap.val();
 
-  // VIEW COUNT
-  update(ref(db,type+"Views/"+id),{count:increment(1)});
-
   // UI
   titleEl.textContent = product.title;
   authorEl.textContent = product.creatorName || "Créateur";
   priceEl.textContent = "$"+(product.price||0);
 
-  // PREVIEW
-  previewEl.innerHTML = "";
+  // PREVIEW (art, music, book)
+  previewEl.innerHTML="";
   if(type==="music"){
-    previewEl.innerHTML=`<audio controls><source src="${product.musicURL}"></audio>`;
+    previewEl.innerHTML=`<audio controls src="${product.musicURL}"></audio>`;
   } else if(type==="book"){
     previewEl.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;
   } else if(type==="art"){
     previewEl.innerHTML=`<img src="${product.artURL}" style="width:100%;border-radius:10px">`;
   }
 
+  // Related
   loadRelated();
-  updateRatingUI(type,id);
+  // Likes
   loadLikes();
+  // Ratings
+  updateRatingUI(type,id);
+  // Comments
   loadComments();
 })();
 
-// BUY BUTTON
+// BUY BUTTON -> OPEN MODAL
 buyBtn.onclick = ()=> {
   if(!user){ alert("Connexion requise"); return; }
   document.getElementById("paymentModal").style.display="flex";
-  document.getElementById("modalImage").src = type==="art"? product.artURL : (product.cover1URL||product.coverBase64);
+  document.getElementById("modalImage").src = product.artURL || product.cover1URL;
   document.getElementById("modalTitle").innerText = product.title;
   document.getElementById("modalPrice").innerText = "$"+product.price;
   createPaymentIntent();
 }
 
-// CANCEL
-document.getElementById("cancelBtn").onclick = ()=> {
+// CANCEL BUTTON
+document.getElementById("cancelBtn").onclick = ()=>{
   document.getElementById("paymentModal").style.display="none";
   document.getElementById("payment-element").innerHTML="";
 }
@@ -234,7 +174,7 @@ async function createPaymentIntent(){
       creatorId: product.creatorChannelId,
       userId: user.uid,
       title: product.title,
-      downloadURL: type==="art"? product.artURL : product.cover1URL,
+      downloadURL: product.artURL,
       stripeAccount: product.stripe_account_id,
       category: product.category || "art"
     })
@@ -246,7 +186,6 @@ async function createPaymentIntent(){
   const paymentElement = elements.create("payment");
   paymentElement.mount("#payment-element");
 }
-
 document.getElementById("payBtn").onclick = async ()=>{
   if(!elements){ alert("Paiement non prêt"); return; }
   const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });
@@ -258,8 +197,7 @@ document.getElementById("payBtn").onclick = async ()=>{
 function loadLikes(){
   const likeRef = ref(db,type+"Likes/"+id);
   onValue(likeRef,snap=>{
-    const count = snap.exists()? Object.keys(snap.val()).length : 0;
-    document.getElementById("likeCount").textContent = count + " likes";
+    document.getElementById("likeCount").textContent = snap.exists()? Object.keys(snap.val()).length+" likes":"0 likes";
   });
   document.getElementById("likeBtn").onclick = async ()=>{
     if(!user) return alert("Connecte toi");
@@ -269,12 +207,8 @@ function loadLikes(){
 
 // Share
 document.getElementById("shareBtn").onclick=()=>{
-  if(navigator.share){
-    navigator.share({title:product.title,url:location.href}).catch(()=>{});
-  } else {
-    navigator.clipboard.writeText(location.href);
-    alert("Lien copié");
-  }
+  if(navigator.share){ navigator.share({title:product.title,url:location.href}).catch(()=>{}); }
+  else { navigator.clipboard.writeText(location.href); alert("Lien copié"); }
 }
 
 // Ratings
@@ -311,15 +245,13 @@ function loadComments(){
     const list=document.getElementById("commentsList");
     list.innerHTML="";
     if(!snap.exists()) return;
-    Object.values(snap.val()).sort((a,b)=>b.date-a.date)
-      .forEach(c=>{
-        const div = document.createElement("div");
-        div.className="comment";
-        div.textContent = c.user+" : "+c.text;
-        list.appendChild(div);
-      });
+    Object.values(snap.val()).sort((a,b)=>b.date-a.date).forEach(c=>{
+      const div=document.createElement("div");
+      div.className="comment";
+      div.textContent = c.user + " : " + c.text;
+      list.appendChild(div);
+    });
   });
-
   const input = document.getElementById("commentInput");
   input.addEventListener("keypress", async e=>{
     if(e.key==="Enter"){
