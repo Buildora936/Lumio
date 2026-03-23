@@ -195,8 +195,8 @@ audio{
 </style>
 </head>
 <body>
-
-<div class="container">
+  
+<div id="preview" class="preview"></div>
 
 <div id="cover" class="cover"></div>
 
@@ -233,7 +233,25 @@ audio{
   <h3>Produits similaires</h3>
   <div id="relatedGrid" class="grid"></div>
 </div>
+<div id="paymentModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000000cc;justify-content:center;align-items:center;z-index:999">
 
+  <div style="width:400px;background:#1c1c1c;padding:20px;border-radius:12px">
+
+    <h2>Paiement</h2>
+
+    <img id="modalImage" style="width:100%;border-radius:8px;margin-bottom:10px">
+
+    <h3 id="modalTitle"></h3>
+    <p id="modalPrice"></p>
+
+    <div id="payment-element"></div>
+
+    <button id="payBtn">Payer</button>
+    <button onclick="closeModal()" style="background:#444;margin-top:10px">Annuler</button>
+
+  </div>
+
+</div>
 </div>
 
 <script type="module">
@@ -298,15 +316,95 @@ if(type==="book"){
 }
 if(type==="art"){
   cover.classList.add("art-bg");
-  preview.innerHTML=`<img src="${data.cover1URL}" style="width:100%;border-radius:10px">`;
+  preview.innerHTML=`<img src="${data.artURL
+}" style="width:100%;border-radius:10px">`;
 }
 
-/* BUY BUTTON => checkout.html */
-buyBtn.onclick = ()=>{
-  if(!user){alert("Connexion requise"); return;}
-  location.href=`checkout.html?id=${id}&type=${type}`;
-};
+/* BUY BUTTON => ouvre modal */
+buyBtn.onclick = async ()=>{
+  if(!user){
+    alert("Connexion requise")
+    return
+  }
 
+  openPaymentModal()
+}
+
+  const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA")
+
+let elements
+let clientSecret
+
+function openPaymentModal(){
+  document.getElementById("paymentModal").style.display = "flex"
+
+  document.getElementById("modalImage").src = product.cover1URL
+  document.getElementById("modalTitle").innerText = product.title
+  document.getElementById("modalPrice").innerText = "$"+product.price
+
+  createPaymentIntent()
+}
+
+function closeModal(){
+  document.getElementById("paymentModal").style.display = "none"
+  document.getElementById("payment-element").innerHTML = ""
+}
+
+/* CREATE PAYMENT */
+async function createPaymentIntent(){
+
+  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      price: product.price,
+      productId: id,
+      creatorId: product.creatorChannelId,
+      userId: user.uid,
+      title: product.title,
+      downloadURL: product.artURL,
+      stripeAccount: product.stripe_account_id,
+      category: product.category || "art"
+    })
+  })
+
+  const data = await res.json()
+
+  if(!data.clientSecret){
+    alert("Erreur Stripe")
+    return
+  }
+
+  clientSecret = data.clientSecret
+
+  elements = stripe.elements({ clientSecret })
+
+  const paymentElement = elements.create("payment")
+
+  paymentElement.mount("#payment-element")
+}
+
+/* PAY */
+document.getElementById("payBtn").onclick = async ()=>{
+
+  if(!elements){
+    alert("Paiement non prêt")
+    return
+  }
+
+  const {error} = await stripe.confirmPayment({
+    elements,
+    redirect: "if_required"
+  })
+
+  if(error){
+    alert(error.message)
+  }else{
+    alert("Paiement en cours ou réussi")
+    closeModal()
+  }
+}
+  
 /* LIKE */
 document.getElementById("likeBtn").onclick=async()=>{
   if(!user) return alert("Connecte toi");
@@ -402,7 +500,8 @@ async function loadRelated(){
     if(pid===id) return;
     const card=document.createElement("div");
     card.className="card";
-    card.innerHTML=`<img src="${p.cover1URL||p.coverBase64}"><div>${p.title}</div>`;
+    card.innerHTML=`<img src="${p.artURL
+||p.coverBase64}"><div>${p.title}</div>`;
     card.onclick=()=>location.href=`product-detail.html?id=${pid}&type=${type}`;
     grid.appendChild(card);
   });
