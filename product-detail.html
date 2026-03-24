@@ -32,8 +32,8 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 .art-container{
   position:relative;
   width:100%;
+  border-radius:12px;
   overflow:hidden;
-  border-radius:10px;
 }
 
 .art-container img{
@@ -45,15 +45,18 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
   pointer-events:none;
 }
 
+/* WATERMARK ORANGE */
 .watermark{
   position:absolute;
   top:50%;
   left:50%;
   transform:translate(-50%,-50%) rotate(-25deg);
 
-  font-size:60px;
+  font-size:48px;
   font-weight:900;
-  color:rgba(255,255,255,0.15);
+  color:rgba(255,140,0,0.25);
+
+  letter-spacing:2px;
 
   pointer-events:none;
   user-select:none;
@@ -101,10 +104,11 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 <div id="paymentModal">
   <div id="paymentModalContent">
     <h2>Paiement</h2>
-    <img id="modalImage">
-    <h3 id="modalTitle"></h3>
-    <p id="modalPrice"></p>
+
+    <p id="modalPrice" style="font-size:20px;margin:10px 0"></p>
+
     <div id="payment-element"></div>
+
     <button id="payBtn">Payer</button>
     <button id="cancelBtn" style="background:#444;margin-top:10px">Annuler</button>
   </div>
@@ -162,12 +166,13 @@ let product;
     previewEl.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;
   } else if(type==="art"){
   previewEl.innerHTML = `
-<div class="art-container">
-  <img id="protectedArt" src="${product.artURL}">
-  <div class="watermark">LUMIO</div>
-</div>
-`;  
-  }
+  <div class="art-container">
+    <img id="protectedArt" src="${product.artURL}">
+    <div class="watermark">
+      LUMIO - ${product.creatorName || product.creatorChannelId}
+    </div>
+  </div>`;
+}
 
   // Related
   loadRelated();
@@ -180,19 +185,33 @@ let product;
 })();
 
 // BUY BUTTON -> OPEN MODAL
-buyBtn.onclick = ()=> {
-  if(!user){ alert("Connexion requise"); return; }
-  document.getElementById("paymentModal").style.display="flex";
-  document.getElementById("modalImage").src = product.artURL || product.cover1URL;
-  document.getElementById("modalTitle").innerText = product.title;
-  document.getElementById("modalPrice").innerText = "$"+product.price;
-  createPaymentIntent();
+buyBtn.onclick = async ()=> {
+  if(!user){
+    alert("Connexion requise")
+    return
+  }
+
+  document.getElementById("paymentModal").style.display="flex"
+
+  // SEULEMENT LE PRIX
+  document.getElementById("modalPrice").innerText = "$"+product.price
+
+  // reset propre
+  document.getElementById("payment-element").innerHTML = ""
+
+  await createPaymentIntent()
 }
 
 // CANCEL BUTTON
 document.getElementById("cancelBtn").onclick = ()=>{
-  document.getElementById("paymentModal").style.display="none";
-  document.getElementById("payment-element").innerHTML="";
+  document.getElementById("paymentModal").style.display="none"
+
+  // nettoyage stripe
+  if(elements){
+    elements = null
+  }
+
+  document.getElementById("payment-element").innerHTML=""
 }
 
 // STRIPE
@@ -312,9 +331,13 @@ async function loadRelated(){
     grid.appendChild(card);
   });
 }
+// bloque clic droit
 document.addEventListener("contextmenu", e => e.preventDefault());
 
+// bloque drag
 document.addEventListener("dragstart", e => e.preventDefault());
+
+// bloque raccourcis
 document.addEventListener("keydown", e=>{
   if(e.ctrlKey && ["s","u","c","x"].includes(e.key.toLowerCase())){
     e.preventDefault();
