@@ -103,7 +103,7 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 <!-- MODAL -->
 <div id="paymentModal">
   <div id="paymentModalContent">
-    <h2>Paiement</h2>
+    <h2>~paiment~</h2>
 
     <p id="modalPrice" style="font-size:20px;margin:10px 0"></p>
 
@@ -227,7 +227,7 @@ async function createPaymentIntent(){
       userId: user.uid,
       title: product.title,
       downloadURL: product.artURL,
-      stripeAccount: product.stripe_account_id,
+      stripeAccount: channel.stripe_account_id,
       category: product.category || "art"
     })
   });
