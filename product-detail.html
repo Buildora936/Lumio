@@ -35,29 +35,23 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
   border-radius:12px;
   overflow:hidden;
 }
-
 .art-container img{
   width:100%;
   display:block;
-
   user-select:none;
   -webkit-user-drag:none;
   pointer-events:none;
 }
-
 /* WATERMARK ORANGE */
 .watermark{
   position:absolute;
   top:50%;
   left:50%;
   transform:translate(-50%,-50%) rotate(-25deg);
-
   font-size:48px;
   font-weight:900;
   color:rgba(255,140,0,0.25);
-
   letter-spacing:2px;
-
   pointer-events:none;
   user-select:none;
 }
@@ -116,7 +110,7 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get, push, onValue, update, increment } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app = initializeApp({
@@ -216,7 +210,17 @@ document.getElementById("cancelBtn").onclick = ()=>{
 // STRIPE
 const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
 let elements, clientSecret;
+
 async function createPaymentIntent(){
+  // Récupérer stripe_account_id depuis channels
+  const channelSnap = await get(ref(db,"channels/"+product.creatorChannelId));
+  const stripeAccountId = channelSnap.exists() ? channelSnap.val().stripe_account_id : null;
+
+  if(!stripeAccountId){
+    alert("Le compte Stripe du créateur n'est pas trouvé");
+    return;
+  }
+
   const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
@@ -227,7 +231,7 @@ async function createPaymentIntent(){
       userId: user.uid,
       title: product.title,
       downloadURL: product.artURL,
-      stripeAccount: channel.stripe_account_id,
+      stripeAccount: stripeAccountId,
       category: product.category || "art"
     })
   });
@@ -238,6 +242,7 @@ async function createPaymentIntent(){
   const paymentElement = elements.create("payment");
   paymentElement.mount("#payment-element");
 }
+
 document.getElementById("payBtn").onclick = async ()=>{
   if(!elements){ alert("Paiement non prêt"); return; }
   const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });
@@ -332,10 +337,8 @@ async function loadRelated(){
 }
 // bloque clic droit
 document.addEventListener("contextmenu", e => e.preventDefault());
-
 // bloque drag
 document.addEventListener("dragstart", e => e.preventDefault());
-
 // bloque raccourcis
 document.addEventListener("keydown", e=>{
   if(e.ctrlKey && ["s","u","c","x"].includes(e.key.toLowerCase())){
