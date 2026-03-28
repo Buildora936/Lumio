@@ -209,7 +209,7 @@ document.getElementById("cancelBtn").onclick = ()=>{
 }
 
 // STRIPE
-const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
+let stripe; // on initialise plus bas
 let elements, clientSecret;
 
 async function createPaymentIntent(){
@@ -239,7 +239,16 @@ async function createPaymentIntent(){
   const data = await res.json();
   if(!data.clientSecret){ alert("Erreur Stripe"); return; }
   clientSecret = data.clientSecret;
-  elements = stripe.elements({ clientSecret });
+  // INITIALISER STRIPE AVEC LE COMPTE CONNECTÉ
+stripe = Stripe(
+  "pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA",
+  { stripeAccount: stripeAccountId }
+);
+
+elements = stripe.elements({ clientSecret });
+
+const paymentElement = elements.create("payment");
+paymentElement.mount("#payment-element");
   const paymentElement = elements.create("payment");
   paymentElement.mount("#payment-element");
 }
