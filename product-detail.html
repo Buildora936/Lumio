@@ -95,76 +95,75 @@ const priceEl = document.getElementById("price");
 const previewEl = document.getElementById("preview");  
 const buyBtn = document.getElementById("buyBtn");  
 
-// ✅ FIX ordre (après déclaration DOM)
-if(!id || !type){  
-  titleEl.textContent = "Produit invalide";  
-  buyBtn.disabled = true;  
-  throw new Error("Missing id or type in URL");  
-}  
-
 let product;  
 let elements, clientSecret;  
 
-(async ()=>{  
- console.log("ID:", id);  
- console.log("TYPE:", type);  
+onAuthStateChanged(auth, async (u)=>{
 
- let path = "";  
+user = u;
 
- if(type === "music") path = "musics/";  
- else if(type === "art") path = "arts/";  
- else if(type === "book") path = "books/";  
- else {  
-   titleEl.textContent = "Type invalide";  
-   buyBtn.disabled = true;  
-   return;  
- }  
+console.log("USER:", user);
+console.log("ID:", id);
+console.log("TYPE:", type);
 
- const snap = await get(ref(db, path + id));  
+let path = "";
 
- if(!snap.exists()){  
-   titleEl.textContent="Produit introuvable";  
-   buyBtn.disabled=true;  
-   return;  
- }  
+if(type === "music") path = "musics/";
+else if(type === "art") path = "arts/";
+else if(type === "book") path = "books/";
+else {
+  titleEl.textContent = "Type invalide";
+  buyBtn.disabled = true;
+  return;
+}
 
- product = snap.val();  
+const snap = await get(ref(db, path + id));
 
- // ✅ FIX user async
- if(user){  
-   const purchaseSnap = await get(ref(db, "purchases/"+user.uid+"/"+id));  
-   if(purchaseSnap.exists()){  
-     buyBtn.innerText = "Déjà acheté";  
-     buyBtn.disabled = true;  
-   }  
- }  
+if(!snap.exists()){
+  titleEl.textContent="Produit introuvable";
+  buyBtn.disabled=true;
+  return;
+}
 
- titleEl.textContent = product.title;  
- authorEl.textContent = product.creatorName || "Créateur";  
- priceEl.textContent = "$"+(product.price||0);  
+product = snap.val();
 
- previewEl.innerHTML="";  
+/* ✅ FIX ici */
+if(user){
+  const purchaseSnap = await get(ref(db, "purchases/"+user.uid+"/"+id));
+  if(purchaseSnap.exists()){
+    buyBtn.innerText = "Déjà acheté";
+    buyBtn.disabled = true;
+  }
+}
 
- if(type==="music"){  
-   previewEl.innerHTML=`<audio controls src="${product.musicURL}"></audio>`;  
- } else if(type==="book"){  
-   previewEl.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;  
- } else if(type==="art"){  
-   previewEl.innerHTML = `  
-   <div class="art-container">  
-     <img src="${product.artURL}">  
-     <div class="watermark">  
-       LUMIO - ${product.creatorName || product.creatorChannelId}  
-     </div>  
-   </div>`;  
- }  
+titleEl.textContent = product.title;
+authorEl.textContent = product.creatorName || "Créateur";
+priceEl.textContent = "$"+(product.price||0);
 
- loadRelated();  
- loadLikes();  
- updateRatingUI(type,id);  
- loadComments();  
-})();  
+previewEl.innerHTML="";
 
+if(type==="music"){
+  previewEl.innerHTML=`<audio controls src="${product.musicURL}"></audio>`;
+}
+else if(type==="book"){
+  previewEl.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;
+}
+else if(type==="art"){
+  previewEl.innerHTML = `
+  <div class="art-container">
+    <img src="${product.artURL}">
+    <div class="watermark">
+      LUMIO - ${product.creatorName || product.creatorChannelId}
+    </div>
+  </div>`;
+}
+
+loadRelated();
+loadLikes();
+updateRatingUI(type,id);
+loadComments();
+
+});
 buyBtn.onclick = async ()=>{  
   if(!user){ alert("Connexion requise"); return; }  
 
