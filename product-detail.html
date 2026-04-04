@@ -88,7 +88,11 @@ onAuthStateChanged(auth, u => user = u);
 const params = new URLSearchParams(location.search);  
 const id = params.get("id");  
 const type = params.get("type");  
-  
+if(!id || !type){
+  titleEl.textContent = "Produit invalide";
+  buyBtn.disabled = true;
+  throw new Error("Missing id or type in URL");
+}  
 const titleEl = document.getElementById("title");  
 const authorEl = document.getElementById("author");  
 const priceEl = document.getElementById("price");  
@@ -99,13 +103,30 @@ let product;
 let elements, clientSecret;  
   
 (async ()=>{  
-  const snap = await get(ref(db,type+"s/"+id));  
+ let path = "";
+
+if(type === "music") path = "musics/";
+else if(type === "art") path = "arts/";
+else if(type === "book") path = "books/";
+else {
+  titleEl.textContent = "Type invalide";
+  buyBtn.disabled = true;
+  return;
+}
+
+const snap = await get(ref(db, path + id));  
   if(!snap.exists()){  
     titleEl.textContent="Produit introuvable";  
     buyBtn.disabled=true;  
     return;  
-  }  
   
+  }  
+  const purchaseSnap = await get(ref(db, "purchases/"+user?.uid+"/"+id));
+
+if(purchaseSnap.exists()){
+  buyBtn.innerText = "Déjà acheté";
+  buyBtn.disabled = true;
+}  
   product = snap.val();  
   
   titleEl.textContent = product.title;  
