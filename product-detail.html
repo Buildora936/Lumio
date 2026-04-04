@@ -1,5 +1,4 @@
-<!DOCTYPE html>  
-<html lang="fr">  
+<!DOCTYPE html>  <html lang="fr">  
 <head>  
 <meta charset="UTF-8">  
 <title>Lumio - Product</title>  
@@ -30,81 +29,43 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 #paymentModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000000cc;justify-content:center;align-items:center;z-index:999;}  
 #paymentModalContent{width:400px;background:#1c1c1c;padding:20px;border-radius:12px;}  
 #paymentModalContent img{width:100%;border-radius:8px;margin-bottom:10px;}  
-.art-container{  
-  position:relative;  
-  width:100%;  
-  border-radius:12px;  
-  overflow:hidden;  
-}  
-.art-container img{  
-  width:100%;  
-  display:block;  
-  user-select:none;  
-  -webkit-user-drag:none;  
-  pointer-events:none;  
-}  
-.watermark{  
-  position:absolute;  
-  top:50%;  
-  left:50%;  
-  transform:translate(-50%,-50%) rotate(-25deg);  
-  font-size:48px;  
-  font-weight:900;  
-  color:rgba(255,140,0,0.25);  
-  letter-spacing:2px;  
-  pointer-events:none;  
-  user-select:none;  
-}  
+.art-container{position:relative;width:100%;border-radius:12px;overflow:hidden;}  
+.art-container img{width:100%;display:block;user-select:none;-webkit-user-drag:none;pointer-events:none;}  
+.watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:48px;font-weight:900;color:rgba(255,140,0,0.25);letter-spacing:2px;pointer-events:none;user-select:none;}  
 </style>  
 </head>  
-<body>  
-  
-<div class="container">  
+<body>  <div class="container">  
   <h1 id="title"></h1>  
   <div class="author" id="author"></div>  
   <div class="price" id="price"></div>  
-  <div id="preview" class="preview"></div>  
-  
-  <div class="actions">  
+  <div id="preview" class="preview"></div>    <div class="actions">  
     <button id="buyBtn">Acheter</button>  
     <button id="likeBtn">👍 Like</button>  
     <button id="shareBtn">🔗 Partager</button>  
-  </div>  
-  
-  <div id="likeCount"></div>  
-  
-  <div class="rating">  
+  </div>    <div id="likeCount"></div>    <div class="rating">  
     <div>Donner une note :</div>  
     <span class="star" data-v="1">★</span>  
     <span class="star" data-v="2">★</span>  
     <span class="star" data-v="3">★</span>  
     <span class="star" data-v="4">★</span>  
     <span class="star" data-v="5">★</span>  
-  </div>  
-  
-  <div class="comments">  
+  </div>    <div class="comments">  
     <h3>Commentaires</h3>  
     <input id="commentInput" placeholder="Commenter..." style="width:100%;padding:10px;border-radius:8px;border:none;background:#222;color:white">  
     <div id="commentsList"></div>  
-  </div>  
-  
-  <div class="related">  
+  </div>    <div class="related">  
     <h3>Produits similaires</h3>  
     <div id="relatedGrid" class="grid"></div>  
   </div>  
-</div>  
-  
-<div id="paymentModal">  
+</div>  <div id="paymentModal">  
   <div id="paymentModalContent">  
-    <h2>~paiment~</h2>  
+    <h2>Paiement</h2>  
     <p id="modalPrice" style="font-size:20px;margin:10px 0"></p>  
     <div id="payment-element"></div>  
     <button id="payBtn">Payer</button>  
     <button id="cancelBtn" style="background:#444;margin-top:10px">Annuler</button>  
   </div>  
-</div>  
-  
-<script type="module">  
+</div>  <script type="module">  
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";  
 import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";  
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";  
@@ -115,8 +76,11 @@ const app = initializeApp({
   databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",  
   projectId:"lumio-822f0"  
 });  
+  
 const db = getDatabase(app);  
 const auth = getAuth(app);  
+  
+const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");  
   
 let user = null;  
 onAuthStateChanged(auth, u => user = u);  
@@ -132,6 +96,7 @@ const previewEl = document.getElementById("preview");
 const buyBtn = document.getElementById("buyBtn");  
   
 let product;  
+let elements, clientSecret;  
   
 (async ()=>{  
   const snap = await get(ref(db,type+"s/"+id));  
@@ -140,13 +105,13 @@ let product;
     buyBtn.disabled=true;  
     return;  
   }  
+  
   product = snap.val();  
   
   titleEl.textContent = product.title;  
   authorEl.textContent = product.creatorName || "Créateur";  
   priceEl.textContent = "$"+(product.price||0);  
   
-  previewEl.innerHTML="";  
   if(type==="music"){  
     previewEl.innerHTML=`<audio controls src="${product.musicURL}"></audio>`;  
   } else if(type==="book"){  
@@ -154,10 +119,8 @@ let product;
   } else if(type==="art"){  
     previewEl.innerHTML = `  
     <div class="art-container">  
-      <img id="protectedArt" src="${product.artURL}">  
-      <div class="watermark">  
-        LUMIO - ${product.creatorName || product.creatorChannelId}  
-      </div>  
+      <img src="${product.artURL}">  
+      <div class="watermark">LUMIO - ${product.creatorName || product.creatorChannelId}</div>  
     </div>`;  
   }  
   
@@ -167,34 +130,34 @@ let product;
   loadComments();  
 })();  
   
-buyBtn.onclick = async ()=> {  
-  if(!user){  
-    alert("Connexion requise")  
-    return  
-  }  
+buyBtn.onclick = async ()=>{  
+  if(!user){ alert("Connexion requise"); return; }  
   
-  document.getElementById("paymentModal").style.display="flex"  
-  document.getElementById("modalPrice").innerText = "$"+product.price  
-  document.getElementById("payment-element").innerHTML = ""  
+  buyBtn.disabled = true;  
+  buyBtn.innerText = "Chargement...";  
   
-  await createPaymentIntent()  
+  document.getElementById("paymentModal").style.display="flex";  
+  document.getElementById("modalPrice").innerText = "$"+product.price;  
+  document.getElementById("payment-element").innerHTML = "";  
+  
+  await createPaymentIntent();  
+  
+  buyBtn.disabled = false;  
+  buyBtn.innerText = "Acheter";  
 }  
   
 document.getElementById("cancelBtn").onclick = ()=>{  
-  document.getElementById("paymentModal").style.display="none"  
-  if(elements){ elements = null }  
-  document.getElementById("payment-element").innerHTML=""  
+  document.getElementById("paymentModal").style.display="none";  
+  elements = null;  
+  document.getElementById("payment-element").innerHTML="";  
 }  
-  
-let stripe;  
-let elements, clientSecret;  
   
 async function createPaymentIntent(){  
   const channelSnap = await get(ref(db,"channels/"+product.creatorChannelId));  
   const stripeAccountId = channelSnap.exists() ? channelSnap.val().stripe_account_id : null;  
   
-  if(!stripeAccountId){  
-    alert("Le compte Stripe du créateur n'est pas trouvé");  
+  if(!stripeAccountId || !stripeAccountId.startsWith("acct_")){  
+    alert("Compte Stripe invalide");  
     return;  
   }  
   
@@ -202,38 +165,37 @@ async function createPaymentIntent(){
     method:"POST",  
     headers:{ "Content-Type":"application/json" },  
     body:JSON.stringify({  
-      price: product.price,  
       productId: id,  
       creatorId: product.creatorChannelId,  
-      userId: user.uid,  
-      title: product.title,  
-      downloadURL: product.artURL,  
-      stripeAccount: stripeAccountId,  
-      category: product.category || "art"  
+      userId: user.uid  
     })  
   });  
+  
+  if(!res.ok){ alert("Erreur serveur"); return; }  
   
   const data = await res.json();  
   if(!data.clientSecret){ alert("Erreur Stripe"); return; }  
   
   clientSecret = data.clientSecret;  
   
-  stripe = Stripe(  
-    "pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA",  
-    
-  );  
-  
   elements = stripe.elements({ clientSecret });  
-  
   const paymentElement = elements.create("payment");  
   paymentElement.mount("#payment-element");  
 }  
   
 document.getElementById("payBtn").onclick = async ()=>{  
   if(!elements){ alert("Paiement non prêt"); return; }  
+  
   const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });  
-  if(error){ alert(error.message); }   
-  else { alert("Paiement en cours ou réussi"); document.getElementById("paymentModal").style.display="none"; }  
+  
+  if(error){  
+    alert(error.message);  
+  } else {  
+    alert("Paiement réussi");  
+    document.getElementById("paymentModal").style.display="none";  
+    elements = null;  
+    document.getElementById("payment-element").innerHTML="";  
+  }  
 }  
   
 function loadLikes(){  
@@ -291,6 +253,7 @@ function loadComments(){
       list.appendChild(div);  
     });  
   });  
+  
   const input = document.getElementById("commentInput");  
   input.addEventListener("keypress", async e=>{  
     if(e.key==="Enter"){  
@@ -324,6 +287,5 @@ document.addEventListener("keydown", e=>{
     e.preventDefault();  
   }  
 });  
-</script>  
-</body>  
+</script>  </body>  
 </html>
