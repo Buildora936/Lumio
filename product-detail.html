@@ -173,7 +173,7 @@ if(user){
    UI RENDER
 ========================= */
 titleEl.textContent = product.title;
-authorEl.textContent = product.creatorName || product.creatorChannelId || "Créateur";
+authorEl.textContent = product.creatorName || creatorChannelId.name || "Créateur";
 priceEl.textContent = "$" + (product.price || 0);
 
 previewEl.innerHTML = "";
