@@ -39,7 +39,7 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
   <div class="author" id="author"></div>  
   <div class="price" id="price"></div>  
   <div id="preview" class="preview"></div>    <div class="actions">  
-    <button id="buyBtn">Acheter</button>  
+    <button id="buyBtn">Obtenir</button>  
     <button id="likeBtn">👍 Like</button>  
     <button id="shareBtn">🔗 Partager</button>  
   </div>    <div id="likeCount"></div>    <div class="rating">  
@@ -69,119 +69,135 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";  
 import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";  
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";  
-  
+
 const app = initializeApp({  
   apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",  
   authDomain:"lumio-822f0.firebaseapp.com",  
   databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",  
   projectId:"lumio-822f0"  
 });  
-  
+
 const db = getDatabase(app);  
 const auth = getAuth(app);  
-  
+
 const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");  
-  
+
 let user = null;  
 onAuthStateChanged(auth, u => user = u);  
-  
+
 const params = new URLSearchParams(location.search);  
 const id = params.get("id");  
 const type = params.get("type");  
-if(!id || !type){
-  titleEl.textContent = "Produit invalide";
-  buyBtn.disabled = true;
-  throw new Error("Missing id or type in URL");
-}  
+
 const titleEl = document.getElementById("title");  
 const authorEl = document.getElementById("author");  
 const priceEl = document.getElementById("price");  
 const previewEl = document.getElementById("preview");  
 const buyBtn = document.getElementById("buyBtn");  
-  
+
+// ✅ FIX ordre (après déclaration DOM)
+if(!id || !type){  
+  titleEl.textContent = "Produit invalide";  
+  buyBtn.disabled = true;  
+  throw new Error("Missing id or type in URL");  
+}  
+
 let product;  
 let elements, clientSecret;  
-  
+
 (async ()=>{  
- let path = "";
+ console.log("ID:", id);  
+ console.log("TYPE:", type);  
 
-if(type === "music") path = "musics/";
-else if(type === "art") path = "arts/";
-else if(type === "book") path = "books/";
-else {
-  titleEl.textContent = "Type invalide";
-  buyBtn.disabled = true;
-  return;
-}
+ let path = "";  
 
-const snap = await get(ref(db, path + id));  
-  if(!snap.exists()){  
-    titleEl.textContent="Produit introuvable";  
-    buyBtn.disabled=true;  
-    return;  
-  
-  }  
-  const purchaseSnap = await get(ref(db, "purchases/"+user?.uid+"/"+id));
+ if(type === "music") path = "musics/";  
+ else if(type === "art") path = "arts/";  
+ else if(type === "book") path = "books/";  
+ else {  
+   titleEl.textContent = "Type invalide";  
+   buyBtn.disabled = true;  
+   return;  
+ }  
 
-if(purchaseSnap.exists()){
-  buyBtn.innerText = "Déjà acheté";
-  buyBtn.disabled = true;
-}  
-  product = snap.val();  
-  
-  titleEl.textContent = product.title;  
-  authorEl.textContent = product.creatorName || "Créateur";  
-  priceEl.textContent = "$"+(product.price||0);  
-  
-  if(type==="music"){  
-    previewEl.innerHTML=`<audio controls src="${product.musicURL}"></audio>`;  
-  } else if(type==="book"){  
-    previewEl.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;  
-  } else if(type==="art"){  
-    previewEl.innerHTML = `  
-    <div class="art-container">  
-      <img src="${product.artURL}">  
-      <div class="watermark">LUMIO - ${product.creatorName || product.creatorChannelId}</div>  
-    </div>`;  
-  }  
-  
-  loadRelated();  
-  loadLikes();  
-  updateRatingUI(type,id);  
-  loadComments();  
+ const snap = await get(ref(db, path + id));  
+
+ if(!snap.exists()){  
+   titleEl.textContent="Produit introuvable";  
+   buyBtn.disabled=true;  
+   return;  
+ }  
+
+ product = snap.val();  
+
+ // ✅ FIX user async
+ if(user){  
+   const purchaseSnap = await get(ref(db, "purchases/"+user.uid+"/"+id));  
+   if(purchaseSnap.exists()){  
+     buyBtn.innerText = "Déjà acheté";  
+     buyBtn.disabled = true;  
+   }  
+ }  
+
+ titleEl.textContent = product.title;  
+ authorEl.textContent = product.creatorName || "Créateur";  
+ priceEl.textContent = "$"+(product.price||0);  
+
+ previewEl.innerHTML="";  
+
+ if(type==="music"){  
+   previewEl.innerHTML=`<audio controls src="${product.musicURL}"></audio>`;  
+ } else if(type==="book"){  
+   previewEl.innerHTML=`<button onclick="alert('extrait livre')">Lire un extrait</button>`;  
+ } else if(type==="art"){  
+   previewEl.innerHTML = `  
+   <div class="art-container">  
+     <img src="${product.artURL}">  
+     <div class="watermark">  
+       LUMIO - ${product.creatorName || product.creatorChannelId}  
+     </div>  
+   </div>`;  
+ }  
+
+ loadRelated();  
+ loadLikes();  
+ updateRatingUI(type,id);  
+ loadComments();  
 })();  
-  
+
 buyBtn.onclick = async ()=>{  
   if(!user){ alert("Connexion requise"); return; }  
-  
+
+  if(elements) return; // ✅ anti double clic  
+
   buyBtn.disabled = true;  
   buyBtn.innerText = "Chargement...";  
-  
+
   document.getElementById("paymentModal").style.display="flex";  
   document.getElementById("modalPrice").innerText = "$"+product.price;  
   document.getElementById("payment-element").innerHTML = "";  
-  
+
   await createPaymentIntent();  
-  
+
   buyBtn.disabled = false;  
   buyBtn.innerText = "Acheter";  
 }  
-  
+
 document.getElementById("cancelBtn").onclick = ()=>{  
   document.getElementById("paymentModal").style.display="none";  
-  elements = null;  
-  document.getElementById("payment-element").innerHTML="";  
+  if(elements){ elements = null }  
+  document.getElementById("payment-element").innerHTML=""  
 }  
-  
+
 async function createPaymentIntent(){  
   const channelSnap = await get(ref(db,"channels/"+product.creatorChannelId));  
   const stripeAccountId = channelSnap.exists() ? channelSnap.val().stripe_account_id : null;  
-  
+
   if(!stripeAccountId || !stripeAccountId.startsWith("acct_")){  
     alert("Compte Stripe invalide");  
     return;  
   }  
-  
+
   const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{  
     method:"POST",  
     headers:{ "Content-Type":"application/json" },  
@@ -191,34 +207,27 @@ async function createPaymentIntent(){
       userId: user.uid  
     })  
   });  
-  
+
   if(!res.ok){ alert("Erreur serveur"); return; }  
-  
+
   const data = await res.json();  
   if(!data.clientSecret){ alert("Erreur Stripe"); return; }  
-  
+
   clientSecret = data.clientSecret;  
-  
+
   elements = stripe.elements({ clientSecret });  
+
   const paymentElement = elements.create("payment");  
   paymentElement.mount("#payment-element");  
 }  
-  
+
 document.getElementById("payBtn").onclick = async ()=>{  
   if(!elements){ alert("Paiement non prêt"); return; }  
-  
   const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });  
-  
-  if(error){  
-    alert(error.message);  
-  } else {  
-    alert("Paiement réussi");  
-    document.getElementById("paymentModal").style.display="none";  
-    elements = null;  
-    document.getElementById("payment-element").innerHTML="";  
-  }  
+  if(error){ alert(error.message); }   
+  else { alert("Paiement réussi"); document.getElementById("paymentModal").style.display="none"; elements=null; document.getElementById("payment-element").innerHTML=""; }  
 }  
-  
+
 function loadLikes(){  
   const likeRef = ref(db,type+"Likes/"+id);  
   onValue(likeRef,snap=>{  
@@ -229,12 +238,12 @@ function loadLikes(){
     await update(ref(db,type+"Likes/"+id),{[user.uid]:true});  
   }  
 }  
-  
+
 document.getElementById("shareBtn").onclick=()=>{  
   if(navigator.share){ navigator.share({title:product.title,url:location.href}).catch(()=>{}); }  
   else { navigator.clipboard.writeText(location.href); alert("Lien copié"); }  
 }  
-  
+
 function updateRatingUI(type,id){  
   const stars = document.querySelectorAll(".star");  
   get(ref(db,type+"Ratings/"+id)).then(snap=>{  
@@ -250,7 +259,7 @@ function updateRatingUI(type,id){
       else{ star.classList.remove("active","half"); }  
     });  
   });  
-  
+
   stars.forEach(star=>{  
     star.onclick=async()=>{  
       if(!user) return alert("Connexion requise");  
@@ -260,7 +269,7 @@ function updateRatingUI(type,id){
     };  
   });  
 }  
-  
+
 function loadComments(){  
   const commentsRef = ref(db,type+"Comments/"+id);  
   onValue(commentsRef,snap=>{  
@@ -274,7 +283,6 @@ function loadComments(){
       list.appendChild(div);  
     });  
   });  
-  
   const input = document.getElementById("commentInput");  
   input.addEventListener("keypress", async e=>{  
     if(e.key==="Enter"){  
@@ -286,7 +294,7 @@ function loadComments(){
     }  
   });  
 }  
-  
+
 async function loadRelated(){  
   const snap=await get(ref(db,type+"s"));  
   if(!snap.exists()) return;  
@@ -300,7 +308,7 @@ async function loadRelated(){
     grid.appendChild(card);  
   });  
 }  
-  
+
 document.addEventListener("contextmenu", e => e.preventDefault());  
 document.addEventListener("dragstart", e => e.preventDefault());  
 document.addEventListener("keydown", e=>{  
