@@ -65,46 +65,52 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
     <button id="payBtn">Payer</button>  
     <button id="cancelBtn" style="background:#444;margin-top:10px">Annuler</button>  
   </div>  
-</div>  <script type="module">  
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";  
-import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";  
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";  
+</div>   
+    
 
-const app = initializeApp({  
-  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",  
-  authDomain:"lumio-822f0.firebaseapp.com",  
-  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",  
-  projectId:"lumio-822f0"  
-});  
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-const db = getDatabase(app);  
-const auth = getAuth(app);  
+const app = initializeApp({
+  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain:"lumio-822f0.firebaseapp.com",
+  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId:"lumio-822f0"
+});
 
-const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");  
+const db = getDatabase(app);
+const auth = getAuth(app);
 
-let user = null;  
-onAuthStateChanged(auth, u => user = u);  
+const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
 
-const params = new URLSearchParams(location.search);  
-const id = params.get("id");  
-const type = params.get("type");  
+let user = null;
 
-const titleEl = document.getElementById("title");  
-const authorEl = document.getElementById("author");  
-const priceEl = document.getElementById("price");  
-const previewEl = document.getElementById("preview");  
-const buyBtn = document.getElementById("buyBtn");  
+const params = new URLSearchParams(location.search);
+const id = params.get("id");
+const type = params.get("type");
 
-let product;  
-let elements, clientSecret;  
+const titleEl = document.getElementById("title");
+const authorEl = document.getElementById("author");
+const priceEl = document.getElementById("price");
+const previewEl = document.getElementById("preview");
+const buyBtn = document.getElementById("buyBtn");
 
+/* ✅ FIX CRITIQUE */
+if(!id || !type){
+  titleEl.textContent = "Produit invalide";
+  buyBtn.disabled = true;
+  throw new Error("Missing id or type in URL");
+}
+
+let product;
+let elements, clientSecret;
+
+/* ✅ AUTH + LOAD PRODUIT */
 onAuthStateChanged(auth, async (u)=>{
 
 user = u;
-
-console.log("USER:", user);
-console.log("ID:", id);
-console.log("TYPE:", type);
 
 let path = "";
 
@@ -117,25 +123,35 @@ else {
   return;
 }
 
-const snap = await get(ref(db, path + id));
+try{
+  const snap = await get(ref(db, path + id));
 
-if(!snap.exists()){
-  titleEl.textContent="Produit introuvable";
-  buyBtn.disabled=true;
+  if(!snap.exists()){
+    titleEl.textContent="Produit introuvable";
+    buyBtn.disabled=true;
+    return;
+  }
+
+  product = snap.val();
+
+}catch(err){
+  console.error("Firebase error:", err);
+  titleEl.textContent="Erreur chargement";
   return;
 }
 
-product = snap.val();
-
-/* ✅ FIX ici */
+/* PURCHASE CHECK */
 if(user){
-  const purchaseSnap = await get(ref(db, "purchases/"+user.uid+"/"+id));
-  if(purchaseSnap.exists()){
-    buyBtn.innerText = "Déjà acheté";
-    buyBtn.disabled = true;
-  }
+  try{
+    const purchaseSnap = await get(ref(db, "purchases/"+user.uid+"/"+id));
+    if(purchaseSnap.exists()){
+      buyBtn.innerText = "Déjà acheté";
+      buyBtn.disabled = true;
+    }
+  }catch(e){}
 }
 
+/* UI */
 titleEl.textContent = product.title;
 authorEl.textContent = product.creatorName || "Créateur";
 priceEl.textContent = "$"+(product.price||0);
@@ -164,156 +180,178 @@ updateRatingUI(type,id);
 loadComments();
 
 });
-buyBtn.onclick = async ()=>{  
-  if(!user){ alert("Connexion requise"); return; }  
 
-  if(elements) return; // ✅ anti double clic  
+/* BUY */
+buyBtn.onclick = async ()=>{
+  if(!user){ alert("Connexion requise"); return; }
 
-  buyBtn.disabled = true;  
-  buyBtn.innerText = "Chargement...";  
+  if(elements) return;
 
-  document.getElementById("paymentModal").style.display="flex";  
-  document.getElementById("modalPrice").innerText = "$"+product.price;  
-  document.getElementById("payment-element").innerHTML = "";  
+  buyBtn.disabled = true;
+  buyBtn.innerText = "Chargement...";
 
-  await createPaymentIntent();  
+  document.getElementById("paymentModal").style.display="flex";
+  document.getElementById("modalPrice").innerText = "$"+product.price;
+  document.getElementById("payment-element").innerHTML = "";
 
-  buyBtn.disabled = false;  
-  buyBtn.innerText = "Acheter";  
-}  
+  await createPaymentIntent();
 
-document.getElementById("cancelBtn").onclick = ()=>{  
-  document.getElementById("paymentModal").style.display="none";  
-  if(elements){ elements = null }  
-  document.getElementById("payment-element").innerHTML=""  
-}  
+  buyBtn.disabled = false;
+  buyBtn.innerText = "Acheter";
+};
 
-async function createPaymentIntent(){  
-  const channelSnap = await get(ref(db,"channels/"+product.creatorChannelId));  
-  const stripeAccountId = channelSnap.exists() ? channelSnap.val().stripe_account_id : null;  
+/* CANCEL */
+document.getElementById("cancelBtn").onclick = ()=>{
+  document.getElementById("paymentModal").style.display="none";
+  if(elements){ elements = null }
+  document.getElementById("payment-element").innerHTML="";
+};
 
-  if(!stripeAccountId || !stripeAccountId.startsWith("acct_")){  
-    alert("Compte Stripe invalide");  
-    return;  
-  }  
+/* STRIPE */
+async function createPaymentIntent(){
+  const channelSnap = await get(ref(db,"channels/"+product.creatorChannelId));
+  const stripeAccountId = channelSnap.exists() ? channelSnap.val().stripe_account_id : null;
 
-  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{  
-    method:"POST",  
-    headers:{ "Content-Type":"application/json" },  
-    body:JSON.stringify({  
-      productId: id,  
-      creatorId: product.creatorChannelId,  
-      userId: user.uid  
-    })  
-  });  
+  if(!stripeAccountId || !stripeAccountId.startsWith("acct_")){
+    alert("Compte Stripe invalide");
+    return;
+  }
 
-  if(!res.ok){ alert("Erreur serveur"); return; }  
+  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      productId: id,
+      creatorId: product.creatorChannelId,
+      userId: user.uid
+    })
+  });
 
-  const data = await res.json();  
-  if(!data.clientSecret){ alert("Erreur Stripe"); return; }  
+  if(!res.ok){ alert("Erreur serveur"); return; }
 
-  clientSecret = data.clientSecret;  
+  const data = await res.json();
+  if(!data.clientSecret){ alert("Erreur Stripe"); return; }
 
-  elements = stripe.elements({ clientSecret });  
+  clientSecret = data.clientSecret;
 
-  const paymentElement = elements.create("payment");  
-  paymentElement.mount("#payment-element");  
-}  
+  elements = stripe.elements({ clientSecret });
 
-document.getElementById("payBtn").onclick = async ()=>{  
-  if(!elements){ alert("Paiement non prêt"); return; }  
-  const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });  
-  if(error){ alert(error.message); }   
-  else { alert("Paiement réussi"); document.getElementById("paymentModal").style.display="none"; elements=null; document.getElementById("payment-element").innerHTML=""; }  
-}  
+  const paymentElement = elements.create("payment");
+  paymentElement.mount("#payment-element");
+}
 
-function loadLikes(){  
-  const likeRef = ref(db,type+"Likes/"+id);  
-  onValue(likeRef,snap=>{  
-    document.getElementById("likeCount").textContent = snap.exists()? Object.keys(snap.val()).length+" likes":"0 likes";  
-  });  
-  document.getElementById("likeBtn").onclick = async ()=>{  
-    if(!user) return alert("Connecte toi");  
-    await update(ref(db,type+"Likes/"+id),{[user.uid]:true});  
-  }  
-}  
+/* PAY */
+document.getElementById("payBtn").onclick = async ()=>{
+  if(!elements){ alert("Paiement non prêt"); return; }
 
-document.getElementById("shareBtn").onclick=()=>{  
-  if(navigator.share){ navigator.share({title:product.title,url:location.href}).catch(()=>{}); }  
-  else { navigator.clipboard.writeText(location.href); alert("Lien copié"); }  
-}  
+  const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });
 
-function updateRatingUI(type,id){  
-  const stars = document.querySelectorAll(".star");  
-  get(ref(db,type+"Ratings/"+id)).then(snap=>{  
-    if(!snap.exists()) return;  
-    const ratings = Object.values(snap.val());  
-    const total = ratings.length;  
-    const sum = ratings.reduce((a,b)=>a+b,0);  
-    const avgPercent = (sum/(total*5))*100;  
-    stars.forEach((star,index)=>{  
-      const starValue = (index+1)*20;  
-      if(avgPercent>=starValue){ star.classList.add("active"); star.classList.remove("half"); }  
-      else if(avgPercent>starValue-20 && avgPercent<starValue){ star.classList.add("half"); star.classList.remove("active"); }  
-      else{ star.classList.remove("active","half"); }  
-    });  
-  });  
+  if(error){
+    alert(error.message);
+  } else {
+    alert("Paiement réussi");
+    document.getElementById("paymentModal").style.display="none";
+    elements=null;
+    document.getElementById("payment-element").innerHTML="";
+  }
+};
 
-  stars.forEach(star=>{  
-    star.onclick=async()=>{  
-      if(!user) return alert("Connexion requise");  
-      const value=Number(star.dataset.v);  
-      await update(ref(db,type+"Ratings/"+id),{[user.uid]:value});  
-      updateRatingUI(type,id);  
-    };  
-  });  
-}  
+/* LIKES */
+function loadLikes(){
+  const likeRef = ref(db,type+"Likes/"+id);
+  onValue(likeRef,snap=>{
+    document.getElementById("likeCount").textContent = snap.exists()? Object.keys(snap.val()).length+" likes":"0 likes";
+  });
+  document.getElementById("likeBtn").onclick = async ()=>{
+    if(!user) return alert("Connecte toi");
+    await update(ref(db,type+"Likes/"+id),{[user.uid]:true});
+  }
+}
 
-function loadComments(){  
-  const commentsRef = ref(db,type+"Comments/"+id);  
-  onValue(commentsRef,snap=>{  
-    const list=document.getElementById("commentsList");  
-    list.innerHTML="";  
-    if(!snap.exists()) return;  
-    Object.values(snap.val()).sort((a,b)=>b.date-a.date).forEach(c=>{  
-      const div=document.createElement("div");  
-      div.className="comment";  
-      div.textContent = c.user + " : " + c.text;  
-      list.appendChild(div);  
-    });  
-  });  
-  const input = document.getElementById("commentInput");  
-  input.addEventListener("keypress", async e=>{  
-    if(e.key==="Enter"){  
-      if(!user) return alert("Connexion requise");  
-      const text=input.value.trim();  
-      if(!text) return;  
-      await push(ref(db,type+"Comments/"+id),{ user:user.email, text, date:Date.now() });  
-      input.value="";  
-    }  
-  });  
-}  
+/* SHARE */
+document.getElementById("shareBtn").onclick=()=>{
+  if(navigator.share){ navigator.share({title:product.title,url:location.href}).catch(()=>{}); }
+  else { navigator.clipboard.writeText(location.href); alert("Lien copié"); }
+};
 
-async function loadRelated(){  
-  const snap=await get(ref(db,type+"s"));  
-  if(!snap.exists()) return;  
-  const grid=document.getElementById("relatedGrid");  
-  Object.entries(snap.val()).slice(0,20).forEach(([pid,p])=>{  
-    if(pid===id) return;  
-    const card=document.createElement("div");  
-    card.className="card";  
-    card.innerHTML=`<img src="${p.artURL||p.coverBase64}"><div>${p.title}</div>`;  
-    card.onclick=()=>location.href=`product-detail.html?id=${pid}&type=${type}`;  
-    grid.appendChild(card);  
-  });  
-}  
+/* RATING */
+function updateRatingUI(type,id){
+  const stars = document.querySelectorAll(".star");
+  get(ref(db,type+"Ratings/"+id)).then(snap=>{
+    if(!snap.exists()) return;
+    const ratings = Object.values(snap.val());
+    const total = ratings.length;
+    const sum = ratings.reduce((a,b)=>a+b,0);
+    const avgPercent = (sum/(total*5))*100;
+    stars.forEach((star,index)=>{
+      const starValue = (index+1)*20;
+      if(avgPercent>=starValue){ star.classList.add("active"); star.classList.remove("half"); }
+      else if(avgPercent>starValue-20 && avgPercent<starValue){ star.classList.add("half"); star.classList.remove("active"); }
+      else{ star.classList.remove("active","half"); }
+    });
+  });
 
-document.addEventListener("contextmenu", e => e.preventDefault());  
-document.addEventListener("dragstart", e => e.preventDefault());  
-document.addEventListener("keydown", e=>{  
-  if(e.ctrlKey && ["s","u","c","x"].includes(e.key.toLowerCase())){  
-    e.preventDefault();  
-  }  
-});  
-</script>  </body>  
+  stars.forEach(star=>{
+    star.onclick=async()=>{
+      if(!user) return alert("Connexion requise");
+      const value=Number(star.dataset.v);
+      await update(ref(db,type+"Ratings/"+id),{[user.uid]:value});
+      updateRatingUI(type,id);
+    };
+  });
+}
+
+/* COMMENTS */
+function loadComments(){
+  const commentsRef = ref(db,type+"Comments/"+id);
+  onValue(commentsRef,snap=>{
+    const list=document.getElementById("commentsList");
+    list.innerHTML="";
+    if(!snap.exists()) return;
+    Object.values(snap.val()).sort((a,b)=>b.date-a.date).forEach(c=>{
+      const div=document.createElement("div");
+      div.className="comment";
+      div.textContent = c.user + " : " + c.text;
+      list.appendChild(div);
+    });
+  });
+
+  const input = document.getElementById("commentInput");
+  input.addEventListener("keypress", async e=>{
+    if(e.key==="Enter"){
+      if(!user) return alert("Connexion requise");
+      const text=input.value.trim();
+      if(!text) return;
+      await push(ref(db,type+"Comments/"+id),{ user:user.email, text, date:Date.now() });
+      input.value="";
+    }
+  });
+}
+
+/* RELATED */
+async function loadRelated(){
+  const snap=await get(ref(db,type+"s"));
+  if(!snap.exists()) return;
+  const grid=document.getElementById("relatedGrid");
+  Object.entries(snap.val()).slice(0,20).forEach(([pid,p])=>{
+    if(pid===id) return;
+    const card=document.createElement("div");
+    card.className="card";
+    card.innerHTML=`<img src="${p.cover1URL || p.artURL}"><div>${p.title}</div>`;
+    card.onclick=()=>location.href=`product-detail.html?id=${pid}&type=${type}`;
+    grid.appendChild(card);
+  });
+}
+
+/* PROTECTION */
+document.addEventListener("contextmenu", e => e.preventDefault());
+document.addEventListener("dragstart", e => e.preventDefault());
+document.addEventListener("keydown", e=>{
+  if(e.ctrlKey && ["s","u","c","x"].includes(e.key.toLowerCase())){
+    e.preventDefault();
+  }
+});
+</script>
+
+</body>  
 </html>
