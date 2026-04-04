@@ -124,8 +124,10 @@ else {
 }
 
 try{
-  const snap = await get(ref(db, path + id));
+  const testRef = ref(db, "arts");
+const testSnap = await get(testRef);
 
+console.log("ALL ARTS =", testSnap.val());
   if(!snap.exists()){
     titleEl.textContent="Produit introuvable";
     buyBtn.disabled=true;
