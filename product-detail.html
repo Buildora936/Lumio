@@ -68,7 +68,6 @@ button{flex:1;padding:12px;border:none;border-radius:10px;background:#ff7b00;col
 </div>   
     
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -86,13 +85,20 @@ const auth = getAuth(app);
 const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
 
 let user = null;
-let product;
-let elements, clientSecret;
+let product = null;
+let elements = null;
+let clientSecret = null;
 
+/* =========================
+   URL PARAMS
+========================= */
 const params = new URLSearchParams(location.search);
-const id = params.get("id");
-const type = params.get("type");
+const id = (params.get("id") || "").trim();
+const type = (params.get("type") || "").trim();
 
+/* =========================
+   DOM ELEMENTS
+========================= */
 const titleEl = document.getElementById("title");
 const authorEl = document.getElementById("author");
 const priceEl = document.getElementById("price");
@@ -100,235 +106,398 @@ const previewEl = document.getElementById("preview");
 const buyBtn = document.getElementById("buyBtn");
 
 /* =========================
-   AUTH + LOAD
+   SAFETY CHECK
+========================= */
+if(!id || !type){
+  titleEl.textContent = "Produit invalide";
+  buyBtn.disabled = true;
+}
+
+/* =========================
+   AUTH + LOAD PRODUCT
 ========================= */
 onAuthStateChanged(auth, async (u)=>{
 
 user = u;
 
-let path = "";
+try {
 
-if(type === "music") path = "musics/";
-else if(type === "art") path = "arts/";
-else if(type === "book") path = "books/";
-else {
-  titleEl.textContent = "Type invalide";
+  const path = type === "art"
+    ? "arts/"
+    : type === "music"
+      ? "musics/"
+      : type === "book"
+        ? "books/"
+        : null;
+
+  if(!path){
+    titleEl.textContent = "Type invalide";
+    buyBtn.disabled = true;
+    return;
+  }
+
+  console.log("LOAD PATH:", path + id);
+
+  const snap = await get(ref(db, path + id));
+
+  if(!snap.exists()){
+    titleEl.textContent = "Produit introuvable";
+    buyBtn.disabled = true;
+    return;
+  }
+
+  product = snap.val();
+
+  console.log("PRODUCT:", product);
+
+} catch (err) {
+  console.error("Firebase error:", err);
+  titleEl.textContent = "Erreur chargement Firebase";
   return;
 }
-
-const snap = await get(ref(db, path + id));
-
-if(!snap.exists()){
-  titleEl.textContent="Produit introuvable";
-  return;
-}
-
-product = snap.val();
-
-titleEl.textContent = product.title;
-authorEl.textContent = product.creatorName || "Créateur";
-priceEl.textContent = "$"+(product.price||0);
 
 /* =========================
-   🔐 CHECK PURCHASE
+   CHECK PURCHASE
 ========================= */
-let isPurchased = false;
-
 if(user){
-  const purchaseSnap = await get(ref(db,"purchases/"+user.uid+"/"+id));
-  isPurchased = purchaseSnap.exists();
+  try {
+    const purchaseSnap = await get(ref(db, "purchases/"+user.uid+"/"+id));
+    if(purchaseSnap.exists()){
+      buyBtn.innerText = "Déjà acheté";
+      buyBtn.disabled = true;
+    }
+  } catch(e){}
 }
 
 /* =========================
-   🎯 UNLOCK LOGIC
+   UI RENDER
 ========================= */
+titleEl.textContent = product.title;
+authorEl.textContent = product.creatorName || product.creatorChannelId || "Créateur";
+priceEl.textContent = "$" + (product.price || 0);
 
 previewEl.innerHTML = "";
 
-if(type==="art"){
+if(type === "music"){
+  previewEl.innerHTML = `<audio controls src="${product.musicURL}"></audio>`;
+}
 
-  if(isPurchased){
-    previewEl.innerHTML = `
+if(type === "book"){
+  previewEl.innerHTML = `<button>Lire extrait</button>`;
+}
+
+if(type === "art"){
+  previewEl.innerHTML = `
+    <div class="art-container">
       <img src="${product.artURL}">
-      ${product.packURL ? `<a href="${product.packURL}" download>Télécharger pack</a>` : ""}
-    `;
-  }else{
-    previewEl.innerHTML = `
-      <div class="art-container">
-        <img src="${product.cover1URL || product.artURL}">
-        <div class="watermark">
-          LUMIO - ${product.creatorChannelId}
-        </div>
+      <div class="watermark">
+        LUMIO - ${product.creatorChannelId}
       </div>
-    `;
-  }
-
-}
-
-else if(type==="music"){
-
-  if(isPurchased){
-    previewEl.innerHTML = `<audio controls src="${product.musicURL}"></audio>`;
-  }else{
-    previewEl.innerHTML = `<audio controls src="${product.previewURL || product.musicURL}"></audio>`;
-  }
-
-}
-
-else if(type==="book"){
-
-  if(isPurchased){
-    previewEl.innerHTML = `<a href="${product.bookURL}" target="_blank">Lire le livre</a>`;
-  }else{
-    previewEl.innerHTML = `<button onclick="alert('extrait livre')">Lire un extrait</button>`;
-  }
-
+    </div>
+  `;
 }
 
 /* =========================
-   UI BUTTON
+   EXTRA FEATURES
 ========================= */
-
-if(isPurchased){
-  buyBtn.innerText = "Déjà acheté";
-  buyBtn.disabled = true;
-}
-
-/* =========================
-   AUTRES FEATURES
-========================= */
-
 loadRelated();
 loadLikes();
-updateRatingUI(type,id);
+updateRatingUI(type, id);
 loadComments();
 
 });
 
 /* =========================
-   💳 PAYMENT
+   BUY BUTTON
 ========================= */
-
 buyBtn.onclick = async ()=>{
 
-if(!user){ alert("Connexion requise"); return; }
+if(!user){
+  alert("Connexion requise");
+  return;
+}
 
-document.getElementById("paymentModal").style.display="flex";
-document.getElementById("modalPrice").innerText = "$"+product.price;
+if(elements) return;
+
+buyBtn.disabled = true;
+buyBtn.innerText = "Chargement...";
+
+document.getElementById("paymentModal").style.display = "flex";
+document.getElementById("modalPrice").innerText = "$" + product.price;
 document.getElementById("payment-element").innerHTML = "";
 
 await createPaymentIntent();
 
-}
+buyBtn.disabled = false;
+buyBtn.innerText = "Acheter";
 
+};
+
+/* =========================
+   CANCEL PAYMENT
+========================= */
 document.getElementById("cancelBtn").onclick = ()=>{
-  document.getElementById("paymentModal").style.display="none";
+
+document.getElementById("paymentModal").style.display = "none";
+
+if(elements){
   elements = null;
-  document.getElementById("payment-element").innerHTML="";
 }
 
+document.getElementById("payment-element").innerHTML = "";
+
+};
+
+/* =========================
+   STRIPE CONNECT INTENT
+========================= */
 async function createPaymentIntent(){
 
-const channelSnap = await get(ref(db,"channels/"+product.creatorChannelId));
-const stripeAccountId = channelSnap.exists() ? channelSnap.val().stripe_account_id : null;
+const channelSnap = await get(ref(db, "channels/"+product.creatorChannelId));
 
-if(!stripeAccountId){ alert("Stripe account manquant"); return; }
+const stripeAccountId = channelSnap.exists()
+  ? channelSnap.val().stripe_account_id
+  : null;
+
+if(!stripeAccountId || !stripeAccountId.startsWith("acct_")){
+  alert("Stripe creator invalide");
+  return;
+}
 
 const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
   method:"POST",
   headers:{ "Content-Type":"application/json" },
-  body:JSON.stringify({
-    productId:id,
-    creatorId:product.creatorChannelId,
-    userId:user.uid
+  body: JSON.stringify({
+    productId: id,
+    creatorId: product.creatorChannelId,
+    userId: user.uid
   })
 });
 
+if(!res.ok){
+  alert("Erreur serveur Stripe");
+  return;
+}
+
 const data = await res.json();
+
+if(!data.clientSecret){
+  alert("ClientSecret manquant");
+  return;
+}
 
 clientSecret = data.clientSecret;
 
 elements = stripe.elements({ clientSecret });
-elements.create("payment").mount("#payment-element");
 
-}
+const paymentElement = elements.create("payment");
+paymentElement.mount("#payment-element");
 
-document.getElementById("payBtn").onclick = async ()=>{
-if(!elements) return alert("Paiement non prêt");
-const {error} = await stripe.confirmPayment({ elements, redirect:"if_required" });
-if(error){ alert(error.message); }
-else{ alert("Paiement en cours..."); }
 }
 
 /* =========================
-   (likes / comments inchangés)
+   PAY
 ========================= */
+document.getElementById("payBtn").onclick = async ()=>{
 
+if(!elements){
+  alert("Paiement non prêt");
+  return;
+}
+
+const {error} = await stripe.confirmPayment({
+  elements,
+  redirect: "if_required"
+});
+
+if(error){
+  alert(error.message);
+  return;
+}
+
+alert("Paiement réussi");
+
+document.getElementById("paymentModal").style.display = "none";
+
+elements = null;
+
+document.getElementById("payment-element").innerHTML = "";
+
+};
+
+/* =========================
+   LIKE SYSTEM
+========================= */
 function loadLikes(){
-  const likeRef = ref(db,type+"Likes/"+id);
-  onValue(likeRef,snap=>{
-    document.getElementById("likeCount").textContent = snap.exists()? Object.keys(snap.val()).length+" likes":"0 likes";
+
+const likeRef = ref(db, type+"Likes/"+id);
+
+onValue(likeRef, snap=>{
+  document.getElementById("likeCount").textContent =
+    snap.exists()
+      ? Object.keys(snap.val()).length + " likes"
+      : "0 likes";
+});
+
+document.getElementById("likeBtn").onclick = async ()=>{
+
+  if(!user) return alert("Connexion requise");
+
+  await update(ref(db, type+"Likes/"+id), {
+    [user.uid]: true
   });
-  document.getElementById("likeBtn").onclick = async ()=>{
-    if(!user) return alert("Connecte toi");
-    await update(ref(db,type+"Likes/"+id),{[user.uid]:true});
-  }
+
+};
+
 }
 
-function updateRatingUI(type,id){
-  const stars = document.querySelectorAll(".star");
-  get(ref(db,type+"Ratings/"+id)).then(snap=>{
-    if(!snap.exists()) return;
-    const ratings = Object.values(snap.val());
-    const total = ratings.length;
-    const sum = ratings.reduce((a,b)=>a+b,0);
-    const avgPercent = (sum/(total*5))*100;
-    stars.forEach((star,index)=>{
-      const starValue = (index+1)*20;
-      if(avgPercent>=starValue){ star.classList.add("active"); star.classList.remove("half"); }
-      else if(avgPercent>starValue-20 && avgPercent<starValue){ star.classList.add("half"); star.classList.remove("active"); }
-      else{ star.classList.remove("active","half"); }
+/* =========================
+   SHARE
+========================= */
+document.getElementById("shareBtn").onclick = ()=>{
+
+if(navigator.share){
+  navigator.share({
+    title: product.title,
+    url: location.href
+  });
+} else {
+  navigator.clipboard.writeText(location.href);
+  alert("Lien copié");
+}
+
+};
+
+/* =========================
+   RATING
+========================= */
+function updateRatingUI(type, id){
+
+const stars = document.querySelectorAll(".star");
+
+get(ref(db, type+"Ratings/"+id)).then(snap=>{
+
+  if(!snap.exists()) return;
+
+  const ratings = Object.values(snap.val());
+
+  const avg = ratings.reduce((a,b)=>a+b,0) / ratings.length;
+
+  const percent = (avg / 5) * 100;
+
+  stars.forEach((s,i)=>{
+
+    const v = (i+1)*20;
+
+    if(percent >= v){
+      s.classList.add("active");
+    }
+
+  });
+
+});
+
+stars.forEach(star=>{
+  star.onclick = async ()=>{
+
+    if(!user) return alert("Connexion requise");
+
+    const value = Number(star.dataset.v);
+
+    await update(ref(db, type+"Ratings/"+id), {
+      [user.uid]: value
     });
-  });
 
-  stars.forEach(star=>{
-    star.onclick=async()=>{
-      if(!user) return alert("Connexion requise");
-      const value=Number(star.dataset.v);
-      await update(ref(db,type+"Ratings/"+id),{[user.uid]:value});
-      updateRatingUI(type,id);
-    };
-  });
+    updateRatingUI(type, id);
+
+  };
+});
+
 }
 
+/* =========================
+   COMMENTS
+========================= */
 function loadComments(){
-  const commentsRef = ref(db,type+"Comments/"+id);
-  onValue(commentsRef,snap=>{
-    const list=document.getElementById("commentsList");
-    list.innerHTML="";
-    if(!snap.exists()) return;
-    Object.values(snap.val()).sort((a,b)=>b.date-a.date).forEach(c=>{
-      const div=document.createElement("div");
-      div.className="comment";
-      div.textContent = c.user + " : " + c.text;
+
+const refC = ref(db, type+"Comments/"+id);
+
+onValue(refC, snap=>{
+
+  const list = document.getElementById("commentsList");
+  list.innerHTML = "";
+
+  if(!snap.exists()) return;
+
+  Object.values(snap.val())
+    .sort((a,b)=>b.date-a.date)
+    .forEach(c=>{
+      const div = document.createElement("div");
+      div.textContent = c.user + ": " + c.text;
       list.appendChild(div);
     });
+
+});
+
+document.getElementById("commentInput").addEventListener("keypress", async (e)=>{
+
+  if(e.key !== "Enter") return;
+  if(!user) return alert("Connexion requise");
+
+  const text = e.target.value.trim();
+  if(!text) return;
+
+  await push(ref(db, type+"Comments/"+id), {
+    user: user.email,
+    text,
+    date: Date.now()
   });
+
+  e.target.value = "";
+
+});
+
 }
 
+/* =========================
+   RELATED
+========================= */
 async function loadRelated(){
-  const snap=await get(ref(db,type+"s"));
-  if(!snap.exists()) return;
-  const grid=document.getElementById("relatedGrid");
-  Object.entries(snap.val()).slice(0,20).forEach(([pid,p])=>{
-    if(pid===id) return;
-    const card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`<img src="${p.artURL||p.cover1URL}"><div>${p.title}</div>`;
-    card.onclick=()=>location.href=`product-detail.html?id=${pid}&type=${type}`;
+
+const snap = await get(ref(db, type+"s"));
+
+if(!snap.exists()) return;
+
+const grid = document.getElementById("relatedGrid");
+
+Object.entries(snap.val())
+  .slice(0,20)
+  .forEach(([pid,p])=>{
+
+    if(pid === id) return;
+
+    const card = document.createElement("div");
+
+    card.innerHTML = `
+      <img src="${p.cover1URL || p.artURL}">
+      <p>${p.title}</p>
+    `;
+
+    card.onclick = ()=>{
+      location.href = `product-detail.html?id=${pid}&type=${type}`;
+    };
+
     grid.appendChild(card);
+
   });
+
 }
+
+/* =========================
+   ANTI COPY (BASIC)
+========================= */
+document.addEventListener("contextmenu", e=>e.preventDefault());
+document.addEventListener("dragstart", e=>e.preventDefault());
 
 </script>
   
