@@ -84,15 +84,19 @@ header h1{
   background:rgba(0,0,0,0.2);
   color:white;
   cursor:pointer;
-  transition:.2s;
 }
 
 .categories button:hover{
   background:#fff;
   color:#ff6a00;
-  font-weight:700;
 }
 
+.section-title{
+  margin:30px 20px 10px;
+  font-size:20px;
+}
+
+/* GRID */
 .products{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
@@ -102,29 +106,16 @@ header h1{
 
 .card{
   background:rgba(255,255,255,0.1);
-  backdrop-filter:blur(6px);
   border-radius:16px;
   overflow:hidden;
   cursor:pointer;
   transition:.3s;
   display:flex;
   flex-direction:column;
-  position: relative;
-}
-
-.card::after{
-  content:"";
-  position:absolute;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:radial-gradient(circle, rgba(255,140,0,0.1), transparent 70%);
-  opacity:0.7;
-  pointer-events:none;
 }
 
 .card:hover{
   transform:translateY(-8px) scale(1.02);
-  box-shadow:0 10px 30px rgba(0,0,0,0.5);
 }
 
 .card img{
@@ -135,50 +126,43 @@ header h1{
 
 .info{
   padding:12px;
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
 }
 
-.title{
-  font-weight:700;
-  font-size:16px;
-  margin-bottom:6px;
-}
-
-.creator{
-  color:#fff;
-  font-size:13px;
-  margin-bottom:6px;
-}
-
-.price{
-  color:#ffb347;
-  font-weight:700;
-  margin-bottom:6px;
-}
+.title{font-weight:700}
+.creator{font-size:13px}
+.price{color:#ffb347;font-weight:700;margin-top:5px}
 
 .more{
-  margin-top:auto;
+  margin-top:10px;
   padding:6px 12px;
   border:none;
   border-radius:20px;
   background:#ffb347;
-  color:black;
+  cursor:pointer;
+}
+
+.bottom-nav{
+  display:flex;
+  justify-content:space-around;
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  background:rgba(0,0,0,0.6);
+  padding:12px;
+  backdrop-filter:blur(10px);
+}
+
+.bottom-nav button{
+  background:none;
+  border:none;
+  color:white;
   font-weight:700;
   cursor:pointer;
-  transition:.2s;
 }
 
-.more:hover{
-  background:#ff9500;
-}
-
-.section-title{
-  margin:30px 20px 10px;
-  font-size:20px;
-  color:white;
+.bottom-nav button.active{
+  color:#ffb347;
 }
 
 </style>
@@ -190,7 +174,7 @@ header h1{
 <h1>Lumio Shop</h1>
 
 <div class="search-bar">
- <input type="text" id="searchInput" placeholder="Rechercher un produit...">
+ <input type="text" id="searchInput" placeholder="Rechercher...">
  <button id="searchBtn"><i class="fa fa-search"></i></button>
 </div>
 </header>
@@ -202,9 +186,14 @@ header h1{
  <button data-type="art">Art</button>
 </div>
 
-<h2 class="section-title">Nouveautés</h2>
+<h2 class="section-title" id="sectionTitle">For You</h2>
 <div class="products" id="products"></div>
 
+<!-- NAV BOTTOM -->
+<div class="bottom-nav">
+  <button id="forYouBtn" class="active">For You</button>
+  <button id="exploreBtn">Explorer</button>
+</div>
 
 <script type="module">
 
@@ -221,12 +210,13 @@ const app = initializeApp({
 const db = getDatabase(app);
 
 let ALL_PRODUCTS = [];
+let MODE = "forYou";
 
 /* =========================
    LOAD
 ========================= */
 
-async function loadProducts(){
+async function load(){
 
  const [books,music,arts] = await Promise.all([
    get(ref(db,"books")),
@@ -248,122 +238,167 @@ async function loadProducts(){
  Object.entries(arts.val()).forEach(([id,p])=>
  products.push({...p,id,type:"art"}));
 
- ALL_PRODUCTS = rankAI(products);
- render(ALL_PRODUCTS);
+ ALL_PRODUCTS = products;
+
+ render();
 }
 
 /* =========================
-   AI RANKING ENGINE
+   AI SCORE
 ========================= */
 
-function rankAI(products){
-
- const now = Date.now();
-
- return products.sort((a,b)=>{
-
-   const scoreA = computeScore(a, now);
-   const scoreB = computeScore(b, now);
-
-   return scoreB - scoreA;
- });
-}
-
-/* =========================
-   SCORING SYSTEM
-========================= */
-
-function computeScore(p, now){
+function score(p){
 
  const views = p.views || 0;
  const sales = p.sales || 0;
+ const age = p.createdAt ? (Date.now()-p.createdAt)/86400000 : 10;
 
- /* recency boost (produits récents favorisés) */
- const createdAt = p.createdAt || now;
- const ageDays = Math.max(1, (now - createdAt) / (1000*60*60*24));
- const recency = 1 / ageDays;
+ const recency = 1/age;
 
- return (
-   views * 0.25 +
-   sales * 0.55 +
-   recency * 50
- );
+ return views*0.25 + sales*0.6 + recency*40;
+}
+
+/* =========================
+   PERSONALIZATION SIMPLE
+========================= */
+
+function forYouList(){
+
+ return [...ALL_PRODUCTS]
+ .sort((a,b)=>score(b)-score(a))
+ .slice(0,30);
+}
+
+function exploreList(){
+
+ return [...ALL_PRODUCTS]
+ .sort(()=>Math.random()-0.5)
+ .slice(0,30);
 }
 
 /* =========================
    RENDER
 ========================= */
 
-function render(list){
+function render(){
 
  const container = document.getElementById("products");
  container.innerHTML = "";
 
+ let list = MODE==="forYou" ? forYouList() : exploreList();
+
+ document.getElementById("sectionTitle").innerText =
+ MODE==="forYou" ? "For You" : "Explorer";
+
  list.forEach(p=>{
 
- const card = document.createElement("div");
+ const card=document.createElement("div");
  card.className="card";
 
- card.innerHTML = `
-   <img src="${p.cover1URL || p.coverURL || p.artURL}">
+ card.innerHTML=`
+   <img src="${p.cover1URL || p.coverURL || 'https://via.placeholder.com/220x180'}">
    <div class="info">
      <div class="title">${p.title}</div>
-     <div class="creator">${p.creatorName || "Anonyme"}</div>
-     <div class="price">$${p.price || 0}</div>
+     <div class="creator">${p.creatorName||"Anonyme"}</div>
+     <div class="price">$${p.price||0}</div>
      <button class="more">Voir plus</button>
    </div>
  `;
 
- card.querySelector(".more").onclick = ()=>{
-   location.href = `product-detail.html?id=${p.id}&type=${p.type}`;
+ card.querySelector(".more").onclick=()=>{
+   location.href=`product-detail.html?id=${p.id}&type=${p.type}`;
  };
 
  container.appendChild(card);
+
  });
 
 }
 
 /* =========================
-   SEARCH (AI FILTER)
+   SEARCH
 ========================= */
 
 function search(q){
 
  q = q.toLowerCase();
 
- const filtered = ALL_PRODUCTS.filter(p =>
+ const filtered = ALL_PRODUCTS.filter(p=>
    (p.title||"").toLowerCase().includes(q) ||
    (p.creatorName||"").toLowerCase().includes(q)
  );
 
- render(filtered);
+ document.getElementById("products").innerHTML="";
+
+ filtered.forEach(p=>{
+   const card=document.createElement("div");
+   card.className="card";
+   card.innerHTML=`
+     <img src="${p.cover1URL || p.coverURL}">
+     <div class="info">
+       <div class="title">${p.title}</div>
+       <div class="creator">${p.creatorName||""}</div>
+       <div class="price">$${p.price||0}</div>
+     </div>
+   `;
+   document.getElementById("products").appendChild(card);
+ });
+
 }
 
-document.getElementById("searchBtn").onclick = ()=>{
+/* =========================
+   EVENTS
+========================= */
+
+document.getElementById("searchBtn").onclick=()=>{
  search(document.getElementById("searchInput").value);
 };
 
-/* =========================
-   CATEGORY FILTER
-========================= */
-
 document.querySelectorAll(".categories button").forEach(btn=>{
- btn.onclick = ()=>{
+ btn.onclick=()=>{
+   const type=btn.dataset.type;
 
-   const type = btn.dataset.type;
+   if(type==="all") return render();
 
-   if(type==="all") return render(ALL_PRODUCTS);
+   const filtered = ALL_PRODUCTS.filter(p=>p.type===type);
 
-   render(ALL_PRODUCTS.filter(p=>p.type===type));
+   document.getElementById("products").innerHTML="";
+
+   filtered.forEach(p=>{
+     const card=document.createElement("div");
+     card.className="card";
+     card.innerHTML=`
+       <img src="${p.cover1URL || p.coverURL}">
+       <div class="info">
+         <div class="title">${p.title}</div>
+         <div class="creator">${p.creatorName||""}</div>
+         <div class="price">$${p.price||0}</div>
+       </div>
+     `;
+     document.getElementById("products").appendChild(card);
+   });
  };
 });
 
-/* =========================
-   INIT
-========================= */
+document.getElementById("forYouBtn").onclick=()=>{
+ MODE="forYou";
+ document.getElementById("forYouBtn").classList.add("active");
+ document.getElementById("exploreBtn").classList.remove("active");
+ render();
+};
 
-loadProducts();
+document.getElementById("exploreBtn").onclick=()=>{
+ MODE="explore";
+ document.getElementById("exploreBtn").classList.add("active");
+ document.getElementById("forYouBtn").classList.remove("active");
+ render();
+};
+
+/* INIT */
+
+load();
 
 </script>
+
 </body>
 </html>
