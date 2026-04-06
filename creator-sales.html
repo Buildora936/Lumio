@@ -4,6 +4,8 @@
 
 <title>Creator Sales</title>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 
 body{
@@ -16,7 +18,7 @@ padding:40px;
 .stats{
 display:flex;
 gap:20px;
-margin-bottom:40px;
+margin-bottom:30px;
 }
 
 .stat{
@@ -32,19 +34,25 @@ margin:0;
 font-size:32px;
 }
 
+section{
+margin-top:40px;
+}
+
+canvas{
+background:#1c1c1c;
+padding:20px;
+border-radius:10px;
+}
+
 table{
 width:100%;
 border-collapse:collapse;
+margin-top:30px;
 }
 
 th,td{
 padding:12px;
 border-bottom:1px solid #333;
-}
-
-.loading{
-opacity:0.6;
-font-style:italic;
 }
 
 </style>
@@ -73,6 +81,16 @@ font-style:italic;
 </div>
 
 </div>
+
+<section>
+<h3>Revenue Over Time</h3>
+<canvas id="revenueChart"></canvas>
+</section>
+
+<section>
+<h3>Top Products</h3>
+<canvas id="productChart"></canvas>
+</section>
 
 <table>
 
@@ -111,10 +129,14 @@ const salesEl = document.getElementById("sales");
 const productsEl = document.getElementById("products");
 const table = document.getElementById("salesTable");
 
-/* CACHE PRODUITS (IMPORTANT PERFORMANCE) */
-const productCache = {};
+let revenueChart;
+let productChart;
 
-onAuthStateChanged(auth, async (user) => {
+/* =========================
+   AUTH
+========================= */
+
+onAuthStateChanged(auth, async (user)=>{
 
 if(!user) return location.href="auth.html";
 
@@ -130,78 +152,125 @@ await loadDashboard();
 
 async function loadDashboard(){
 
-table.innerHTML = `<tr><td colspan="3" class="loading">Loading sales...</td></tr>`;
-
 const snap = await get(ref(db,"purchases"));
 
-if(!snap.exists()){
-  revenueEl.innerText = "$0";
-  salesEl.innerText = "0";
-  productsEl.innerText = "0";
-  table.innerHTML = "";
-  return;
-}
+if(!snap.exists()) return;
 
 const data = snap.val();
 
 let revenue = 0;
 let sales = 0;
-
 let productSet = new Set();
+
+const revenueByDay = {};
+const productCount = {};
 
 table.innerHTML = "";
 
 for(const userId in data){
 
-  for(const productId in data[userId]){
+for(const productId in data[userId]){
 
-    const purchase = data[userId][productId];
+const purchase = data[userId][productId];
 
-    /* =========================
-       CACHE PRODUCT
-    ========================= */
-    let product;
+const productSnap = await get(ref(db,"arts/"+productId));
 
-    if(productCache[productId]){
-      product = productCache[productId];
-    } else {
-      const productSnap = await get(ref(db,"arts/"+productId));
-      if(!productSnap.exists()) continue;
-      product = productSnap.val();
-      productCache[productId] = product;
-    }
+if(!productSnap.exists()) continue;
 
-    /* ONLY CREATOR PRODUCTS */
-    if(product.creatorChannelId !== uid) continue;
+const product = productSnap.val();
 
-    sales++;
+/* FILTER CREATOR */
+if(product.creatorChannelId !== uid) continue;
 
-    productSet.add(productId);
+sales++;
+productSet.add(productId);
 
-    const creatorShare = product.price * 0.85;
-    revenue += creatorShare;
+const creatorShare = product.price * 0.85;
+revenue += creatorShare;
 
-    const row = document.createElement("tr");
+/* =========================
+   DATE ANALYTICS
+========================= */
 
-    row.innerHTML = `
-      <td>${product.title}</td>
-      <td>$${product.price}</td>
-      <td>${purchase.date ? new Date(purchase.date).toLocaleDateString() : "N/A"}</td>
-    `;
+const date = new Date(purchase.date || Date.now()).toLocaleDateString();
 
-    table.appendChild(row);
+revenueByDay[date] = (revenueByDay[date] || 0) + creatorShare;
 
-  }
+/* TOP PRODUCTS */
+productCount[product.title] = (productCount[product.title] || 0) + 1;
+
+/* TABLE */
+const row = document.createElement("tr");
+row.innerHTML = `
+<td>${product.title}</td>
+<td>$${product.price}</td>
+<td>${date}</td>
+`;
+table.appendChild(row);
+
+}
 
 }
 
 /* =========================
-   STATS UPDATE
+   STATS
 ========================= */
 
 revenueEl.innerText = "$" + revenue.toFixed(2);
 salesEl.innerText = sales;
 productsEl.innerText = productSet.size;
+
+/* =========================
+   CHART 1 - REVENUE OVER TIME
+========================= */
+
+const labels = Object.keys(revenueByDay);
+const revenueData = Object.values(revenueByDay);
+
+if(revenueChart) revenueChart.destroy();
+
+revenueChart = new Chart(
+document.getElementById("revenueChart"),
+{
+type:"line",
+data:{
+labels,
+datasets:[{
+label:"Revenue ($)",
+data:revenueData,
+borderColor:"#ff6a00"
+}]
+}
+}
+);
+
+/* =========================
+   CHART 2 - TOP PRODUCTS
+========================= */
+
+const topProducts = Object.entries(productCount)
+.sort((a,b)=>b[1]-a[1])
+.slice(0,5);
+
+const productLabels = topProducts.map(p=>p[0]);
+const productData = topProducts.map(p=>p[1]);
+
+if(productChart) productChart.destroy();
+
+productChart = new Chart(
+document.getElementById("productChart"),
+{
+type:"bar",
+data:{
+labels:productLabels,
+datasets:[{
+label:"Sales",
+data:productData,
+backgroundColor:"#ff6a00"
+}]
+}
+}
+);
 
 }
 
