@@ -210,6 +210,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebas
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import { getDatabase,ref,set,onValue,push,remove,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+/* ================= INIT ================= */
+
 const firebaseConfig={
  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
  authDomain:"lumio-822f0.firebaseapp.com",
@@ -228,17 +230,33 @@ const params=new URLSearchParams(location.search);
 const liveId=params.get("id");
 if(!liveId) location.href="index.html";
 
+/* ================= DOM ================= */
+
 const remoteVideo=document.getElementById("remoteVideo");
+const statusBox=document.getElementById("videoStatus");
+const viewerCountEl=document.getElementById("viewerCount");
+const messages=document.getElementById("messages");
+const sendBtn=document.getElementById("sendBtn");
+const msgInput=document.getElementById("msgInput");
+
+/* ================= STATE ================= */
 
 let currentUser=null;
 let viewerId=null;
 let pc=null;
 
+let reconnectAttempts=0;
+const maxReconnect=5;
+
+let lastMessageTime=0;
+const MESSAGE_DELAY=1500;
+
+let loadedMessages=new Set();
+
 /* ================= AUTH ================= */
 
 onAuthStateChanged(auth,async u=>{
  currentUser=u;
-
  viewerId = u?.uid || "guest_"+Date.now();
 
  const viewerRef=ref(db,`liveViewers/${liveId}/${viewerId}`);
@@ -256,6 +274,13 @@ onAuthStateChanged(auth,async u=>{
  }
 
  const live=snap.val();
+
+ if(live.status==="ended"){
+   alert("Ce live est terminé");
+   location.href="index.html";
+   return;
+ }
+
  document.getElementById("liveTitle").textContent="🔴 "+live.title;
  document.getElementById("channelName").textContent=live.channelName;
 
@@ -263,9 +288,7 @@ onAuthStateChanged(auth,async u=>{
 });
 
 /* ================= WEBRTC ================= */
-let reconnectAttempts = 0;
-let maxReconnect = 5;
-const statusBox = document.getElementById("videoStatus");
+
 const iceServers={
  iceServers:[{urls:"stun:stun.l.google.com:19302"}]
 };
@@ -274,92 +297,84 @@ function startWebRTC(){
 
  pc=new RTCPeerConnection(iceServers);
 
-pc.ontrack=(event)=>{
-  remoteVideo.srcObject = event.streams[0];
-  statusBox.textContent = "🔴 Live en cours";
-};
+ pc.ontrack=(event)=>{
+   remoteVideo.srcObject = event.streams[0];
+   statusBox.textContent = "🔴 Live en cours";
+ };
 
-pc.onconnectionstatechange = () => {
-  const state = pc.connectionState;
-
-  if(state === "connected"){
-    reconnectAttempts = 0;
-  }
-
-  if(state === "disconnected" || state === "failed"){
-    statusBox.textContent = "Reconnexion...";
-    attemptReconnect();
-  }
-
-  if(state === "closed"){
-    statusBox.textContent = "Live terminé";
-  }
-};
-if(live.status === "ended"){
-  alert("Ce live est terminé");
-  location.href="index.html";
-  return;
-}
-remoteVideo.muted = true;
-remoteVideo.play().catch(()=>{}); 
- 
  pc.onicecandidate=(e)=>{
    if(e.candidate){
      push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), e.candidate.toJSON());
    }
  };
 
+ pc.onconnectionstatechange=()=>{
+   const state = pc.connectionState;
+
+   if(state==="connected"){
+     reconnectAttempts=0;
+   }
+
+   if(state==="disconnected" || state==="failed"){
+     statusBox.textContent="Reconnexion...";
+     attemptReconnect();
+   }
+
+   if(state==="closed"){
+     statusBox.textContent="Live terminé";
+   }
+ };
+
+ remoteVideo.muted=true;
+ remoteVideo.play().catch(()=>{});
+
  listenForOffer();
  listenForICE();
+
+ setTimeout(()=>{
+   if(!remoteVideo.srcObject){
+     statusBox.textContent="En attente du créateur...";
+   }
+ },5000);
 }
-       /* ========== RECONNEXION ========== */
+
+/* ================= RECONNECT ================= */
+
 async function attemptReconnect(){
-  if(reconnectAttempts >= maxReconnect){
-    statusBox.textContent = "Impossible de se reconnecter";
-    return;
-  }
+ if(reconnectAttempts>=maxReconnect){
+   statusBox.textContent="Impossible de se reconnecter";
+   return;
+ }
 
-  reconnectAttempts++;
+ reconnectAttempts++;
 
-  try{
-    pc.close();
-  }catch(e){}
+ try{ pc.close(); }catch(e){}
 
-  setTimeout(()=>{
-    startWebRTC();
-  }, 2000);
+ setTimeout(()=>{
+   startWebRTC();
+ },2000);
 }
-setTimeout(()=>{
-  if(!remoteVideo.srcObject){
-    statusBox.textContent = "En attente du créateur...";
-  }
-}, 5000);
- 
 
-/* ================= RECEIVE OFFER ================= */
+/* ================= SIGNALING ================= */
 
 function listenForOffer(){
-
  onValue(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), async snap=>{
    if(!snap.exists()) return;
 
-   const offer = snap.val();
+   const offer=snap.val();
 
    if(pc.currentRemoteDescription) return;
 
    await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-   const answer = await pc.createAnswer();
+   const answer=await pc.createAnswer();
    await pc.setLocalDescription(answer);
 
    await set(ref(db,`liveSignals/${liveId}/answers/${viewerId}`), answer);
  });
 }
 
-/* ================= RECEIVE ICE ================= */
-
 function listenForICE(){
-
  onValue(ref(db,`liveSignals/${liveId}/ice`), snap=>{
    snap.forEach(viewerSnap=>{
      viewerSnap.forEach(c=>{
@@ -371,30 +386,66 @@ function listenForICE(){
  });
 }
 
+/* ================= VIEWERS ================= */
+
+onValue(ref(db,`liveViewers/${liveId}`), snap=>{
+ const viewers=snap.exists()?Object.keys(snap.val()).length:0;
+ viewerCountEl.textContent=viewers+" spectateurs";
+});
+
+/* ================= LIVE STATUS ================= */
+
+onValue(ref(db,`lives/${liveId}/status`), snap=>{
+ if(snap.val()==="ended"){
+   alert("Le live est terminé");
+   location.href="index.html";
+ }
+});
+
 /* ================= CHAT ================= */
 
-onValue(ref(db,`liveChat/${liveId}`),snap=>{
- const messages=document.getElementById("messages");
- messages.innerHTML="";
-
+onValue(ref(db,`liveChat/${liveId}`), snap=>{
  snap.forEach(m=>{
+   if(loadedMessages.has(m.key)) return;
+
+   loadedMessages.add(m.key);
+
    const div=document.createElement("div");
    div.className="msg";
    div.innerHTML=`<span>${m.val().user}</span>: ${m.val().text}`;
+
    messages.appendChild(div);
  });
 
  messages.scrollTop=messages.scrollHeight;
 });
 
-const sendBtn=document.getElementById("sendBtn");
-const msgInput=document.getElementById("msgInput");
+/* ================= SEND MESSAGE ================= */
 
 sendBtn.onclick=async()=>{
+ const now=Date.now();
+
+ if(now-lastMessageTime < MESSAGE_DELAY){
+   alert("Tu envoies trop vite");
+   return;
+ }
+
  const text=msgInput.value.trim();
  if(!text) return;
 
+ if(text.length>200){
+   alert("Message trop long");
+   return;
+ }
+
+ const banSnap = await get(ref(db,`liveBans/${liveId}/${viewerId}`));
+ if(banSnap.exists()){
+   alert("Tu es banni");
+   return;
+ }
+
  msgInput.value="";
+ lastMessageTime=now;
 
  await push(ref(db,`liveChat/${liveId}`),{
    user:currentUser?.displayName || "Invité",
@@ -403,6 +454,12 @@ sendBtn.onclick=async()=>{
    createdAt:Date.now()
  });
 };
+
+/* ================= INPUT UX ================= */
+
+msgInput.addEventListener("input",()=>{
+ sendBtn.disabled = !msgInput.value.trim();
+});
 
 // 🔹 Modal Soutenir
 const supportBtn=document.getElementById("supportBtn");
