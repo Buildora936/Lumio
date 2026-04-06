@@ -84,77 +84,97 @@ border-bottom:1px solid #333;
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-const firebaseConfig={
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+const app = initializeApp({
+  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain:"lumio-822f0.firebaseapp.com",
+  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId:"lumio-822f0"
+});
+
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+let uid = null;
+
+const revenueEl = document.getElementById("revenue");
+const salesEl = document.getElementById("sales");
+const productsEl = document.getElementById("products");
+const table = document.getElementById("salesTable");
+
+onAuthStateChanged(auth, async (user) => {
+
+if(!user) return location.href="auth.html";
+
+uid = user.uid;
+
+await loadDashboard();
+
+});
+
+async function loadDashboard(){
+
+const snap = await get(ref(db,"purchases"));
+
+if(!snap.exists()){
+  revenueEl.innerText = "$0";
+  salesEl.innerText = "0";
+  productsEl.innerText = "0";
+  return;
+}
+
+const data = snap.val();
+
+let revenue = 0;
+let sales = 0;
+
+let productSet = new Set();
+
+table.innerHTML = "";
+
+for(const userId in data){
+
+  for(const productId in data[userId]){
+
+    const purchase = data[userId][productId];
+
+    const productSnap = await get(ref(db,"arts/"+productId));
+
+    if(!productSnap.exists()) continue;
+
+    const product = productSnap.val();
+
+    /* ONLY CREATOR PRODUCTS */
+    if(product.creatorChannelId !== uid) continue;
+
+    sales++;
+
+    productSet.add(productId);
+
+    revenue += product.price * 0.85;
+
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${product.title}</td>
+      <td>$${product.price}</td>
+      <td>${new Date(purchase.date).toLocaleDateString()}</td>
+    `;
+
+    table.appendChild(row);
+
+  }
 
 }
 
-const app=initializeApp(firebaseConfig)
+revenueEl.innerText = "$"+revenue.toFixed(2);
+salesEl.innerText = sales;
+productsEl.innerText = productSet.size;
 
-const auth=getAuth(app)
-const db=getDatabase(app)
-
-const revenueEl=document.getElementById("revenue")
-const salesEl=document.getElementById("sales")
-const productsEl=document.getElementById("products")
-const table=document.getElementById("salesTable")
-
-onAuthStateChanged(auth, async(user)=>{
-
-if(!user) return
-
-const uid=user.uid
-
-const snapshot=await get(
-ref(db,"creatorSales/"+uid)
-)
-
-if(!snapshot.exists()) return
-
-const salesData=snapshot.val()
-
-let totalRevenue=0
-let totalSales=0
-
-const productsSet=new Set()
-
-Object.values(salesData).forEach(sale=>{
-
-totalSales++
-
-totalRevenue+=sale.creatorAmount
-
-productsSet.add(sale.productId)
-
-const row=document.createElement("tr")
-
-row.innerHTML=`
-
-<td>${sale.productTitle}</td>
-<td>$${sale.price}</td>
-<td>${new Date(sale.date).toLocaleDateString()}</td>
-
-`
-
-table.appendChild(row)
-
-})
-
-revenueEl.innerText="$"+totalRevenue.toFixed(2)
-salesEl.innerText=totalSales
-productsEl.innerText=productsSet.size
-
-})
+}
 
 </script>
 
