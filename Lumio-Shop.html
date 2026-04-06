@@ -205,33 +205,30 @@ header h1{
 <h2 class="section-title">Nouveautés</h2>
 <div class="products" id="products"></div>
 
+
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const firebaseConfig={
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
- authDomain: "lumio-822f0.firebaseapp.com",
- databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId: "lumio-822f0",
- storageBucket: "lumio-822f0.firebasestorage.app",
- messagingSenderId: "833325770824",
- appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
+const app = initializeApp({
+ apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain:"lumio-822f0.firebaseapp.com",
+ databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId:"lumio-822f0"
+});
 
-const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let ALL_PRODUCTS = [];
 
 /* =========================
-   LOAD PRODUCTS
+   LOAD
 ========================= */
 
 async function loadProducts(){
 
- const [booksSnap,musicSnap,artsSnap] = await Promise.all([
+ const [books,music,arts] = await Promise.all([
    get(ref(db,"books")),
    get(ref(db,"music")),
    get(ref(db,"arts"))
@@ -239,39 +236,65 @@ async function loadProducts(){
 
  let products = [];
 
- if(booksSnap.exists())
- Object.entries(booksSnap.val()).forEach(([id,data])=>
- products.push({...data,id,type:"book"}));
+ if(books.exists())
+ Object.entries(books.val()).forEach(([id,p])=>
+ products.push({...p,id,type:"book"}));
 
- if(musicSnap.exists())
- Object.entries(musicSnap.val()).forEach(([id,data])=>
- products.push({...data,id,type:"music"}));
+ if(music.exists())
+ Object.entries(music.val()).forEach(([id,p])=>
+ products.push({...p,id,type:"music"}));
 
- if(artsSnap.exists())
- Object.entries(artsSnap.val()).forEach(([id,data])=>
- products.push({...data,id,type:"art"}));
+ if(arts.exists())
+ Object.entries(arts.val()).forEach(([id,p])=>
+ products.push({...p,id,type:"art"}));
 
- ALL_PRODUCTS = rankProducts(products);
- displayProducts(ALL_PRODUCTS);
+ ALL_PRODUCTS = rankAI(products);
+ render(ALL_PRODUCTS);
 }
 
 /* =========================
-   RANKING (simple trending)
+   AI RANKING ENGINE
 ========================= */
 
-function rankProducts(products){
+function rankAI(products){
+
+ const now = Date.now();
+
  return products.sort((a,b)=>{
-   const scoreA = (a.views||0)*0.3 + (a.sales||0)*0.7;
-   const scoreB = (b.views||0)*0.3 + (b.sales||0)*0.7;
+
+   const scoreA = computeScore(a, now);
+   const scoreB = computeScore(b, now);
+
    return scoreB - scoreA;
  });
 }
 
 /* =========================
-   DISPLAY
+   SCORING SYSTEM
 ========================= */
 
-function displayProducts(list){
+function computeScore(p, now){
+
+ const views = p.views || 0;
+ const sales = p.sales || 0;
+
+ /* recency boost (produits récents favorisés) */
+ const createdAt = p.createdAt || now;
+ const ageDays = Math.max(1, (now - createdAt) / (1000*60*60*24));
+ const recency = 1 / ageDays;
+
+ return (
+   views * 0.25 +
+   sales * 0.55 +
+   recency * 50
+ );
+}
+
+/* =========================
+   RENDER
+========================= */
+
+function render(list){
 
  const container = document.getElementById("products");
  container.innerHTML = "";
@@ -279,10 +302,10 @@ function displayProducts(list){
  list.forEach(p=>{
 
  const card = document.createElement("div");
- card.className = "card";
+ card.className="card";
 
  card.innerHTML = `
-   <img src="${p.cover1URL || p.coverURL || 'https://via.placeholder.com/220x180'}">
+   <img src="${p.cover1URL || p.coverURL || p.artURL}">
    <div class="info">
      <div class="title">${p.title}</div>
      <div class="creator">${p.creatorName || "Anonyme"}</div>
@@ -291,35 +314,33 @@ function displayProducts(list){
    </div>
  `;
 
- card.querySelector(".more").onclick = () => {
+ card.querySelector(".more").onclick = ()=>{
    location.href = `product-detail.html?id=${p.id}&type=${p.type}`;
  };
 
  container.appendChild(card);
-
  });
 
 }
 
 /* =========================
-   SEARCH
+   SEARCH (AI FILTER)
 ========================= */
 
-function search(query){
+function search(q){
 
- query = query.toLowerCase();
+ q = q.toLowerCase();
 
  const filtered = ALL_PRODUCTS.filter(p =>
-   (p.title||"").toLowerCase().includes(query) ||
-   (p.creatorName||"").toLowerCase().includes(query)
+   (p.title||"").toLowerCase().includes(q) ||
+   (p.creatorName||"").toLowerCase().includes(q)
  );
 
- displayProducts(filtered);
+ render(filtered);
 }
 
-document.getElementById("searchBtn").onclick = () => {
- const q = document.getElementById("searchInput").value;
- search(q);
+document.getElementById("searchBtn").onclick = ()=>{
+ search(document.getElementById("searchInput").value);
 };
 
 /* =========================
@@ -327,12 +348,13 @@ document.getElementById("searchBtn").onclick = () => {
 ========================= */
 
 document.querySelectorAll(".categories button").forEach(btn=>{
- btn.onclick = () => {
-   const type = btn.dataset.type;
-   if(type === "all") return displayProducts(ALL_PRODUCTS);
+ btn.onclick = ()=>{
 
-   const filtered = ALL_PRODUCTS.filter(p => p.type === type);
-   displayProducts(filtered);
+   const type = btn.dataset.type;
+
+   if(type==="all") return render(ALL_PRODUCTS);
+
+   render(ALL_PRODUCTS.filter(p=>p.type===type));
  };
 });
 
@@ -343,6 +365,5 @@ document.querySelectorAll(".categories button").forEach(btn=>{
 loadProducts();
 
 </script>
-
 </body>
 </html>
