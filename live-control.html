@@ -263,6 +263,14 @@ async function createConnection(viewerId){
  pc.onconnectionstatechange=()=>{
    if(pc.connectionState==="disconnected" || pc.connectionState==="failed"){
      delete peerConnections[viewerId];
+  if(pc.connectionState==="connected"){
+
+  // supprimer offer (plus nécessaire)
+  set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
+
+  // supprimer ICE (évite accumulation)
+  set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), null);
+}
    }
  };
 
@@ -279,15 +287,33 @@ onValue(ref(db,`liveViewers/${liveId}`),snap=>{
 
  Object.keys(viewers).forEach(async uid=>{
 
-   if(peerConnections[uid]) return;
-   if(!localStream) return;
-
+   if(peerConnections[uid] || uid === currentUser?.uid) return;
+  
+if(!localStream){
+  console.warn("Stream non prêt");
+  return;
+}
    const pc=await createConnection(uid);
 
    const offer=await pc.createOffer();
    await pc.setLocalDescription(offer);
 
    await set(ref(db,`liveSignals/${liveId}/offers/${uid}`), offer);
+
+  Object.keys(peerConnections).forEach(uid=>{
+  if(!viewers[uid]){
+    try{
+      peerConnections[uid].close();
+    }catch(e){}
+
+    delete peerConnections[uid];
+
+    // nettoyage signaling
+    set(ref(db,`liveSignals/${liveId}/offers/${uid}`), null);
+    set(ref(db,`liveSignals/${liveId}/answers/${uid}`), null);
+    set(ref(db,`liveSignals/${liveId}/ice/${uid}`), null);
+  }
+});
  });
 
 });
