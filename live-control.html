@@ -171,10 +171,11 @@ video{
 
 </div>
 
- <script type="module">
+ 
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,set,onValue,push,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,set,onValue,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 /* ================= INIT ================= */
 
@@ -250,27 +251,35 @@ async function createConnection(viewerId){
 
  const pc=new RTCPeerConnection(iceServers);
 
+ // 🔹 ajouter stream
  localStream.getTracks().forEach(track=>{
    pc.addTrack(track,localStream);
  });
 
+ // 🔹 ICE optimisé (batch)
+ let iceBuffer=[];
+
  pc.onicecandidate=(e)=>{
    if(e.candidate){
-     push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), e.candidate.toJSON());
+     iceBuffer.push(e.candidate.toJSON());
+   }else{
+     set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), iceBuffer);
+     iceBuffer=[];
    }
  };
 
+ // 🔹 état connexion
  pc.onconnectionstatechange=()=>{
+
+   if(pc.connectionState==="connected"){
+     // cleanup signaling
+     set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
+     set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), null);
+   }
+
    if(pc.connectionState==="disconnected" || pc.connectionState==="failed"){
+     try{ pc.close(); }catch(e){}
      delete peerConnections[viewerId];
-  if(pc.connectionState==="connected"){
-
-  // supprimer offer (plus nécessaire)
-  set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
-
-  // supprimer ICE (évite accumulation)
-  set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), null);
-}
    }
  };
 
@@ -282,38 +291,37 @@ async function createConnection(viewerId){
 /* ================= VIEWERS ================= */
 
 onValue(ref(db,`liveViewers/${liveId}`),snap=>{
+
  const viewers=snap.val()||{};
- viewerCountEl.textContent=Object.keys(viewers).length+" spectateurs";
+ const viewerIds=Object.keys(viewers);
 
- Object.keys(viewers).forEach(async uid=>{
+ viewerCountEl.textContent=viewerIds.length+" spectateurs";
 
-   if(peerConnections[uid] || uid === currentUser?.uid) return;
-  
-if(!localStream){
-  console.warn("Stream non prêt");
-  return;
-}
+ // 🔹 supprimer viewers morts
+ Object.keys(peerConnections).forEach(uid=>{
+   if(!viewers[uid]){
+     try{ peerConnections[uid].close(); }catch(e){}
+     delete peerConnections[uid];
+
+     set(ref(db,`liveSignals/${liveId}/offers/${uid}`), null);
+     set(ref(db,`liveSignals/${liveId}/answers/${uid}`), null);
+     set(ref(db,`liveSignals/${liveId}/ice/${uid}`), null);
+   }
+ });
+
+ // 🔹 créer connexions
+ viewerIds.forEach(async uid=>{
+
+   if(peerConnections[uid]) return;
+   if(uid===currentUser?.uid) return;
+   if(!localStream) return;
+
    const pc=await createConnection(uid);
 
    const offer=await pc.createOffer();
    await pc.setLocalDescription(offer);
 
    await set(ref(db,`liveSignals/${liveId}/offers/${uid}`), offer);
-
-  Object.keys(peerConnections).forEach(uid=>{
-  if(!viewers[uid]){
-    try{
-      peerConnections[uid].close();
-    }catch(e){}
-
-    delete peerConnections[uid];
-
-    // nettoyage signaling
-    set(ref(db,`liveSignals/${liveId}/offers/${uid}`), null);
-    set(ref(db,`liveSignals/${liveId}/answers/${uid}`), null);
-    set(ref(db,`liveSignals/${liveId}/ice/${uid}`), null);
-  }
-});
  });
 
 });
@@ -328,6 +336,9 @@ onValue(ref(db,`liveSignals/${liveId}/answers`),snap=>{
 
    const pc=peerConnections[viewerId];
    if(!pc) return;
+
+   // 🔹 sécurité WebRTC
+   if(pc.signalingState !== "have-local-offer") return;
 
    if(!pc.currentRemoteDescription){
      pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -345,11 +356,15 @@ onValue(ref(db,`liveSignals/${liveId}/ice`),snap=>{
    const pc=peerConnections[viewerId];
    if(!pc) return;
 
-   viewerSnap.forEach(c=>{
-     try{
-       pc.addIceCandidate(new RTCIceCandidate(c.val()));
-     }catch(e){}
-   });
+   const candidates = viewerSnap.val();
+
+   if(Array.isArray(candidates)){
+     candidates.forEach(c=>{
+       try{
+         pc.addIceCandidate(new RTCIceCandidate(c));
+       }catch(e){}
+     });
+   }
  });
 
 });
@@ -357,7 +372,12 @@ onValue(ref(db,`liveSignals/${liveId}/ice`),snap=>{
 /* ================= END LIVE ================= */
 
 window.endLive=async()=>{
+
  await set(ref(db,`lives/${liveId}/status`),"ended");
+
+ // 🔹 cleanup global
+ await set(ref(db,`liveSignals/${liveId}`), null);
+ await set(ref(db,`liveViewers/${liveId}`), null);
 
  Object.values(peerConnections).forEach(pc=>{
    try{ pc.close(); }catch(e){}
@@ -369,6 +389,5 @@ window.endLive=async()=>{
  location.href="index.html";
 };
 </script>
-
 </body>
 </html>
