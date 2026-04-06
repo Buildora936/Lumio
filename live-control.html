@@ -170,8 +170,6 @@ video{
   </div>
 
 </div>
-
- 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -207,6 +205,8 @@ let peerConnections={};
 
 const localVideo=document.getElementById("localVideo");
 const viewerCountEl=document.getElementById("viewerCount");
+const totalBox=document.getElementById("totalEarned");
+const topBox=document.getElementById("topSupporters");
 
 /* ================= AUTH ================= */
 
@@ -231,9 +231,7 @@ async function startCamera(){
 async function startScreen(){
  const screen=await navigator.mediaDevices.getDisplayMedia({video:true});
  const mic=await navigator.mediaDevices.getUserMedia({audio:true});
-
  screen.addTrack(mic.getAudioTracks()[0]);
-
  localStream=screen;
  localVideo.srcObject=localStream;
 }
@@ -251,12 +249,10 @@ async function createConnection(viewerId){
 
  const pc=new RTCPeerConnection(iceServers);
 
- // 🔹 ajouter stream
  localStream.getTracks().forEach(track=>{
    pc.addTrack(track,localStream);
  });
 
- // 🔹 ICE optimisé (batch)
  let iceBuffer=[];
 
  pc.onicecandidate=(e)=>{
@@ -268,11 +264,9 @@ async function createConnection(viewerId){
    }
  };
 
- // 🔹 état connexion
  pc.onconnectionstatechange=()=>{
 
    if(pc.connectionState==="connected"){
-     // cleanup signaling
      set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
      set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), null);
    }
@@ -284,7 +278,6 @@ async function createConnection(viewerId){
  };
 
  peerConnections[viewerId]=pc;
-
  return pc;
 }
 
@@ -297,7 +290,7 @@ onValue(ref(db,`liveViewers/${liveId}`),snap=>{
 
  viewerCountEl.textContent=viewerIds.length+" spectateurs";
 
- // 🔹 supprimer viewers morts
+ // cleanup viewers morts
  Object.keys(peerConnections).forEach(uid=>{
    if(!viewers[uid]){
      try{ peerConnections[uid].close(); }catch(e){}
@@ -309,9 +302,8 @@ onValue(ref(db,`liveViewers/${liveId}`),snap=>{
    }
  });
 
- // 🔹 créer connexions
+ // nouvelles connexions
  viewerIds.forEach(async uid=>{
-
    if(peerConnections[uid]) return;
    if(uid===currentUser?.uid) return;
    if(!localStream) return;
@@ -329,7 +321,6 @@ onValue(ref(db,`liveViewers/${liveId}`),snap=>{
 /* ================= ANSWERS ================= */
 
 onValue(ref(db,`liveSignals/${liveId}/answers`),snap=>{
-
  snap.forEach(viewerSnap=>{
    const viewerId=viewerSnap.key;
    const answer=viewerSnap.val();
@@ -337,26 +328,23 @@ onValue(ref(db,`liveSignals/${liveId}/answers`),snap=>{
    const pc=peerConnections[viewerId];
    if(!pc) return;
 
-   // 🔹 sécurité WebRTC
-   if(pc.signalingState !== "have-local-offer") return;
+   if(pc.signalingState!=="have-local-offer") return;
 
    if(!pc.currentRemoteDescription){
      pc.setRemoteDescription(new RTCSessionDescription(answer));
    }
  });
-
 });
 
 /* ================= ICE ================= */
 
 onValue(ref(db,`liveSignals/${liveId}/ice`),snap=>{
-
  snap.forEach(viewerSnap=>{
    const viewerId=viewerSnap.key;
    const pc=peerConnections[viewerId];
    if(!pc) return;
 
-   const candidates = viewerSnap.val();
+   const candidates=viewerSnap.val();
 
    if(Array.isArray(candidates)){
      candidates.forEach(c=>{
@@ -366,8 +354,53 @@ onValue(ref(db,`liveSignals/${liveId}/ice`),snap=>{
      });
    }
  });
+});
+
+/* ================= 💰 GAINS ================= */
+
+onValue(ref(db,`lives/${liveId}/totalSupport`),snap=>{
+ const total=snap.val()||0;
+ totalBox.textContent="💰 $"+total.toFixed(2);
+});
+
+/* ================= 🏆 TOP SUPPORTERS ================= */
+
+onValue(ref(db,"supports"),snap=>{
+
+ const supporters={};
+
+ snap.forEach(s=>{
+   const data=s.val();
+   if(data.liveId!==liveId) return;
+
+   const name=data.userEmail || "Anonyme";
+
+   if(!supporters[name]) supporters[name]=0;
+   supporters[name]+=Number(data.amount);
+ });
+
+ const sorted=Object.entries(supporters)
+   .sort((a,b)=>b[1]-a[1])
+   .slice(0,3);
+
+ topBox.innerHTML="";
+
+ const medals=["🥇","🥈","🥉"];
+
+ sorted.forEach((s,i)=>{
+   const div=document.createElement("div");
+   div.textContent=`${medals[i]} ${s[0]} — $${s[1]}`;
+   topBox.appendChild(div);
+ });
 
 });
+
+/* ================= 🔨 BAN ================= */
+
+window.ban=async(uid)=>{
+ await set(ref(db,`liveBans/${liveId}/${uid}`),true);
+ alert("Utilisateur banni");
+};
 
 /* ================= END LIVE ================= */
 
@@ -375,7 +408,6 @@ window.endLive=async()=>{
 
  await set(ref(db,`lives/${liveId}/status`),"ended");
 
- // 🔹 cleanup global
  await set(ref(db,`liveSignals/${liveId}`), null);
  await set(ref(db,`liveViewers/${liveId}`), null);
 
