@@ -42,9 +42,15 @@ padding:12px;
 border-bottom:1px solid #333;
 }
 
+.loading{
+opacity:0.6;
+font-style:italic;
+}
+
 </style>
 
 </head>
+
 <body>
 
 <h1>Creator Dashboard</h1>
@@ -105,6 +111,9 @@ const salesEl = document.getElementById("sales");
 const productsEl = document.getElementById("products");
 const table = document.getElementById("salesTable");
 
+/* CACHE PRODUITS (IMPORTANT PERFORMANCE) */
+const productCache = {};
+
 onAuthStateChanged(auth, async (user) => {
 
 if(!user) return location.href="auth.html";
@@ -115,7 +124,13 @@ await loadDashboard();
 
 });
 
+/* =========================
+   DASHBOARD
+========================= */
+
 async function loadDashboard(){
+
+table.innerHTML = `<tr><td colspan="3" class="loading">Loading sales...</td></tr>`;
 
 const snap = await get(ref(db,"purchases"));
 
@@ -123,6 +138,7 @@ if(!snap.exists()){
   revenueEl.innerText = "$0";
   salesEl.innerText = "0";
   productsEl.innerText = "0";
+  table.innerHTML = "";
   return;
 }
 
@@ -141,11 +157,19 @@ for(const userId in data){
 
     const purchase = data[userId][productId];
 
-    const productSnap = await get(ref(db,"arts/"+productId));
+    /* =========================
+       CACHE PRODUCT
+    ========================= */
+    let product;
 
-    if(!productSnap.exists()) continue;
-
-    const product = productSnap.val();
+    if(productCache[productId]){
+      product = productCache[productId];
+    } else {
+      const productSnap = await get(ref(db,"arts/"+productId));
+      if(!productSnap.exists()) continue;
+      product = productSnap.val();
+      productCache[productId] = product;
+    }
 
     /* ONLY CREATOR PRODUCTS */
     if(product.creatorChannelId !== uid) continue;
@@ -154,14 +178,15 @@ for(const userId in data){
 
     productSet.add(productId);
 
-    revenue += product.price * 0.85;
+    const creatorShare = product.price * 0.85;
+    revenue += creatorShare;
 
     const row = document.createElement("tr");
 
     row.innerHTML = `
       <td>${product.title}</td>
       <td>$${product.price}</td>
-      <td>${new Date(purchase.date).toLocaleDateString()}</td>
+      <td>${purchase.date ? new Date(purchase.date).toLocaleDateString() : "N/A"}</td>
     `;
 
     table.appendChild(row);
@@ -170,7 +195,11 @@ for(const userId in data){
 
 }
 
-revenueEl.innerText = "$"+revenue.toFixed(2);
+/* =========================
+   STATS UPDATE
+========================= */
+
+revenueEl.innerText = "$" + revenue.toFixed(2);
 salesEl.innerText = sales;
 productsEl.innerText = productSet.size;
 
