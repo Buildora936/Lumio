@@ -208,13 +208,13 @@ import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/1
 import { getDatabase,ref,set,onValue,push,remove,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const firebaseConfig={
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+ apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain:"lumio-822f0.firebaseapp.com",
+ databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId:"lumio-822f0",
+ storageBucket:"lumio-822f0.firebasestorage.app",
+ messagingSenderId:"833325770824",
+ appId:"1:833325770824:web:b1a87a7bda0b00ee20907d"
 };
 
 const app=initializeApp(firebaseConfig);
@@ -225,49 +225,128 @@ const params=new URLSearchParams(location.search);
 const liveId=params.get("id");
 if(!liveId) location.href="index.html";
 
+const remoteVideo=document.getElementById("remoteVideo");
+
 let currentUser=null;
-let creatorStripeId=null;
+let viewerId=null;
+let pc=null;
+
+/* ================= AUTH ================= */
 
 onAuthStateChanged(auth,async u=>{
  currentUser=u;
 
- // Ajouter viewer
- const viewerRef=ref(db,`liveViewers/${liveId}/${u?.uid||("guest_"+Date.now())}`);
- await set(viewerRef,true);
- window.addEventListener("beforeunload",()=>{ remove(viewerRef); });
+ viewerId = u?.uid || "guest_"+Date.now();
 
- // Récupérer info live et créateur
+ const viewerRef=ref(db,`liveViewers/${liveId}/${viewerId}`);
+ await set(viewerRef,true);
+
+ window.addEventListener("beforeunload",()=>{
+   remove(viewerRef);
+ });
+
  const snap=await get(ref(db,`lives/${liveId}`));
- if(!snap.exists()) return alert("Live introuvable"),location.href="index.html";
- const l=snap.val();
- document.getElementById("liveTitle").textContent="🔴 "+l.title;
- document.getElementById("channelName").textContent=l.channelName;
- creatorStripeId = l.creatorStripeId;
+ if(!snap.exists()){
+   alert("Live introuvable");
+   location.href="index.html";
+   return;
+ }
+
+ const live=snap.val();
+ document.getElementById("liveTitle").textContent="🔴 "+live.title;
+ document.getElementById("channelName").textContent=live.channelName;
+
+ startWebRTC();
 });
 
-// Chat simple
+/* ================= WEBRTC ================= */
+
+const iceServers={
+ iceServers:[{urls:"stun:stun.l.google.com:19302"}]
+};
+
+function startWebRTC(){
+
+ pc=new RTCPeerConnection(iceServers);
+
+ pc.ontrack=(event)=>{
+   remoteVideo.srcObject = event.streams[0];
+ };
+
+ pc.onicecandidate=(e)=>{
+   if(e.candidate){
+     push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), e.candidate.toJSON());
+   }
+ };
+
+ listenForOffer();
+ listenForICE();
+}
+
+/* ================= RECEIVE OFFER ================= */
+
+function listenForOffer(){
+
+ onValue(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), async snap=>{
+   if(!snap.exists()) return;
+
+   const offer = snap.val();
+
+   if(pc.currentRemoteDescription) return;
+
+   await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+   const answer = await pc.createAnswer();
+   await pc.setLocalDescription(answer);
+
+   await set(ref(db,`liveSignals/${liveId}/answers/${viewerId}`), answer);
+ });
+}
+
+/* ================= RECEIVE ICE ================= */
+
+function listenForICE(){
+
+ onValue(ref(db,`liveSignals/${liveId}/ice`), snap=>{
+   snap.forEach(viewerSnap=>{
+     viewerSnap.forEach(c=>{
+       try{
+         pc.addIceCandidate(new RTCIceCandidate(c.val()));
+       }catch(e){}
+     });
+   });
+ });
+}
+
+/* ================= CHAT ================= */
+
 onValue(ref(db,`liveChat/${liveId}`),snap=>{
  const messages=document.getElementById("messages");
  messages.innerHTML="";
+
  snap.forEach(m=>{
    const div=document.createElement("div");
    div.className="msg";
    div.innerHTML=`<span>${m.val().user}</span>: ${m.val().text}`;
    messages.appendChild(div);
  });
+
  messages.scrollTop=messages.scrollHeight;
 });
 
 const sendBtn=document.getElementById("sendBtn");
 const msgInput=document.getElementById("msgInput");
+
 sendBtn.onclick=async()=>{
  const text=msgInput.value.trim();
  if(!text) return;
+
  msgInput.value="";
+
  await push(ref(db,`liveChat/${liveId}`),{
-   user:currentUser?.displayName||"Invité",
+   user:currentUser?.displayName || "Invité",
    text,
-   uid:currentUser?.uid||null,
+   uid:viewerId,
    createdAt:Date.now()
  });
 };
