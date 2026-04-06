@@ -1,13 +1,13 @@
-<!DOCTYPE html>  
-<html lang="fr">  
-<head>  
-<meta charset="UTF-8">  
-<title>Lumio Shop</title>  
-<meta name="viewport" content="width=device-width, initial-scale=1.0">  
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">  
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lumio Shop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-<style>  
-/* ===== Body et fond animé épique ===== */  
+<style>
+
 body{
   margin:0;
   font-family:system-ui;
@@ -26,7 +26,6 @@ body{
   100%{background-position:0% 50%}
 }
 
-/* ===== Layout ===== */  
 header{
   padding:20px;
   text-align:center;
@@ -36,6 +35,7 @@ header{
   top:0;
   z-index:100;
 }
+
 header h1{
   margin:0;
   font-size:28px;
@@ -49,6 +49,7 @@ header h1{
   display:flex;
   gap:8px;
 }
+
 .search-bar input{
   flex:1;
   padding:12px;
@@ -57,6 +58,7 @@ header h1{
   background:rgba(0,0,0,0.2);
   color:white;
 }
+
 .search-bar button{
   padding:12px 18px;
   border:none;
@@ -67,7 +69,6 @@ header h1{
   cursor:pointer;
 }
 
-/* ===== Categories ===== */
 .categories{
   display:flex;
   justify-content:center;
@@ -75,6 +76,7 @@ header h1{
   margin:20px 0;
   flex-wrap:wrap;
 }
+
 .categories button{
   padding:10px 18px;
   border:none;
@@ -84,13 +86,13 @@ header h1{
   cursor:pointer;
   transition:.2s;
 }
+
 .categories button:hover{
   background:#fff;
   color:#ff6a00;
   font-weight:700;
 }
 
-/* ===== Grid produits ===== */
 .products{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
@@ -109,6 +111,7 @@ header h1{
   flex-direction:column;
   position: relative;
 }
+
 .card::after{
   content:"";
   position:absolute;
@@ -118,15 +121,18 @@ header h1{
   opacity:0.7;
   pointer-events:none;
 }
+
 .card:hover{
   transform:translateY(-8px) scale(1.02);
   box-shadow:0 10px 30px rgba(0,0,0,0.5);
 }
+
 .card img{
   width:100%;
   height:180px;
   object-fit:cover;
 }
+
 .info{
   padding:12px;
   flex:1;
@@ -134,21 +140,25 @@ header h1{
   flex-direction:column;
   justify-content:space-between;
 }
+
 .title{
   font-weight:700;
   font-size:16px;
   margin-bottom:6px;
 }
+
 .creator{
   color:#fff;
   font-size:13px;
   margin-bottom:6px;
 }
+
 .price{
   color:#ffb347;
   font-weight:700;
   margin-bottom:6px;
 }
+
 .more{
   margin-top:auto;
   padding:6px 12px;
@@ -160,126 +170,179 @@ header h1{
   cursor:pointer;
   transition:.2s;
 }
+
 .more:hover{
   background:#ff9500;
 }
 
-/* ===== Section ===== */
 .section-title{
   margin:30px 20px 10px;
   font-size:20px;
   color:white;
 }
 
-</style>  
-</head>  
-<body>  
+</style>
+</head>
 
-<header>  
-<h1>Lumio Shop</h1>  
-<div class="search-bar">  
- <input type="text" id="searchInput" placeholder="Rechercher un produit...">  
- <button id="searchBtn"><i class="fa fa-search"></i></button>  
-</div>  
-</header>  
+<body>
 
-<div class="categories">  
- <button data-type="all">Tous</button>  
- <button data-type="book">Livres</button>  
- <button data-type="music">Musique</button>  
- <button data-type="art">Art</button>  
-</div>  
+<header>
+<h1>Lumio Shop</h1>
 
-<h2 class="section-title">Nouveautés</h2>  
-<div class="products" id="products"></div>  
+<div class="search-bar">
+ <input type="text" id="searchInput" placeholder="Rechercher un produit...">
+ <button id="searchBtn"><i class="fa fa-search"></i></button>
+</div>
+</header>
 
-<script type="module">  
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";  
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";  
+<div class="categories">
+ <button data-type="all">Tous</button>
+ <button data-type="book">Livres</button>
+ <button data-type="music">Musique</button>
+ <button data-type="art">Art</button>
+</div>
 
-const firebaseConfig={  
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",  
- authDomain: "lumio-822f0.firebaseapp.com",  
- databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",  
- projectId: "lumio-822f0",  
- storageBucket: "lumio-822f0.firebasestorage.app",  
- messagingSenderId: "833325770824",  
- appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"  
-};  
-const app=initializeApp(firebaseConfig);  
-const db=getDatabase(app);  
+<h2 class="section-title">Nouveautés</h2>
+<div class="products" id="products"></div>
 
-/* ===== Charger produits ===== */  
-async function loadProducts(){  
- const [booksSnap,musicSnap,artsSnap] = await Promise.all([  
-   get(ref(db,"books")),  
-   get(ref(db,"music")),  
-   get(ref(db,"arts"))  
- ]);  
-   
- let products=[];  
- if(booksSnap.exists()) Object.entries(booksSnap.val()).forEach(([id,data])=>products.push({...data,id,type:"book"}))  
- if(musicSnap.exists()) Object.entries(musicSnap.val()).forEach(([id,data])=>products.push({...data,id,type:"music"}))  
- if(artsSnap.exists()) Object.entries(artsSnap.val()).forEach(([id,data])=>products.push({...data,id,type:"art"}))  
-   
- displayProducts(rankProducts(products))  
-}  
+<script type="module">
 
-/* ===== Recommandation intelligente ===== */  
-function rankProducts(products){  
- return products.sort((a,b)=>{  
-   const scoreA=(a.views||0)*0.3+(a.sales||0)*0.7  
-   const scoreB=(b.views||0)*0.3+(b.sales||0)*0.7  
-   return scoreB-scoreA  
- })  
-}  
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* ===== Affichage produits ===== */  
-function displayProducts(list){  
- const container=document.getElementById("products")  
- container.innerHTML=""  
- list.forEach(p=>{  
-   const card=document.createElement("div")  
-   card.className="card"  
-   card.innerHTML=`  
-     <img src="${p.cover1URL||p.coverURL||'https://via.placeholder.com/220x180'}">  
-     <div class="info">  
-       <div class="title">${p.title}</div>  
-       <div class="creator">${p.creatorName||"Anonyme"}</div>  
-       <div class="price">$${p.price||0}</div>  
-       <button class="more" onclick="location.href='product-detail.html?id=${p.id}&type=${p.type}'">Voir plus</button>  
-     </div>  
-   `  
-   container.appendChild(card)  
- })  
-}  
+const firebaseConfig={
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain: "lumio-822f0.firebaseapp.com",
+ databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId: "lumio-822f0",
+ storageBucket: "lumio-822f0.firebasestorage.app",
+ messagingSenderId: "833325770824",
+ appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+};
 
-/* ===== Filtrer catégories ===== */  
-document.querySelectorAll('.categories button').forEach(btn=>{  
- btn.onclick=()=>{  
-   const type=btn.dataset.type  
-   loadProducts().then(()=>{  
-     if(type!=='all'){  
-       const filtered=Array.from(document.querySelectorAll('.card')).filter(c=>c.querySelector('.more').onclick.toString().includes(`type="${type}"`))  
-       document.getElementById("products").innerHTML=""  
-       filtered.forEach(c=>document.getElementById("products").appendChild(c))  
-     }  
-   })  
- }  
-})  
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-/* ===== Rechercher ===== */  
-document.getElementById("searchBtn").onclick=()=>{  
- const q=document.getElementById("searchInput").value.toLowerCase()  
- Array.from(document.querySelectorAll('.card')).forEach(c=>{  
-   const t=c.querySelector('.title').innerText.toLowerCase()  
-   c.style.display=t.includes(q)?"flex":"none"  
- })  
-}  
+let ALL_PRODUCTS = [];
 
-/* ===== Lancer chargement ===== */  
-loadProducts()  
-</script>  
+/* =========================
+   LOAD PRODUCTS
+========================= */
 
-</body>  
+async function loadProducts(){
+
+ const [booksSnap,musicSnap,artsSnap] = await Promise.all([
+   get(ref(db,"books")),
+   get(ref(db,"music")),
+   get(ref(db,"arts"))
+ ]);
+
+ let products = [];
+
+ if(booksSnap.exists())
+ Object.entries(booksSnap.val()).forEach(([id,data])=>
+ products.push({...data,id,type:"book"}));
+
+ if(musicSnap.exists())
+ Object.entries(musicSnap.val()).forEach(([id,data])=>
+ products.push({...data,id,type:"music"}));
+
+ if(artsSnap.exists())
+ Object.entries(artsSnap.val()).forEach(([id,data])=>
+ products.push({...data,id,type:"art"}));
+
+ ALL_PRODUCTS = rankProducts(products);
+ displayProducts(ALL_PRODUCTS);
+}
+
+/* =========================
+   RANKING (simple trending)
+========================= */
+
+function rankProducts(products){
+ return products.sort((a,b)=>{
+   const scoreA = (a.views||0)*0.3 + (a.sales||0)*0.7;
+   const scoreB = (b.views||0)*0.3 + (b.sales||0)*0.7;
+   return scoreB - scoreA;
+ });
+}
+
+/* =========================
+   DISPLAY
+========================= */
+
+function displayProducts(list){
+
+ const container = document.getElementById("products");
+ container.innerHTML = "";
+
+ list.forEach(p=>{
+
+ const card = document.createElement("div");
+ card.className = "card";
+
+ card.innerHTML = `
+   <img src="${p.cover1URL || p.coverURL || 'https://via.placeholder.com/220x180'}">
+   <div class="info">
+     <div class="title">${p.title}</div>
+     <div class="creator">${p.creatorName || "Anonyme"}</div>
+     <div class="price">$${p.price || 0}</div>
+     <button class="more">Voir plus</button>
+   </div>
+ `;
+
+ card.querySelector(".more").onclick = () => {
+   location.href = `product-detail.html?id=${p.id}&type=${p.type}`;
+ };
+
+ container.appendChild(card);
+
+ });
+
+}
+
+/* =========================
+   SEARCH
+========================= */
+
+function search(query){
+
+ query = query.toLowerCase();
+
+ const filtered = ALL_PRODUCTS.filter(p =>
+   (p.title||"").toLowerCase().includes(query) ||
+   (p.creatorName||"").toLowerCase().includes(query)
+ );
+
+ displayProducts(filtered);
+}
+
+document.getElementById("searchBtn").onclick = () => {
+ const q = document.getElementById("searchInput").value;
+ search(q);
+};
+
+/* =========================
+   CATEGORY FILTER
+========================= */
+
+document.querySelectorAll(".categories button").forEach(btn=>{
+ btn.onclick = () => {
+   const type = btn.dataset.type;
+   if(type === "all") return displayProducts(ALL_PRODUCTS);
+
+   const filtered = ALL_PRODUCTS.filter(p => p.type === type);
+   displayProducts(filtered);
+ };
+});
+
+/* =========================
+   INIT
+========================= */
+
+loadProducts();
+
+</script>
+
+</body>
 </html>
