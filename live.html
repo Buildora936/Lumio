@@ -160,6 +160,9 @@ video{
 </header>
 
 <div class="main">
+ <div id="videoStatus" style="position:absolute;color:white;padding:10px">
+  Connexion au live...
+</div>
   <div class="video-area">
     <video id="remoteVideo" autoplay playsinline></video>
     <div class="live-info">
@@ -260,7 +263,9 @@ onAuthStateChanged(auth,async u=>{
 });
 
 /* ================= WEBRTC ================= */
-
+let reconnectAttempts = 0;
+let maxReconnect = 5;
+const statusBox = document.getElementById("videoStatus");
 const iceServers={
  iceServers:[{urls:"stun:stun.l.google.com:19302"}]
 };
@@ -269,10 +274,35 @@ function startWebRTC(){
 
  pc=new RTCPeerConnection(iceServers);
 
- pc.ontrack=(event)=>{
-   remoteVideo.srcObject = event.streams[0];
- };
+pc.ontrack=(event)=>{
+  remoteVideo.srcObject = event.streams[0];
+  statusBox.textContent = "🔴 Live en cours";
+};
 
+pc.onconnectionstatechange = () => {
+  const state = pc.connectionState;
+
+  if(state === "connected"){
+    reconnectAttempts = 0;
+  }
+
+  if(state === "disconnected" || state === "failed"){
+    statusBox.textContent = "Reconnexion...";
+    attemptReconnect();
+  }
+
+  if(state === "closed"){
+    statusBox.textContent = "Live terminé";
+  }
+};
+if(live.status === "ended"){
+  alert("Ce live est terminé");
+  location.href="index.html";
+  return;
+}
+remoteVideo.muted = true;
+remoteVideo.play().catch(()=>{}); 
+ 
  pc.onicecandidate=(e)=>{
    if(e.candidate){
      push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), e.candidate.toJSON());
@@ -282,6 +312,29 @@ function startWebRTC(){
  listenForOffer();
  listenForICE();
 }
+       /* ========== RECONNEXION ========== */
+async function attemptReconnect(){
+  if(reconnectAttempts >= maxReconnect){
+    statusBox.textContent = "Impossible de se reconnecter";
+    return;
+  }
+
+  reconnectAttempts++;
+
+  try{
+    pc.close();
+  }catch(e){}
+
+  setTimeout(()=>{
+    startWebRTC();
+  }, 2000);
+}
+setTimeout(()=>{
+  if(!remoteVideo.srcObject){
+    statusBox.textContent = "En attente du créateur...";
+  }
+}, 5000);
+ 
 
 /* ================= RECEIVE OFFER ================= */
 
