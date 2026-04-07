@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Créer un Live - Lumio</title>
+<title>Créer un Live - Lumio Studio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -12,7 +12,6 @@ body{
   font-family:system-ui;
   color:white;
 }
-
 .container{
   max-width:800px;
   margin:40px auto;
@@ -20,13 +19,12 @@ body{
   padding:30px;
   border-radius:16px;
 }
-
 h2{ margin-top:0; }
 
 input, textarea{
   width:100%;
   padding:12px;
-  margin-bottom:12px;
+  margin-bottom:15px;
   border:none;
   border-radius:8px;
   background:#222;
@@ -34,13 +32,12 @@ input, textarea{
 }
 
 button{
-  width:100%;
-  padding:12px;
   background:#ff0000;
   border:none;
+  padding:12px 18px;
   border-radius:8px;
   color:white;
-  font-weight:700;
+  font-weight:600;
   cursor:pointer;
 }
 
@@ -49,29 +46,31 @@ button:disabled{
   cursor:not-allowed;
 }
 
-.progress{
+.progress-container{
   width:100%;
   height:10px;
   background:#333;
   border-radius:10px;
   overflow:hidden;
-  margin-top:10px;
+  margin-bottom:10px;
   display:none;
 }
 
-.bar{
+.progress-bar{
   height:100%;
   width:0%;
   background:#ff0000;
+  transition:width 0.2s;
 }
 
-.msg{
-  margin-top:10px;
-  font-size:14px;
+.progress-text{
+  font-size:13px;
+  color:#aaa;
+  margin-bottom:15px;
 }
 
-.ok{ color:#00ff88; }
-.err{ color:#ff4444; }
+.success{ color:#00ff88; margin-top:15px; }
+.error{ color:#ff4444; margin-top:15px; }
 </style>
 </head>
 
@@ -81,154 +80,155 @@ button:disabled{
   <h2>🚀 Créer un Live</h2>
 
   <input id="title" placeholder="Titre du live">
-  <textarea id="desc" placeholder="Description"></textarea>
-  <input type="file" id="thumb" accept="image/*">
+  <textarea id="description" rows="4" placeholder="Description du live"></textarea>
+  <input type="file" id="thumbnailInput" accept="image/*">
 
-  <div class="progress" id="progress">
-    <div class="bar" id="bar"></div>
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-bar" id="progressBar"></div>
   </div>
 
-  <button id="btn">Créer le Live</button>
-  <div class="msg" id="msg"></div>
+  <div class="progress-text" id="progressText"></div>
+
+  <button id="createBtn">Créer le Live</button>
+
+  <div id="message"></div>
 </div>
 
 <script type="module">
+
+/* ================= FIREBASE ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,set,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
+/* ================= SUPABASE ================= */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-/* ================= INIT ================= */
+const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
 
-const supabase = createClient(
- "https://ymcrkbcsuloijemdbqzy.supabase.co",
- "YOUR_SUPABASE_KEY"
-);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const app = initializeApp({
- apiKey:"YOUR_FIREBASE_KEY",
- authDomain:"lumio-822f0.firebaseapp.com",
- databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId:"lumio-822f0"
-});
+/* ================= FIREBASE CONFIG (NON MODIFIÉE) ================= */
+const firebaseConfig = {
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain: "lumio-822f0.firebaseapp.com",
+ databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId: "lumio-822f0",
+ storageBucket: "lumio-822f0.firebasestorage.app",
+ messagingSenderId: "833325770824",
+ appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+};
 
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
 /* ================= STATE ================= */
-
-let user = null;
-let creating = false;
-
-/* ================= UI ================= */
-
-const btn = document.getElementById("btn");
-const msg = document.getElementById("msg");
-const bar = document.getElementById("bar");
-const progress = document.getElementById("progress");
+let currentUser = null;
 
 /* ================= AUTH ================= */
-
-onAuthStateChanged(auth, u=>{
-  if(!u) location.href="login.html";
-  user = u;
+onAuthStateChanged(auth, (u) => {
+  if (!u) location.href = "login.html";
+  currentUser = u;
 });
 
-/* ================= CREATE ================= */
+/* ================= DOM ================= */
+const createBtn = document.getElementById("createBtn");
+const progressBar = document.getElementById("progressBar");
+const progressText = document.getElementById("progressText");
+const progressContainer = document.getElementById("progressContainer");
+const message = document.getElementById("message");
 
-btn.onclick = async ()=>{
-
-  if(creating) return;
+/* ================= CREATE LIVE ================= */
+createBtn.onclick = async () => {
 
   const title = document.getElementById("title").value.trim();
-  const desc = document.getElementById("desc").value.trim();
-  const file = document.getElementById("thumb").files[0];
+  const description = document.getElementById("description").value.trim();
+  const file = document.getElementById("thumbnailInput").files[0];
 
-  if(!title || !file){
-    msg.innerHTML="<span class='err'>Titre + image requis</span>";
+  if (!title || !file) {
+    alert("Titre et miniature obligatoires");
     return;
   }
 
-  creating = true;
-  btn.disabled = true;
-  progress.style.display = "block";
+  createBtn.disabled = true;
+  progressContainer.style.display = "block";
+  progressBar.style.width = "0%";
+  progressText.textContent = "Upload en cours...";
 
-  try{
+  try {
 
-    /* ================= UPLOAD ================= */
+    /* ================= UPLOAD SUPABASE ================= */
+    const fileName = `live_${Date.now()}_${file.name}`;
 
-    const fileName = "live_"+Date.now();
-
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("thumbnails")
       .upload(fileName, file);
 
-    if(error) throw error;
+    if (uploadError) throw uploadError;
 
-    bar.style.width = "50%";
+    progressBar.style.width = "50%";
+    progressText.textContent = "Upload terminé";
 
-    const { data } = supabase.storage
+    const { data: publicUrlData } = supabase.storage
       .from("thumbnails")
       .getPublicUrl(fileName);
 
-    /* ================= GET USER STRIPE ================= */
+    /* ================= STRIPE ID (Firebase user) ================= */
+    const userSnap = await get(ref(db, "users/" + currentUser.uid));
 
-    const snap = await get(ref(db, "users/" + user.uid));
+    let creatorStripeId = null;
 
-    if(!snap.exists()){
-      throw new Error("User introuvable");
+    if (userSnap.exists()) {
+      creatorStripeId = userSnap.val().stripe_account_id || null;
     }
 
-    const userData = snap.val();
+    progressBar.style.width = "75%";
+    progressText.textContent = "Création live...";
 
-    if(!userData.stripe_account_id){
-      throw new Error("Stripe non configuré");
-    }
-
-    /* ================= CREATE LIVE ================= */
-
+    /* ================= LIVE ID ================= */
     const liveId = "live_" + Date.now();
 
+    /* ================= SAVE LIVE ================= */
     await set(ref(db, "lives/" + liveId), {
-      id: liveId,
+
       title,
-      description: desc,
-      thumbnail: data.publicUrl,
+      description,
+      thumbnail: publicUrlData.publicUrl,
 
-      creatorId: user.uid,
-      channelName: user.displayName || "Créateur",
+      creatorId: currentUser.uid,
+      channelName: currentUser.displayName || "Créateur",
 
-      creatorStripeId: userData.stripe_account_id,
+      creatorStripeId: creatorStripeId,
 
       status: "waiting",
+      createdAt: Date.now(),
 
       viewers: 0,
       totalSupport: 0,
 
-      streamKey: "stream_" + Math.random().toString(36).slice(2),
+      streamKey: "stream_" + Math.random().toString(36).substring(2),
 
-      createdAt: Date.now()
+      isPaid: false
     });
 
-    bar.style.width = "100%";
+    progressBar.style.width = "100%";
+    progressText.textContent = "Terminé";
 
-    msg.innerHTML = "<span class='ok'>Live créé ✅</span>";
+    message.innerHTML = "<div class='success'>✅ Live créé avec succès</div>";
 
-    setTimeout(()=>{
+    setTimeout(() => {
       location.href = "live-control.html?id=" + liveId;
-    },1200);
+    }, 1200);
 
-  }catch(e){
-
-    console.error(e);
-
-    msg.innerHTML = "<span class='err'>"+e.message+"</span>";
-
-    btn.disabled = false;
-    creating = false;
-    progress.style.display = "none";
+  } catch (err) {
+    console.error(err);
+    message.innerHTML = "<div class='error'>Erreur création live</div>";
+    createBtn.disabled = false;
   }
 };
+
 </script>
 
 </body>
