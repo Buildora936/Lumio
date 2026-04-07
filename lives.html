@@ -24,10 +24,6 @@ header{
   align-items:center;
   padding:0 16px;
 }
-header h2{
-  margin:0;
-  font-size:18px;
-}
 
 .container{
   max-width:1200px;
@@ -45,13 +41,9 @@ header h2{
   cursor:pointer;
   transition:.2s;
 }
-.live-card:hover{
-  transform:scale(1.03);
-}
+.live-card:hover{ transform:scale(1.03); }
 
-.thumb{
-  position:relative;
-}
+.thumb{ position:relative; }
 .thumb img{
   width:100%;
   aspect-ratio:16/9;
@@ -79,13 +71,7 @@ header h2{
   font-size:12px;
 }
 
-.info{
-  padding:12px;
-}
-.info h3{
-  margin:0 0 6px;
-  font-size:15px;
-}
+.info{ padding:12px; }
 .channel{
   display:flex;
   align-items:center;
@@ -115,7 +101,7 @@ header h2{
 
 <div class="container" id="livesContainer"></div>
 <div class="empty" id="empty" style="display:none">
-  Aucun live en cours pour le moment
+  Aucun live en cours
 </div>
 
 <script type="module">
@@ -128,13 +114,13 @@ import { getDatabase, ref, onValue, get }
 /* ================= INIT ================= */
 
 const app = initializeApp({
-  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
+  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+  authDomain:"lumio-822f0.firebaseapp.com",
+  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+  projectId:"lumio-822f0",
+  storageBucket:"lumio-822f0.firebasestorage.app",
+  messagingSenderId:"833325770824",
+  appId:"1:833325770824:web:b1a87a7bda0b00ee20907d"
 });
 
 const db = getDatabase(app);
@@ -142,87 +128,101 @@ const db = getDatabase(app);
 const container = document.getElementById("livesContainer");
 const empty = document.getElementById("empty");
 
+/* ================= STATE ================= */
+
+const cardsMap = {}; // liveId -> DOM
+
 /* ================= HELPERS ================= */
 
-function getThumbnail(url){
+function thumb(url){
   return url || "https://via.placeholder.com/640x360?text=Live";
 }
-
-function getAvatar(){
+function avatar(){
   return "https://ui-avatars.com/api/?background=ff0000&color=fff&name=L";
 }
 
 /* ================= LOAD LIVES ================= */
 
-onValue(ref(db,"lives"), async snap=>{
+onValue(ref(db,"lives"), snap=>{
 
   container.innerHTML="";
+  Object.keys(cardsMap).forEach(k=>delete cardsMap[k]);
+
   let count=0;
 
-  const promises=[];
-
   snap.forEach(l=>{
+
+    const liveId = l.key;
     const live = l.val();
 
     if(live.status !== "live") return;
 
     count++;
 
-    promises.push(renderLiveCard(l.key, live));
-  });
+    const card = createCard(liveId, live);
+    container.appendChild(card);
 
-  await Promise.all(promises);
+    cardsMap[liveId] = card;
+
+    // 🔥 TEMPS RÉEL VIEWERS
+    listenViewers(liveId);
+  });
 
   empty.style.display = count ? "none" : "block";
 });
 
-/* ================= RENDER CARD ================= */
+/* ================= CARD ================= */
 
-async function renderLiveCard(liveId, live){
-
-  // récupérer viewers en temps réel
-  let viewerCount = 0;
-
-  try{
-    const viewersSnap = await get(ref(db,`liveViewers/${liveId}`));
-    if(viewersSnap.exists()){
-      viewerCount = Object.keys(viewersSnap.val()).length;
-    }
-  }catch(e){}
+function createCard(liveId, live){
 
   const card = document.createElement("div");
   card.className="live-card";
 
-  card.onclick = async ()=>{
-
-    const snap = await get(ref(db,`lives/${liveId}`));
-
-    if(!snap.exists() || snap.val().status !== "live"){
-      alert("Ce live est terminé");
-      return;
-    }
-
-    location.href=`live.html?id=${liveId}`;
-  };
-
   card.innerHTML = `
     <div class="thumb">
-      <img src="${getThumbnail(live.thumbnail)}"
+      <img src="${thumb(live.thumbnail)}"
            onerror="this.src='https://via.placeholder.com/640x360?text=Live'">
       <div class="badge-live">LIVE</div>
-      <div class="viewers">${viewerCount} spectateurs</div>
+      <div class="viewers" id="v_${liveId}">0</div>
     </div>
 
     <div class="info">
-      <h3>${live.title || "Live sans titre"}</h3>
+      <h3>${live.title || "Live"}</h3>
       <div class="channel">
-        <img src="${getAvatar()}">
+        <img src="${avatar()}">
         <span>${live.channelName || "Créateur"}</span>
       </div>
     </div>
   `;
 
-  container.appendChild(card);
+  card.onclick = async ()=>{
+    const snap = await get(ref(db,`lives/${liveId}`));
+    if(!snap.exists() || snap.val().status !== "live"){
+      alert("Live terminé");
+      return;
+    }
+    location.href=`live.html?id=${liveId}`;
+  };
+
+  return card;
+}
+
+/* ================= VIEWERS TEMPS RÉEL ================= */
+
+function listenViewers(liveId){
+
+  const el = document.getElementById(`v_${liveId}`);
+
+  onValue(ref(db,`liveViewers/${liveId}`), snap=>{
+
+    if(!el) return;
+
+    const count = snap.exists()
+      ? Object.keys(snap.val()).length
+      : 0;
+
+    el.textContent = count + " spectateurs";
+  });
 }
 </script>
 
