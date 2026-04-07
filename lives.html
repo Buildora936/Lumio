@@ -72,6 +72,7 @@ header{
 }
 
 .info{ padding:12px; }
+
 .channel{
   display:flex;
   align-items:center;
@@ -79,12 +80,16 @@ header{
   font-size:13px;
   color:#ccc;
 }
+
 .channel img{
   width:28px;
   height:28px;
   border-radius:50%;
 }
 
+/* STATES */
+
+.loading,
 .empty{
   text-align:center;
   margin-top:80px;
@@ -100,6 +105,8 @@ header{
 </header>
 
 <div class="container" id="livesContainer"></div>
+
+<div class="loading" id="loading">Chargement...</div>
 <div class="empty" id="empty" style="display:none">
   Aucun live en cours
 </div>
@@ -127,10 +134,11 @@ const db = getDatabase(app);
 
 const container = document.getElementById("livesContainer");
 const empty = document.getElementById("empty");
+const loading = document.getElementById("loading");
 
 /* ================= STATE ================= */
 
-const cardsMap = {}; // liveId -> DOM
+const cardsMap = {};
 
 /* ================= HELPERS ================= */
 
@@ -141,34 +149,46 @@ function avatar(){
   return "https://ui-avatars.com/api/?background=ff0000&color=fff&name=L";
 }
 
-/* ================= LOAD LIVES ================= */
+/* ================= LOAD + TRI ================= */
 
 onValue(ref(db,"lives"), snap=>{
 
   container.innerHTML="";
   Object.keys(cardsMap).forEach(k=>delete cardsMap[k]);
 
-  let count=0;
+  let lives = [];
 
   snap.forEach(l=>{
-
-    const liveId = l.key;
     const live = l.val();
-
     if(live.status !== "live") return;
 
-    count++;
-
-    const card = createCard(liveId, live);
-    container.appendChild(card);
-
-    cardsMap[liveId] = card;
-
-    // 🔥 TEMPS RÉEL VIEWERS
-    listenViewers(liveId);
+    lives.push({
+      id: l.key,
+      ...live
+    });
   });
 
-  empty.style.display = count ? "none" : "block";
+  // 🔥 TRI PAR DATE
+  lives.sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+
+  loading.style.display="none";
+
+  if(lives.length === 0){
+    empty.style.display="block";
+    return;
+  }
+
+  empty.style.display="none";
+
+  lives.forEach(live=>{
+    const card = createCard(live.id, live);
+    container.appendChild(card);
+
+    cardsMap[live.id] = card;
+
+    listenViewers(live.id);
+  });
+
 });
 
 /* ================= CARD ================= */
@@ -183,7 +203,7 @@ function createCard(liveId, live){
       <img src="${thumb(live.thumbnail)}"
            onerror="this.src='https://via.placeholder.com/640x360?text=Live'">
       <div class="badge-live">LIVE</div>
-      <div class="viewers" id="v_${liveId}">0</div>
+      <div class="viewers" id="v_${liveId}">0 spectateurs</div>
     </div>
 
     <div class="info">
@@ -195,12 +215,21 @@ function createCard(liveId, live){
     </div>
   `;
 
+  // 🔒 NAVIGATION SÉCURISÉE
   card.onclick = async ()=>{
+
     const snap = await get(ref(db,`lives/${liveId}`));
-    if(!snap.exists() || snap.val().status !== "live"){
-      alert("Live terminé");
+
+    if(!snap.exists()){
+      alert("Live introuvable");
       return;
     }
+
+    if(snap.val().status !== "live"){
+      alert("Ce live est terminé");
+      return;
+    }
+
     location.href=`live.html?id=${liveId}`;
   };
 
