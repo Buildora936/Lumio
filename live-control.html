@@ -170,24 +170,21 @@ video{
   </div>
 
 </div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,set,onValue,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase,ref,set,onValue,push,remove,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 /* ================= INIT ================= */
 
-const firebaseConfig={
- apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+const app=initializeApp({
+ apiKey:"AIzaSy...",
  authDomain:"lumio-822f0.firebaseapp.com",
  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId:"lumio-822f0",
- storageBucket:"lumio-822f0.firebasestorage.app",
- messagingSenderId:"833325770824",
- appId:"1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
+ projectId:"lumio-822f0"
+});
 
-const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
 const db=getDatabase(app);
 
@@ -203,37 +200,35 @@ let peerConnections={};
 
 /* ================= DOM ================= */
 
-const localVideo=document.getElementById("localVideo");
-const viewerCountEl=document.getElementById("viewerCount");
-const totalBox=document.getElementById("totalEarned");
+const video=document.getElementById("localVideo");
+const viewersEl=document.getElementById("viewerCount");
+const earnedEl=document.getElementById("totalEarned");
 const topBox=document.getElementById("topSupporters");
 
 /* ================= AUTH ================= */
 
 onAuthStateChanged(auth,u=>{
- if(!u){
-   location.href="auth.html";
-   return;
- }
+ if(!u) location.href="auth.html";
  currentUser=u;
 });
 
 /* ================= STREAM ================= */
 
 async function startCamera(){
- localStream=await navigator.mediaDevices.getUserMedia({
-   video:true,
-   audio:true
- });
- localVideo.srcObject=localStream;
+ localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+ video.srcObject=localStream;
+ set(ref(db,`lives/${liveId}/status`),"live");
 }
 
 async function startScreen(){
  const screen=await navigator.mediaDevices.getDisplayMedia({video:true});
  const mic=await navigator.mediaDevices.getUserMedia({audio:true});
  screen.addTrack(mic.getAudioTracks()[0]);
+
  localStream=screen;
- localVideo.srcObject=localStream;
+ video.srcObject=localStream;
+
+ set(ref(db,`lives/${liveId}/status`),"live");
 }
 
 camBtn.onclick=startCamera;
@@ -241,9 +236,7 @@ screenBtn.onclick=startScreen;
 
 /* ================= WEBRTC ================= */
 
-const iceServers={
- iceServers:[{urls:"stun:stun.l.google.com:19302"}]
-};
+const iceServers={iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
 
 async function createConnection(viewerId){
 
@@ -253,27 +246,20 @@ async function createConnection(viewerId){
    pc.addTrack(track,localStream);
  });
 
- let iceBuffer=[];
-
- pc.onicecandidate=(e)=>{
+ pc.onicecandidate=e=>{
    if(e.candidate){
-     iceBuffer.push(e.candidate.toJSON());
-   }else{
-     set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), iceBuffer);
-     iceBuffer=[];
+     push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), e.candidate.toJSON());
    }
  };
 
  pc.onconnectionstatechange=()=>{
-
-   if(pc.connectionState==="connected"){
-     set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
-     set(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), null);
+   if(pc.connectionState==="disconnected" || pc.connectionState==="failed"){
+     cleanupViewer(viewerId);
    }
 
-   if(pc.connectionState==="disconnected" || pc.connectionState==="failed"){
-     try{ pc.close(); }catch(e){}
-     delete peerConnections[viewerId];
+   if(pc.connectionState==="connected"){
+     // nettoyage signaling inutile
+     set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
    }
  };
 
@@ -286,26 +272,17 @@ async function createConnection(viewerId){
 onValue(ref(db,`liveViewers/${liveId}`),snap=>{
 
  const viewers=snap.val()||{};
- const viewerIds=Object.keys(viewers);
+ const ids=Object.keys(viewers);
 
- viewerCountEl.textContent=viewerIds.length+" spectateurs";
+ viewersEl.textContent=ids.length+" spectateurs";
 
- // cleanup viewers morts
- Object.keys(peerConnections).forEach(uid=>{
-   if(!viewers[uid]){
-     try{ peerConnections[uid].close(); }catch(e){}
-     delete peerConnections[uid];
+ // sync cache
+ set(ref(db,`lives/${liveId}/viewers`), ids.length);
 
-     set(ref(db,`liveSignals/${liveId}/offers/${uid}`), null);
-     set(ref(db,`liveSignals/${liveId}/answers/${uid}`), null);
-     set(ref(db,`liveSignals/${liveId}/ice/${uid}`), null);
-   }
- });
+ ids.forEach(async uid=>{
 
- // nouvelles connexions
- viewerIds.forEach(async uid=>{
-   if(peerConnections[uid]) return;
    if(uid===currentUser?.uid) return;
+   if(peerConnections[uid]) return;
    if(!localStream) return;
 
    const pc=await createConnection(uid);
@@ -316,75 +293,85 @@ onValue(ref(db,`liveViewers/${liveId}`),snap=>{
    await set(ref(db,`liveSignals/${liveId}/offers/${uid}`), offer);
  });
 
+ // cleanup viewers morts
+ Object.keys(peerConnections).forEach(uid=>{
+   if(!viewers[uid]) cleanupViewer(uid);
+ });
+
 });
 
 /* ================= ANSWERS ================= */
 
 onValue(ref(db,`liveSignals/${liveId}/answers`),snap=>{
- snap.forEach(viewerSnap=>{
-   const viewerId=viewerSnap.key;
-   const answer=viewerSnap.val();
 
-   const pc=peerConnections[viewerId];
+ snap.forEach(viewerSnap=>{
+   const uid=viewerSnap.key;
+   const pc=peerConnections[uid];
    if(!pc) return;
 
-   if(pc.signalingState!=="have-local-offer") return;
-
    if(!pc.currentRemoteDescription){
-     pc.setRemoteDescription(new RTCSessionDescription(answer));
+     pc.setRemoteDescription(new RTCSessionDescription(viewerSnap.val()));
    }
  });
+
 });
 
 /* ================= ICE ================= */
 
 onValue(ref(db,`liveSignals/${liveId}/ice`),snap=>{
+
  snap.forEach(viewerSnap=>{
-   const viewerId=viewerSnap.key;
-   const pc=peerConnections[viewerId];
+   const uid=viewerSnap.key;
+   const pc=peerConnections[uid];
    if(!pc) return;
 
-   const candidates=viewerSnap.val();
-
-   if(Array.isArray(candidates)){
-     candidates.forEach(c=>{
-       try{
-         pc.addIceCandidate(new RTCIceCandidate(c));
-       }catch(e){}
-     });
-   }
+   viewerSnap.forEach(c=>{
+     try{
+       pc.addIceCandidate(new RTCIceCandidate(c.val()));
+     }catch(e){}
+   });
  });
+
 });
 
-/* ================= 💰 GAINS ================= */
+/* ================= CLEANUP ================= */
 
-onValue(ref(db,`lives/${liveId}/totalSupport`),snap=>{
- const total=snap.val()||0;
- totalBox.textContent="💰 $"+total.toFixed(2);
-});
+function cleanupViewer(uid){
 
-/* ================= 🏆 TOP SUPPORTERS ================= */
+ try{ peerConnections[uid].close(); }catch(e){}
+
+ delete peerConnections[uid];
+
+ set(ref(db,`liveSignals/${liveId}/offers/${uid}`), null);
+ set(ref(db,`liveSignals/${liveId}/answers/${uid}`), null);
+ set(ref(db,`liveSignals/${liveId}/ice/${uid}`), null);
+}
+
+/* ================= GAINS ================= */
 
 onValue(ref(db,"supports"),snap=>{
 
+ let total=0;
  const supporters={};
 
  snap.forEach(s=>{
-   const data=s.val();
-   if(data.liveId!==liveId) return;
+   const d=s.val();
+   if(d.liveId!==liveId) return;
 
-   const name=data.userEmail || "Anonyme";
+   total+=Number(d.amount)||0;
 
-   if(!supporters[name]) supporters[name]=0;
-   supporters[name]+=Number(data.amount);
+   const name=d.userEmail||"Anonyme";
+   supporters[name]=(supporters[name]||0)+Number(d.amount);
  });
 
+ earnedEl.textContent="💰 $"+total.toFixed(2);
+
+ // top supporters
  const sorted=Object.entries(supporters)
    .sort((a,b)=>b[1]-a[1])
    .slice(0,3);
 
  topBox.innerHTML="";
-
  const medals=["🥇","🥈","🥉"];
 
  sorted.forEach((s,i)=>{
@@ -395,11 +382,43 @@ onValue(ref(db,"supports"),snap=>{
 
 });
 
-/* ================= 🔨 BAN ================= */
+/* ================= CHAT ================= */
+
+onValue(ref(db,`liveChat/${liveId}`),snap=>{
+ const box=document.getElementById("messages");
+ box.innerHTML="";
+
+ snap.forEach(m=>{
+   const d=document.createElement("div");
+   d.className="msg";
+   d.innerHTML=`
+     <b>${m.val().user}</b>: ${m.val().text}
+     <span class="ban" onclick="ban('${m.val().uid}')">Ban</span>
+   `;
+   box.appendChild(d);
+ });
+
+ box.scrollTop=box.scrollHeight;
+});
+
+sendBtn.onclick=async()=>{
+ const text=msgInput.value.trim();
+ if(!text) return;
+
+ msgInput.value="";
+
+ await push(ref(db,`liveChat/${liveId}`),{
+   user:currentUser.displayName||"Créateur",
+   text,
+   uid:currentUser.uid,
+   createdAt:Date.now()
+ });
+};
+
+/* ================= BAN ================= */
 
 window.ban=async(uid)=>{
  await set(ref(db,`liveBans/${liveId}/${uid}`),true);
- alert("Utilisateur banni");
 };
 
 /* ================= END LIVE ================= */
@@ -407,9 +426,6 @@ window.ban=async(uid)=>{
 window.endLive=async()=>{
 
  await set(ref(db,`lives/${liveId}/status`),"ended");
-
- await set(ref(db,`liveSignals/${liveId}`), null);
- await set(ref(db,`liveViewers/${liveId}`), null);
 
  Object.values(peerConnections).forEach(pc=>{
    try{ pc.close(); }catch(e){}
@@ -420,6 +436,9 @@ window.endLive=async()=>{
  alert("Live terminé");
  location.href="index.html";
 };
+
+</script>
+
 </script>
 </body>
 </html>
