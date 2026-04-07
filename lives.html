@@ -17,7 +17,6 @@ body{
   color:white;
 }
 
-/* HEADER */
 header{
   height:56px;
   background:#181818;
@@ -30,7 +29,6 @@ header h2{
   font-size:18px;
 }
 
-/* GRID */
 .container{
   max-width:1200px;
   margin:20px auto;
@@ -40,7 +38,6 @@ header h2{
   gap:16px;
 }
 
-/* LIVE CARD */
 .live-card{
   background:#181818;
   border-radius:16px;
@@ -49,7 +46,7 @@ header h2{
   transition:.2s;
 }
 .live-card:hover{
-  transform:scale(1.02);
+  transform:scale(1.03);
 }
 
 .thumb{
@@ -57,7 +54,6 @@ header h2{
 }
 .thumb img{
   width:100%;
-  display:block;
   aspect-ratio:16/9;
   object-fit:cover;
 }
@@ -83,14 +79,12 @@ header h2{
   font-size:12px;
 }
 
-/* INFO */
 .info{
   padding:12px;
 }
 .info h3{
   margin:0 0 6px;
   font-size:15px;
-  line-height:1.3;
 }
 .channel{
   display:flex;
@@ -104,6 +98,7 @@ header h2{
   height:28px;
   border-radius:50%;
 }
+
 .empty{
   text-align:center;
   margin-top:80px;
@@ -126,10 +121,12 @@ header h2{
 <script type="module">
 import { initializeApp } from
  "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, onValue } 
+
+import { getDatabase, ref, onValue, get }
  from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* 🔥 FIREBASE */
+/* ================= INIT ================= */
+
 const app = initializeApp({
   apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
   authDomain: "lumio-822f0.firebaseapp.com",
@@ -141,47 +138,92 @@ const app = initializeApp({
 });
 
 const db = getDatabase(app);
+
 const container = document.getElementById("livesContainer");
 const empty = document.getElementById("empty");
 
-/* 📡 LOAD LIVES */
-onValue(ref(db,"lives"), snap=>{
+/* ================= HELPERS ================= */
+
+function getThumbnail(url){
+  return url || "https://via.placeholder.com/640x360?text=Live";
+}
+
+function getAvatar(){
+  return "https://ui-avatars.com/api/?background=ff0000&color=fff&name=L";
+}
+
+/* ================= LOAD LIVES ================= */
+
+onValue(ref(db,"lives"), async snap=>{
+
   container.innerHTML="";
   let count=0;
 
+  const promises=[];
+
   snap.forEach(l=>{
     const live = l.val();
+
     if(live.status !== "live") return;
 
     count++;
 
-    const card = document.createElement("div");
-    card.className="live-card";
-    card.onclick=()=>location.href=`live.html?id=${l.key}`;
-
-    card.innerHTML=`
-      <div class="thumb">
-        <img src="${live.thumbnailURL}">
-        <div class="badge-live">LIVE</div>
-        <div class="viewers">
-          ${(live.viewersCount||0)} spectateurs
-        </div>
-      </div>
-
-      <div class="info">
-        <h3>${live.title}</h3>
-        <div class="channel">
-          <img src="${live.channelPhotoURL}">
-          <span>${live.channelName}</span>
-        </div>
-      </div>
-    `;
-
-    container.appendChild(card);
+    promises.push(renderLiveCard(l.key, live));
   });
+
+  await Promise.all(promises);
 
   empty.style.display = count ? "none" : "block";
 });
+
+/* ================= RENDER CARD ================= */
+
+async function renderLiveCard(liveId, live){
+
+  // récupérer viewers en temps réel
+  let viewerCount = 0;
+
+  try{
+    const viewersSnap = await get(ref(db,`liveViewers/${liveId}`));
+    if(viewersSnap.exists()){
+      viewerCount = Object.keys(viewersSnap.val()).length;
+    }
+  }catch(e){}
+
+  const card = document.createElement("div");
+  card.className="live-card";
+
+  card.onclick = async ()=>{
+
+    const snap = await get(ref(db,`lives/${liveId}`));
+
+    if(!snap.exists() || snap.val().status !== "live"){
+      alert("Ce live est terminé");
+      return;
+    }
+
+    location.href=`live.html?id=${liveId}`;
+  };
+
+  card.innerHTML = `
+    <div class="thumb">
+      <img src="${getThumbnail(live.thumbnail)}"
+           onerror="this.src='https://via.placeholder.com/640x360?text=Live'">
+      <div class="badge-live">LIVE</div>
+      <div class="viewers">${viewerCount} spectateurs</div>
+    </div>
+
+    <div class="info">
+      <h3>${live.title || "Live sans titre"}</h3>
+      <div class="channel">
+        <img src="${getAvatar()}">
+        <span>${live.channelName || "Créateur"}</span>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(card);
+}
 </script>
 
 </body>
