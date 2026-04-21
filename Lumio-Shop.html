@@ -2,304 +2,366 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio - Product</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<script src="https://js.stripe.com/v3"></script>
+<title>Lumio Shop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
+
+/* =========================
+   BACKGROUND NOIR + PARTICULES ORANGE
+========================= */
+
 body{
-margin:0;
-font-family:system-ui;
-color:white;
-background:#000;
-overflow-x:hidden;
+  margin:0;
+  font-family:system-ui;
+  color:white;
+  background:#0b0b0b;
+  overflow-x:hidden;
 }
 
-/* ===== ORANGE FLOATING ORBS ===== */
-.orb{
-position:fixed;
-border-radius:50%;
-background:rgba(255,140,0,0.25);
-filter:blur(60px);
-animation:float 12s infinite ease-in-out;
-z-index:0;
+/* canvas particules */
+#particles{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index:-1;
 }
 
-.orb:nth-child(1){width:200px;height:200px;top:10%;left:10%;}
-.orb:nth-child(2){width:300px;height:300px;top:60%;left:70%;animation-duration:18s;}
-.orb:nth-child(3){width:150px;height:150px;top:80%;left:20%;animation-duration:14s;}
+/* =========================
+   HEADER
+========================= */
+
+header{
+  padding:20px;
+  text-align:center;
+  background:rgba(0,0,0,0.6);
+  backdrop-filter:blur(10px);
+  position: sticky;
+  top:0;
+  z-index:100;
+}
+
+header h1{
+  margin:0;
+  font-size:28px;
+  color:#fff;
+}
+
+/* =========================
+   SEARCH
+========================= */
+
+.search-bar{
+  max-width:500px;
+  margin:20px auto;
+  display:flex;
+  gap:8px;
+}
+
+.search-bar input{
+  flex:1;
+  padding:12px;
+  border-radius:25px;
+  border:none;
+  background:#1a1a1a;
+  color:white;
+}
+
+.search-bar button{
+  padding:12px 18px;
+  border:none;
+  border-radius:25px;
+  background:#ff7a18;
+  color:white;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* =========================
+   CATEGORIES (SIMPLIFIÉES VISUELLEMENT)
+========================= */
+
+.categories{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  margin:20px 0;
+  flex-wrap:wrap;
+}
+
+.categories button{
+  padding:10px 16px;
+  border:none;
+  border-radius:20px;
+  background:#151515;
+  color:white;
+  cursor:pointer;
+  border:1px solid #222;
+}
+
+.categories button:hover{
+  background:#ff7a18;
+  color:black;
+}
+
+/* =========================
+   GRID
+========================= */
+
+.products{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:22px;
+  padding:0 20px;
+}
+
+/* =========================
+   CARD
+========================= */
+
+.card{
+  background:#141414;
+  border-radius:16px;
+  overflow:hidden;
+  cursor:pointer;
+  transition:.25s;
+  display:flex;
+  flex-direction:column;
+  border:1px solid #1f1f1f;
+}
+
+.card:hover{
+  transform:translateY(-6px);
+  border-color:#ff7a18;
+}
+
+.card img{
+  width:100%;
+  height:180px;
+  object-fit:cover;
+}
+
+.info{
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+}
+
+.title{
+  font-weight:700;
+  font-size:16px;
+  margin-bottom:6px;
+}
+
+.creator{
+  font-size:13px;
+  opacity:0.7;
+}
+
+.price{
+  color:#ffb347;
+  font-weight:700;
+  margin-top:6px;
+}
+
+.more{
+  margin-top:10px;
+  padding:8px 12px;
+  border:none;
+  border-radius:20px;
+  background:#ff7a18;
+  color:black;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* =========================
+   PARTICULES ORANGE
+========================= */
+
+.particle{
+  position:absolute;
+  width:6px;
+  height:6px;
+  background:#ff7a18;
+  border-radius:50%;
+  opacity:0.6;
+  animation:float 10s linear infinite;
+}
 
 @keyframes float{
-0%{transform:translateY(0px)}
-50%{transform:translateY(-40px)}
-100%{transform:translateY(0px)}
+  from{transform:translateY(100vh); opacity:0}
+  10%{opacity:0.8}
+  to{transform:translateY(-10vh); opacity:0}
 }
 
-/* ===== CONTENT ===== */
-.container{
-max-width:1000px;
-margin:auto;
-padding:20px;
-position:relative;
-z-index:2;
-}
-
-h1{margin-top:20px;}
-.author{color:#aaa;}
-.price{font-size:22px;margin-top:10px;}
-
-.actions{display:flex;gap:10px;margin-top:16px;}
-
-button{
-flex:1;
-padding:12px;
-border:none;
-border-radius:10px;
-background:#ff7b00;
-color:white;
-font-weight:700;
-cursor:pointer;
-}
-
-#buyBtn{background:#00c853;color:black;}
-
-#likeCount{margin-top:8px;color:#ffb347;}
-
-.preview{margin-top:20px;}
-.preview img,audio{width:100%;}
-
-/* ART */
-.art-container{
-position:relative;
-width:100%;
-border-radius:12px;
-overflow:hidden;
-}
-.art-container img{
-width:100%;
-display:block;
-pointer-events:none;
-}
-
-.watermark{
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%) rotate(-25deg);
-font-size:40px;
-font-weight:900;
-color:rgba(255,140,0,0.25);
-}
-
-/* MODAL */
-#paymentModal{
-display:none;
-position:fixed;
-inset:0;
-background:#000000cc;
-justify-content:center;
-align-items:center;
-z-index:999;
-}
-
-#paymentModalContent{
-width:400px;
-background:#111;
-padding:20px;
-border-radius:12px;
-}
-
-/* COMMENTS */
-.comment{padding:10px;border-bottom:1px solid #333;}
 </style>
 </head>
 
 <body>
 
-<!-- ORBS -->
-<div class="orb"></div>
-<div class="orb"></div>
-<div class="orb"></div>
+<canvas id="particles"></canvas>
 
-<div class="container">
+<header>
+<h1>Lumio Shop</h1>
 
-<h1 id="title"></h1>
-<div class="author" id="author"></div>
-<div class="price" id="price"></div>
+<div class="search-bar">
+ <input type="text" id="searchInput" placeholder="Rechercher un produit...">
+ <button id="searchBtn"><i class="fa fa-search"></i></button>
+</div>
+</header>
 
-<div id="preview" class="preview"></div>
-
-<div class="actions">
-<button id="buyBtn">Acheter</button>
-<button id="likeBtn">👍 Like</button>
-<button id="shareBtn">🔗 Partager</button>
+<div class="categories">
+ <button data-type="all">Tous</button>
+ <button data-type="book">Livres</button>
+ <button data-type="music">Musique</button>
+ <button data-type="art">Art</button>
 </div>
 
-<div id="likeCount"></div>
-
-<div class="comments">
-<h3>Commentaires</h3>
-<input id="commentInput" placeholder="Commenter..."
-style="width:100%;padding:10px;border-radius:8px;border:none;background:#222;color:white">
-<div id="commentsList"></div>
-</div>
-
-</div>
-
-<!-- PAYMENT -->
-<div id="paymentModal">
-<div id="paymentModalContent">
-<h2>Paiement</h2>
-<p id="modalPrice"></p>
-<div id="payment-element"></div>
-<button id="payBtn">Payer</button>
-<button id="cancelBtn">Annuler</button>
-</div>
-</div>
+<div class="products" id="products"></div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const app = initializeApp({
-apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-authDomain:"lumio-822f0.firebaseapp.com",
-databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
-projectId:"lumio-822f0"
-});
-
-const db=getDatabase(app);
-const auth=getAuth(app);
-
-const stripe=Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
-
-let user=null;
-let product=null;
-let elements=null;
-let clientSecret=null;
-
-const params=new URLSearchParams(location.search);
-const id=params.get("id");
-const type=params.get("type");
-
-const titleEl=document.getElementById("title");
-const authorEl=document.getElementById("author");
-const priceEl=document.getElementById("price");
-const previewEl=document.getElementById("preview");
-const buyBtn=document.getElementById("buyBtn");
-
-/* SAFE LOAD */
-onAuthStateChanged(auth, async (u)=>{
-
-user=u;
-
-if(!id || !type){
-titleEl.textContent="URL invalide";
-return;
-}
-
-let path="";
-if(type==="art") path="arts/";
-else if(type==="music") path="musics/";
-else if(type==="book") path="books/";
-else{
-titleEl.textContent="Type invalide";
-return;
-}
-
-const snap=await get(ref(db,path+id));
-
-if(!snap.exists()){
-titleEl.textContent="Produit introuvable";
-return;
-}
-
-product=snap.val();
-
-titleEl.textContent=product.title;
-authorEl.textContent=product.creatorChannelId||"creator";
-priceEl.textContent="$"+(product.price||0);
-
-/* ART */
-if(type==="art"){
-previewEl.innerHTML=`
-<div class="art-container">
-<img src="${product.cover1URL||product.artURL}">
-<div class="watermark">LUMIO</div>
-</div>`;
-}
-
-loadLikes();
-loadComments();
-
-});
-
-/* BUY */
-buyBtn.onclick=async()=>{
-
-if(!user) return alert("login required");
-
-document.getElementById("paymentModal").style.display="flex";
-document.getElementById("modalPrice").innerText="$"+product.price;
-
-const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-productId:id,
-creatorId:product.creatorChannelId,
-userId:user.uid
-})
-});
-
-const data=await res.json();
-
-clientSecret=data.clientSecret;
-
-elements=stripe.elements({clientSecret});
-elements.create("payment").mount("#payment-element");
-
+const firebaseConfig={
+ apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+ authDomain: "lumio-822f0.firebaseapp.com",
+ databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
+ projectId: "lumio-822f0",
+ storageBucket: "lumio-822f0.firebasestorage.app",
+ messagingSenderId: "833325770824",
+ appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
 };
 
-document.getElementById("cancelBtn").onclick=()=>{
-document.getElementById("paymentModal").style.display="none";
-elements=null;
-};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-document.getElementById("payBtn").onclick=async()=>{
-const {error}=await stripe.confirmPayment({elements,redirect:"if_required"});
-if(error) alert(error.message);
-else alert("success");
-};
+let ALL_PRODUCTS = [];
 
-/* LIKES */
-function loadLikes(){
-const likeRef=ref(db,type+"Likes/"+id);
-onValue(likeRef,s=>{
-document.getElementById("likeCount").innerText=
-s.exists()?Object.keys(s.val()).length+" likes":"0 likes";
-});
+/* =========================
+   FIREBASE LOAD
+========================= */
+
+async function loadProducts(){
+
+ const [booksSnap,musicSnap,artsSnap] = await Promise.all([
+   get(ref(db,"books")),
+   get(ref(db,"music")),
+   get(ref(db,"arts"))
+ ]);
+
+ let products = [];
+
+ if(booksSnap.exists())
+ Object.entries(booksSnap.val()).forEach(([id,data])=>
+ products.push({...data,id,type:"book"}));
+
+ if(musicSnap.exists())
+ Object.entries(musicSnap.val()).forEach(([id,data])=>
+ products.push({...data,id,type:"music"}));
+
+ if(artsSnap.exists())
+ Object.entries(artsSnap.val()).forEach(([id,data])=>
+ products.push({...data,id,type:"art"}));
+
+ ALL_PRODUCTS = products;
+ displayProducts(ALL_PRODUCTS);
 }
 
-/* COMMENTS */
-function loadComments(){
-const cRef=ref(db,type+"Comments/"+id);
-onValue(cRef,s=>{
-const list=document.getElementById("commentsList");
-list.innerHTML="";
-if(!s.exists()) return;
-Object.values(s.val()).forEach(c=>{
-const div=document.createElement("div");
-div.className="comment";
-div.textContent=c.user+": "+c.text;
-list.appendChild(div);
-});
-});
+/* =========================
+   DISPLAY
+========================= */
+
+function displayProducts(list){
+
+ const container = document.getElementById("products");
+ container.innerHTML = "";
+
+ list.forEach(p=>{
+
+ const card = document.createElement("div");
+ card.className = "card";
+
+ card.innerHTML = `
+   <img src="${p.cover1URL || p.coverURL || 'https://via.placeholder.com/220x180'}">
+   <div class="info">
+     <div class="title">${p.title}</div>
+     <div class="creator">${p.creatorName || "Anonyme"}</div>
+     <div class="price">$${p.price || 0}</div>
+     <button class="more">Voir plus</button>
+   </div>
+ `;
+
+ card.querySelector(".more").onclick = () => {
+   location.href = `product-detail.html?id=${p.id}&type=${p.type}`;
+ };
+
+ container.appendChild(card);
+
+ });
+
 }
 
-</script>
+/* =========================
+   SEARCH
+========================= */
 
-</body>
-</html>
+document.getElementById("searchBtn").onclick = () => {
+ const q = document.getElementById("searchInput").value.toLowerCase();
+ const filtered = ALL_PRODUCTS.filter(p =>
+   (p.title||"").toLowerCase().includes(q) ||
+   (p.creatorName||"").toLowerCase().includes(q)
+ );
+ displayProducts(filtered);
+};
+
+/* =========================
+   CATEGORY FILTER
+========================= */
+
+document.querySelectorAll(".categories button").forEach(btn=>{
+ btn.onclick = () => {
+   const type = btn.dataset.type;
+   if(type === "all") return displayProducts(ALL_PRODUCTS);
+   displayProducts(ALL_PRODUCTS.filter(p => p.type === type));
+ };
+});
+
+/* =========================
+   PARTICLES CANVAS (ORANGE BALLS)
+========================= */
+
+const canvas = document.getElementById("particles");
+const ctx = canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let particles = [];
+
+for(let i=0;i<60;i++){
+ particles.push({
+   x:Math.random()*canvas.width,
+   y:Math.random()*canvas.height,
+   r:Math.random()*3+2,
+   speed:Math.random()*1+0.2
+ });
+}
+
+function animate(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ particles.forEach(p=>{
+   ctx.beginPath();
+   ctx.fillStyle="rgba(255,122,24,0.7)";
+   ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+   ctx.fill();
+
+   p.y -= p.speed;
+
+   if(p.y < 0
