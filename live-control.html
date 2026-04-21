@@ -172,15 +172,7 @@ video{
 </div>
 <script type="module">
 
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-
-/* ================= SUPABASE ================= */
-
-const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
-
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+import { supabase } from "./supabase.js";
 
 /* ================= PARAMS ================= */
 
@@ -194,11 +186,13 @@ const video = document.getElementById("localVideo");
 const viewersEl = document.getElementById("viewerCount");
 const earnedEl = document.getElementById("totalEarned");
 const topBox = document.getElementById("topSupporters");
+const chatBox = document.getElementById("messages");
 
 /* ================= STATE ================= */
 
 let currentUser = null;
 let localStream = null;
+let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
 
@@ -208,7 +202,7 @@ if (!user) location.href = "login.html";
 
 currentUser = user;
 
-/* ================= SET LIVE STATUS ================= */
+/* ================= LIVE STATUS ================= */
 
 async function setLiveStatus(status){
   await supabase
@@ -220,8 +214,13 @@ async function setLiveStatus(status){
 /* ================= STREAM ================= */
 
 async function startCamera(){
-  localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  localStream = await navigator.mediaDevices.getUserMedia({
+    video:true,
+    audio:true
+  });
+
   video.srcObject = localStream;
+
   await setLiveStatus("live");
 }
 
@@ -242,27 +241,32 @@ screenBtn.onclick = startScreen;
 
 /* ================= VIEWERS (PRESENCE) ================= */
 
-const channel = supabase.channel("live_" + liveId, {
-  config: {
-    presence: { key: currentUser.id }
+const presenceChannel = supabase.channel("live_" + liveId, {
+  config:{
+    presence:{ key: currentUser.id }
   }
 });
 
-channel.on("presence", { event: "sync" }, () => {
-  const state = channel.presenceState();
+presenceChannel.on("presence",{ event:"sync" },()=>{
+
+  const state = presenceChannel.presenceState();
   const count = Object.keys(state).length;
 
   viewersEl.textContent = count + " spectateurs";
 
-  // update DB (cache)
+  // cache DB (optionnel mais utile)
   supabase.from("lives")
     .update({ viewers: count })
     .eq("id", liveId);
+
 });
 
-await channel.subscribe(async (status) => {
-  if (status === "SUBSCRIBED") {
-    await channel.track({ user: currentUser.id });
+await presenceChannel.subscribe(async (status)=>{
+  if(status==="SUBSCRIBED"){
+    await presenceChannel.track({
+      user_id: currentUser.id,
+      joined_at: Date.now()
+    });
   }
 });
 
@@ -273,35 +277,33 @@ const supportsChannel = supabase.channel("supports_" + liveId);
 supportsChannel.on(
   "postgres_changes",
   {
-    event: "*",
-    schema: "public",
-    table: "supports",
-    filter: `live_id=eq.${liveId}`
+    event:"*",
+    schema:"public",
+    table:"supports",
+    filter:`live_id=eq.${liveId}`
   },
-  async () => {
-    loadSupports();
-  }
+  ()=> loadSupports()
 );
 
 supportsChannel.subscribe();
 
 async function loadSupports(){
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("supports")
-    .select("*")
+    .select("user_id, amount")
     .eq("live_id", liveId);
+
+  if(error) return;
 
   let total = 0;
   const supporters = {};
 
-  data.forEach(s => {
-
+  data.forEach(s=>{
     total += Number(s.amount);
 
-    const name = s.user_id;
-
-    supporters[name] = (supporters[name] || 0) + Number(s.amount);
+    supporters[s.user_id] =
+      (supporters[s.user_id] || 0) + Number(s.amount);
   });
 
   earnedEl.textContent = "💰 $" + total.toFixed(2);
@@ -325,19 +327,17 @@ loadSupports();
 
 /* ================= CHAT ================= */
 
-const chatBox = document.getElementById("messages");
-
 const chatChannel = supabase.channel("chat_" + liveId);
 
 chatChannel.on(
   "postgres_changes",
   {
-    event: "INSERT",
-    schema: "public",
-    table: "chat_messages",
-    filter: `live_id=eq.${liveId}`
+    event:"INSERT",
+    schema:"public",
+    table:"chat_messages",
+    filter:`live_id=eq.${liveId}`
   },
-  (payload) => {
+  (payload)=>{
 
     const m = payload.new;
 
@@ -358,12 +358,38 @@ chatChannel.subscribe();
 
 /* ================= SEND MESSAGE ================= */
 
-sendBtn.onclick = async () => {
+sendBtn.onclick = async ()=>{
+
+  const now = Date.now();
+
+  if(now - lastMessageTime < 1000){
+    alert("Trop rapide");
+    return;
+  }
 
   const text = msgInput.value.trim();
-  if (!text) return;
+  if(!text) return;
 
-  msgInput.value = "";
+  if(text.length > 200){
+    alert("Message trop long");
+    return;
+  }
+
+  // check ban
+  const { data:ban } = await supabase
+    .from("bans")
+    .select("*")
+    .eq("live_id", liveId)
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if(ban){
+    alert("Tu es banni");
+    return;
+  }
+
+  msgInput.value="";
+  lastMessageTime = now;
 
   await supabase.from("chat_messages").insert({
     live_id: liveId,
@@ -376,7 +402,7 @@ sendBtn.onclick = async () => {
 
 /* ================= BAN ================= */
 
-window.ban = async (uid) => {
+window.ban = async (uid)=>{
 
   await supabase.from("bans").insert({
     live_id: liveId,
@@ -387,14 +413,16 @@ window.ban = async (uid) => {
 
 /* ================= END LIVE ================= */
 
-window.endLive = async () => {
+window.endLive = async ()=>{
 
   await setLiveStatus("ended");
 
-  localStream?.getTracks().forEach(t => t.stop());
+  localStream?.getTracks().forEach(t=>t.stop());
+
+  await presenceChannel.unsubscribe();
 
   alert("Live terminé");
-  location.href = "index.html";
+  location.href="index.html";
 };
 
 </script>
