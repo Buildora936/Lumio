@@ -5,69 +5,208 @@
 <title>Connexion – Lumio</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-const firebaseConfig = {
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-form.onsubmit = async e => {
-  e.preventDefault();
-
-  try{
-    const cred = await signInWithEmailAndPassword(
-      auth,
-      email.value.trim(),
-      password.value
-    );
-
-    const uid = cred.user.uid;
-    const snap = await get(ref(db,"userChannels/"+uid));
-
-    if(snap.exists()) location.href = "index.html";
-    else location.href = "add-channel.html";
-
-  }catch(err){
-    error.textContent = "Email ou mot de passe incorrect";
-  }
-};
-</script>
-
 <style>
-body{margin:0;font-family:system-ui;background:#0f0f0f;color:white}
-.container{max-width:360px;margin:60px auto;padding:20px}
-input,button{
-  width:100%;padding:12px;margin:8px 0;
-  border-radius:10px;border:none;background:#1f1f1f;color:white
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:system-ui;
+  background:linear-gradient(135deg,#0f0f0f,#1a1a1a);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
 }
-button{background:white;color:black;font-weight:600}
-.error{color:#ff5555;font-size:14px}
+
+/* CARD */
+.container{
+  width:100%;
+  max-width:380px;
+  background:#181818;
+  padding:30px;
+  border-radius:20px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  animation:fadeIn .6s ease;
+}
+
+/* TITLE */
+h2{
+  margin:0 0 20px;
+  text-align:center;
+}
+
+/* INPUT */
+.input-group{
+  position:relative;
+  margin-bottom:15px;
+}
+
+input{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:10px;
+  background:#222;
+  color:white;
+  outline:none;
+  transition:0.2s;
+}
+
+input:focus{
+  background:#2a2a2a;
+  box-shadow:0 0 0 2px #ff0000;
+}
+
+/* BUTTON */
+button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:10px;
+  background:#ff0000;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+button:hover{
+  background:#ff1f1f;
+}
+
+button:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+}
+
+/* STATES */
+.error{
+  color:#ff4d4d;
+  font-size:14px;
+  margin-bottom:10px;
+}
+
+.success{
+  color:#00ffae;
+  font-size:14px;
+  margin-bottom:10px;
+}
+
+.info{
+  color:#aaa;
+  font-size:13px;
+  margin-top:10px;
+  text-align:center;
+}
+
+/* LOADER */
+.loader{
+  width:18px;
+  height:18px;
+  border:2px solid #fff;
+  border-top:2px solid transparent;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+  display:inline-block;
+}
+
+/* ANIMATIONS */
+@keyframes spin{
+  to{transform:rotate(360deg);}
+}
+
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
 </style>
 </head>
 
 <body>
-<div class="container">
-<h2>Connexion</h2>
 
-<form id="form">
-<input id="email" type="email" placeholder="Email" required>
-<input id="password" type="password" placeholder="Mot de passe" required>
-<div class="error" id="error"></div>
-<button type="submit">Se connecter</button>
-</form>
+<div class="container">
+  <h2>Connexion</h2>
+
+  <form id="form">
+
+    <div class="input-group">
+      <input id="email" type="email" placeholder="Email" required>
+    </div>
+
+    <div class="input-group">
+      <input id="password" type="password" placeholder="Mot de passe" required>
+    </div>
+
+    <div id="message"></div>
+
+    <button id="loginBtn" type="submit">
+      Se connecter
+    </button>
+
+  </form>
+
+  <div class="info">
+    🔒 Connexion sécurisée • Lumio protège vos données
+  </div>
 </div>
+
+<script type="module">
+
+import { login } from "./login.js";
+import { supabase } from "./supabase.js";
+
+const form = document.getElementById("form");
+const btn = document.getElementById("loginBtn");
+const message = document.getElementById("message");
+
+form.onsubmit = async (e)=>{
+  e.preventDefault();
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  message.innerHTML="";
+  btn.disabled = true;
+  btn.innerHTML = `<span class="loader"></span>`;
+
+  try{
+
+    const user = await login(email, password);
+
+    if(!user){
+      message.innerHTML = `<div class="error">Email ou mot de passe incorrect</div>`;
+      btn.disabled = false;
+      btn.textContent = "Se connecter";
+      return;
+    }
+
+    message.innerHTML = `<div class="success">Connexion réussie</div>`;
+
+    // 🔥 Vérifier si user a un channel
+    const { data: channel } = await supabase
+      .from("channels")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    setTimeout(()=>{
+      if(channel){
+        location.href = "index.html";
+      }else{
+        location.href = "add-channel.html";
+      }
+    },800);
+
+  }catch(err){
+    console.error(err);
+    message.innerHTML = `<div class="error">Erreur connexion</div>`;
+    btn.disabled = false;
+    btn.textContent = "Se connecter";
+  }
+};
+
+</script>
+
 </body>
 </html>
