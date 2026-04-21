@@ -2,408 +2,302 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Lumio Shop</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<title>Lumio - Product</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script src="https://js.stripe.com/v3"></script>
 
 <style>
-
 body{
-  margin:0;
-  font-family:system-ui;
-  color:white;
-  background: radial-gradient(circle at 50% 50%, #ff6a00, #ffb347, #ff8c00, #ff4500);
-  background-size: 400% 400%;
-  animation: epicBg 20s ease infinite;
-  overflow-x:hidden;
+margin:0;
+font-family:system-ui;
+color:white;
+background:#000;
+overflow-x:hidden;
 }
 
-@keyframes epicBg{
-  0%{background-position:0% 50%}
-  25%{background-position:50% 0%}
-  50%{background-position:100% 50%}
-  75%{background-position:50% 100%}
-  100%{background-position:0% 50%}
+/* ===== ORANGE FLOATING ORBS ===== */
+.orb{
+position:fixed;
+border-radius:50%;
+background:rgba(255,140,0,0.25);
+filter:blur(60px);
+animation:float 12s infinite ease-in-out;
+z-index:0;
 }
 
-header{
-  padding:20px;
-  text-align:center;
-  background:rgba(0,0,0,0.3);
-  backdrop-filter:blur(8px);
-  position: sticky;
-  top:0;
-  z-index:100;
+.orb:nth-child(1){width:200px;height:200px;top:10%;left:10%;}
+.orb:nth-child(2){width:300px;height:300px;top:60%;left:70%;animation-duration:18s;}
+.orb:nth-child(3){width:150px;height:150px;top:80%;left:20%;animation-duration:14s;}
+
+@keyframes float{
+0%{transform:translateY(0px)}
+50%{transform:translateY(-40px)}
+100%{transform:translateY(0px)}
 }
 
-header h1{
-  margin:0;
-  font-size:28px;
-  text-shadow:2px 2px 6px #000;
+/* ===== CONTENT ===== */
+.container{
+max-width:1000px;
+margin:auto;
+padding:20px;
+position:relative;
+z-index:2;
 }
 
-.search-bar{
-  max-width:500px;
-  margin:20px auto;
-  display:flex;
-  gap:8px;
+h1{margin-top:20px;}
+.author{color:#aaa;}
+.price{font-size:22px;margin-top:10px;}
+
+.actions{display:flex;gap:10px;margin-top:16px;}
+
+button{
+flex:1;
+padding:12px;
+border:none;
+border-radius:10px;
+background:#ff7b00;
+color:white;
+font-weight:700;
+cursor:pointer;
 }
 
-.search-bar input{
-  flex:1;
-  padding:12px;
-  border-radius:25px;
-  border:none;
-  background:rgba(0,0,0,0.2);
-  color:white;
+#buyBtn{background:#00c853;color:black;}
+
+#likeCount{margin-top:8px;color:#ffb347;}
+
+.preview{margin-top:20px;}
+.preview img,audio{width:100%;}
+
+/* ART */
+.art-container{
+position:relative;
+width:100%;
+border-radius:12px;
+overflow:hidden;
+}
+.art-container img{
+width:100%;
+display:block;
+pointer-events:none;
 }
 
-.search-bar button{
-  padding:12px 18px;
-  border:none;
-  border-radius:25px;
-  background:#fff;
-  color:#ff6a00;
-  font-weight:700;
-  cursor:pointer;
+.watermark{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%) rotate(-25deg);
+font-size:40px;
+font-weight:900;
+color:rgba(255,140,0,0.25);
 }
 
-.categories{
-  display:flex;
-  justify-content:center;
-  gap:20px;
-  margin:20px 0;
-  flex-wrap:wrap;
+/* MODAL */
+#paymentModal{
+display:none;
+position:fixed;
+inset:0;
+background:#000000cc;
+justify-content:center;
+align-items:center;
+z-index:999;
 }
 
-.categories button{
-  padding:10px 18px;
-  border:none;
-  border-radius:20px;
-  background:rgba(0,0,0,0.2);
-  color:white;
-  cursor:pointer;
+#paymentModalContent{
+width:400px;
+background:#111;
+padding:20px;
+border-radius:12px;
 }
 
-.categories button:hover{
-  background:#fff;
-  color:#ff6a00;
-}
-
-.products{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-  gap:22px;
-  padding:0 20px;
-}
-
-.card{
-  background:rgba(255,255,255,0.1);
-  backdrop-filter:blur(6px);
-  border-radius:16px;
-  overflow:hidden;
-  cursor:pointer;
-  transition:.3s;
-  display:flex;
-  flex-direction:column;
-  position:relative;
-}
-
-.card img{
-  width:100%;
-  height:180px;
-  object-fit:cover;
-}
-
-.info{
-  padding:12px;
-}
-
-.title{font-weight:700;font-size:16px}
-.creator{font-size:13px}
-.price{color:#ffb347;font-weight:700}
-
-.more{
-  margin-top:10px;
-  padding:6px 12px;
-  border:none;
-  border-radius:20px;
-  background:#ffb347;
-  cursor:pointer;
-}
-
-/* =========================
-   NAV BOTTOM (FOR YOU / EXPLORE)
-========================= */
-
-.bottom-nav{
-  position:fixed;
-  bottom:0;
-  left:0;
-  width:100%;
-  display:flex;
-  justify-content:space-around;
-  background:rgba(0,0,0,0.6);
-  backdrop-filter:blur(10px);
-  padding:12px 0;
-  z-index:200;
-}
-
-.bottom-nav button{
-  background:none;
-  border:none;
-  color:white;
-  font-size:14px;
-  cursor:pointer;
-}
-
-.bottom-nav button.active{
-  color:#ffb347;
-  font-weight:700;
-}
-
-.section-title{
-  margin:30px 20px 10px;
-}
-
-/* spacing bottom for nav */
-body{
-  padding-bottom:70px;
-}
-
+/* COMMENTS */
+.comment{padding:10px;border-bottom:1px solid #333;}
 </style>
 </head>
 
 <body>
 
-<header>
-<h1>Lumio Shop</h1>
+<!-- ORBS -->
+<div class="orb"></div>
+<div class="orb"></div>
+<div class="orb"></div>
 
-<div class="search-bar">
-<input type="text" id="searchInput" placeholder="Rechercher...">
-<button id="searchBtn"><i class="fa fa-search"></i></button>
+<div class="container">
+
+<h1 id="title"></h1>
+<div class="author" id="author"></div>
+<div class="price" id="price"></div>
+
+<div id="preview" class="preview"></div>
+
+<div class="actions">
+<button id="buyBtn">Acheter</button>
+<button id="likeBtn">👍 Like</button>
+<button id="shareBtn">🔗 Partager</button>
 </div>
-</header>
 
-<div class="categories">
-<button data-type="all">Tous</button>
-<button data-type="book">Livres</button>
-<button data-type="music">Musique</button>
-<button data-type="art">Art</button>
+<div id="likeCount"></div>
+
+<div class="comments">
+<h3>Commentaires</h3>
+<input id="commentInput" placeholder="Commenter..."
+style="width:100%;padding:10px;border-radius:8px;border:none;background:#222;color:white">
+<div id="commentsList"></div>
 </div>
 
-<h2 class="section-title" id="modeTitle">Explorer</h2>
+</div>
 
-<div class="products" id="products"></div>
-
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-<button id="exploreBtn" class="active">Explorer</button>
-<button id="forYouBtn">For You</button>
+<!-- PAYMENT -->
+<div id="paymentModal">
+<div id="paymentModalContent">
+<h2>Paiement</h2>
+<p id="modalPrice"></p>
+<div id="payment-element"></div>
+<button id="payBtn">Payer</button>
+<button id="cancelBtn">Annuler</button>
+</div>
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getDatabase, ref, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const app = initializeApp({
- apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
- authDomain:"lumio-822f0.firebaseapp.com",
- databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId:"lumio-822f0"
+apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
+authDomain:"lumio-822f0.firebaseapp.com",
+databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
+projectId:"lumio-822f0"
 });
 
-const db = getDatabase(app);
+const db=getDatabase(app);
+const auth=getAuth(app);
 
-let ALL_PRODUCTS = [];
-let CURRENT_MODE = "explore";
+const stripe=Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
 
-/* =========================
-   LOAD
-========================= */
+let user=null;
+let product=null;
+let elements=null;
+let clientSecret=null;
 
-async function loadProducts(){
+const params=new URLSearchParams(location.search);
+const id=params.get("id");
+const type=params.get("type");
 
- const [books,music,arts] = await Promise.all([
-   get(ref(db,"books")),
-   get(ref(db,"music")),
-   get(ref(db,"arts"))
- ]);
+const titleEl=document.getElementById("title");
+const authorEl=document.getElementById("author");
+const priceEl=document.getElementById("price");
+const previewEl=document.getElementById("preview");
+const buyBtn=document.getElementById("buyBtn");
 
- let products = [];
+/* SAFE LOAD */
+onAuthStateChanged(auth, async (u)=>{
 
- if(books.exists())
- Object.entries(books.val()).forEach(([id,p])=>products.push({...p,id,type:"book"}));
+user=u;
 
- if(music.exists())
- Object.entries(music.val()).forEach(([id,p])=>products.push({...p,id,type:"music"}));
-
- if(arts.exists())
- Object.entries(arts.val()).forEach(([id,p])=>products.push({...p,id,type:"art"}));
-
- ALL_PRODUCTS = rank(products);
-
- render(ALL_PRODUCTS);
+if(!id || !type){
+titleEl.textContent="URL invalide";
+return;
 }
 
-/* =========================
-   RANK (global trending)
-========================= */
-
-function rank(list){
-
- const now = Date.now();
-
- return list.sort((a,b)=>{
-
- const scoreA =
- (a.views||0)*0.25 +
- (a.sales||0)*0.55 +
- getRecency(a,now)*0.2;
-
- const scoreB =
- (b.views||0)*0.25 +
- (b.sales||0)*0.55 +
- getRecency(b,now)*0.2;
-
- return scoreB-scoreA;
-
- });
-
+let path="";
+if(type==="art") path="arts/";
+else if(type==="music") path="musics/";
+else if(type==="book") path="books/";
+else{
+titleEl.textContent="Type invalide";
+return;
 }
 
-function getRecency(p,now){
- const created = p.createdAt || now;
- const age = Math.max(1,(now-created)/86400000);
- return 1/age;
+const snap=await get(ref(db,path+id));
+
+if(!snap.exists()){
+titleEl.textContent="Produit introuvable";
+return;
 }
 
-/* =========================
-   RENDER
-========================= */
+product=snap.val();
 
-function render(list){
+titleEl.textContent=product.title;
+authorEl.textContent=product.creatorChannelId||"creator";
+priceEl.textContent="$"+(product.price||0);
 
- const container=document.getElementById("products");
- container.innerHTML="";
-
- const filtered =
- CURRENT_MODE==="forYou"
- ? personalize(list)
- : list;
-
- filtered.forEach(p=>{
-
- const card=document.createElement("div");
- card.className="card";
-
- card.innerHTML=`
- <img src="${p.cover1URL||p.coverURL||'https://via.placeholder.com/220'}">
- <div class="info">
- <div class="title">${p.title}</div>
- <div class="creator">${p.creatorName||"Anonyme"}</div>
- <div class="price">$${p.price||0}</div>
- <button class="more">Voir plus</button>
- </div>
- `;
-
- card.querySelector(".more").onclick=()=>{
- location.href=`product-detail.html?id=${p.id}&type=${p.type}`;
- };
-
- container.appendChild(card);
-
- });
-
+/* ART */
+if(type==="art"){
+previewEl.innerHTML=`
+<div class="art-container">
+<img src="${product.cover1URL||product.artURL}">
+<div class="watermark">LUMIO</div>
+</div>`;
 }
 
-/* =========================
-   FOR YOU (PERSONNALISATION SIMPLE)
-========================= */
+loadLikes();
+loadComments();
 
-function personalize(list){
-
- const viewed = JSON.parse(localStorage.getItem("lumio_views")||"{}");
-
- return [...list].sort((a,b)=>{
-
- const scoreA = (viewed[a.id]||0);
- const scoreB = (viewed[b.id]||0);
-
- return scoreB-scoreA;
-
- });
-
-}
-
-/* =========================
-   TRACK VIEW
-========================= */
-
-function trackView(id){
- const data = JSON.parse(localStorage.getItem("lumio_views")||"{}");
- data[id] = (data[id]||0)+1;
- localStorage.setItem("lumio_views",JSON.stringify(data));
-}
-
-/* =========================
-   SEARCH
-========================= */
-
-function search(q){
- q=q.toLowerCase();
- render(ALL_PRODUCTS.filter(p=>
- (p.title||"").toLowerCase().includes(q) ||
- (p.creatorName||"").toLowerCase().includes(q)
- ));
-}
-
-document.getElementById("searchBtn").onclick=()=>{
- search(document.getElementById("searchInput").value);
-};
-
-/* =========================
-   CATEGORY
-========================= */
-
-document.querySelectorAll(".categories button").forEach(btn=>{
- btn.onclick=()=>{
- const t=btn.dataset.type;
- if(t==="all") return render(ALL_PRODUCTS);
- render(ALL_PRODUCTS.filter(p=>p.type===t));
- };
 });
 
-/* =========================
-   BOTTOM NAV
-========================= */
+/* BUY */
+buyBtn.onclick=async()=>{
 
-const exploreBtn=document.getElementById("exploreBtn");
-const forYouBtn=document.getElementById("forYouBtn");
-const title=document.getElementById("modeTitle");
+if(!user) return alert("login required");
 
-exploreBtn.onclick=()=>{
- CURRENT_MODE="explore";
- exploreBtn.classList.add("active");
- forYouBtn.classList.remove("active");
- title.textContent="Explorer";
- render(ALL_PRODUCTS);
+document.getElementById("paymentModal").style.display="flex";
+document.getElementById("modalPrice").innerText="$"+product.price;
+
+const res=await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-product-payment-intent",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+productId:id,
+creatorId:product.creatorChannelId,
+userId:user.uid
+})
+});
+
+const data=await res.json();
+
+clientSecret=data.clientSecret;
+
+elements=stripe.elements({clientSecret});
+elements.create("payment").mount("#payment-element");
+
 };
 
-forYouBtn.onclick=()=>{
- CURRENT_MODE="forYou";
- forYouBtn.classList.add("active");
- exploreBtn.classList.remove("active");
- title.textContent="For You";
- render(ALL_PRODUCTS);
+document.getElementById("cancelBtn").onclick=()=>{
+document.getElementById("paymentModal").style.display="none";
+elements=null;
 };
 
-/* =========================
-   INIT
-========================= */
+document.getElementById("payBtn").onclick=async()=>{
+const {error}=await stripe.confirmPayment({elements,redirect:"if_required"});
+if(error) alert(error.message);
+else alert("success");
+};
 
-loadProducts();
+/* LIKES */
+function loadLikes(){
+const likeRef=ref(db,type+"Likes/"+id);
+onValue(likeRef,s=>{
+document.getElementById("likeCount").innerText=
+s.exists()?Object.keys(s.val()).length+" likes":"0 likes";
+});
+}
+
+/* COMMENTS */
+function loadComments(){
+const cRef=ref(db,type+"Comments/"+id);
+onValue(cRef,s=>{
+const list=document.getElementById("commentsList");
+list.innerHTML="";
+if(!s.exists()) return;
+Object.values(s.val()).forEach(c=>{
+const div=document.createElement("div");
+div.className="comment";
+div.textContent=c.user+": "+c.text;
+list.appendChild(div);
+});
+});
+}
 
 </script>
 
