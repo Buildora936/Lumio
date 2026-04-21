@@ -22,170 +22,158 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, set, push, get, child } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { supabase } from "./supabase.js";
 
-const config={
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
- authDomain: "lumio-822f0.firebaseapp.com",
- databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId: "lumio-822f0",
- storageBucket: "lumio-822f0.firebasestorage.app",
- messagingSenderId: "833325770824",
- appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
+/* ================= STATE ================= */
 
-const app=initializeApp(config);
-const db=getDatabase(app);
-const auth=getAuth(app);
+let currentUser = null;
 
-let user=null;
+const bar = document.getElementById("bar");
+const errorBox = document.getElementById("error");
+const btn = document.getElementById("createBtn");
 
-const bar=()=>document.getElementById("bar");
-const errBox=()=>document.getElementById("error");
-const btn=()=>document.getElementById("createBtn");
-
-function progress(p){bar().style.width=p+"%";}
-
-function toBase64(file){
- return new Promise((res,rej)=>{
-  const r=new FileReader();
-  r.onload=()=>res(r.result);
-  r.onerror=rej;
-  r.readAsDataURL(file);
- });
+function progress(p){
+  bar.style.width = p + "%";
 }
 
-onAuthStateChanged(auth,async u=>{
- if(!u){
-  location.href="auth.html";
-  return;
- }
-
- user=u;
-
- const snap=await get(child(ref(db),"userChannels/"+u.uid));
-
- if(snap.exists()){
-  alert("Tu as déjà une chaîne.");
-  location.href="studio.html";
- }
-});
-
-window.createChannel=async(e)=>{
-
- e.preventDefault();
- errBox().textContent="";
- btn().disabled=true;
- progress(5);
-
- if(!user){
-  errBox().textContent="Utilisateur non connecté";
-  btn().disabled=false;
-  return;
- }
-
- const name=nameInput.value.trim();
- const desc=descInput.value.trim();
- const photo=photoInput.files[0];
- const banner=bannerInput.files[0];
- const cat=catInput.value;
-
- if(!name||!desc||!photo){
-  errBox().textContent="Remplis tous les champs obligatoires.";
-  btn().disabled=false;
-  return;
- }
-
- try{
-
-  const photo64=await toBase64(photo);
-  const banner64=banner?await toBase64(banner):"";
-
-  progress(30);
-
-  /* CREATION COMPTE STRIPE */
-
-  const stripeRes=await fetch(
-  "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-connected-account",
-  {
-   method:"POST",
-   headers:{
-    "Content-Type":"application/json"
-   },
-   body:JSON.stringify({
-    email:user.email
-   })
+function toBase64(file){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
   });
+}
 
-  if(!stripeRes.ok){
-   const txt=await stripeRes.text();
-   throw new Error("Stripe API erreur : "+txt);
+/* ================= AUTH ================= */
+
+const { data:{ user } } = await supabase.auth.getUser();
+
+if(!user){
+  location.href="login.html";
+}
+
+currentUser = user;
+
+/* 🔒 vérifier si déjà une chaîne */
+
+const { data: existingChannel } = await supabase
+  .from("channels")
+  .select("id")
+  .eq("owner", user.id)
+  .single();
+
+if(existingChannel){
+  alert("Tu as déjà une chaîne");
+  location.href="studio.html";
+}
+
+/* ================= CREATE CHANNEL ================= */
+
+window.createChannel = async (e)=>{
+  e.preventDefault();
+
+  errorBox.textContent="";
+  btn.disabled = true;
+  progress(5);
+
+  const name = nameInput.value.trim();
+  const desc = descInput.value.trim();
+  const photo = photoInput.files[0];
+  const banner = bannerInput.files[0];
+  const cat = catInput.value;
+
+  if(!name || !desc || !photo){
+    errorBox.textContent="Remplis tous les champs";
+    btn.disabled=false;
+    return;
   }
 
-  const stripeData=await stripeRes.json();
+  try{
 
-  const accountId=stripeData.account_id;
-  const onboarding=stripeData.onboarding_url;
+    /* ================= IMAGES ================= */
 
-  if(!accountId)
-   throw new Error("Stripe account non créé");
+    const photo64 = await toBase64(photo);
+    const banner64 = banner ? await toBase64(banner) : null;
 
-  progress(50);
+    progress(30);
 
-  /* CREATION CHANNEL */
+    /* ================= STRIPE ================= */
 
-  const chRef=push(ref(db,"channels"));
-  const id=chRef.key;
+    const stripeRes = await fetch(
+      "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-connected-account",
+      {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ email: user.email })
+      }
+    );
 
-  await set(chRef,{
-   id,
-   name,
-   description:desc,
-   category:cat,
-   owner:user.uid,
-   photoURL:photo64,
-   bannerURL:banner64,
-   stripe_account_id:accountId,
-   createdAt:Date.now(),
-   monetization:true,
-   comments:true
-  });
+    const stripeData = await stripeRes.json();
 
-  progress(70);
+    if(!stripeData.account_id){
+      throw new Error("Erreur Stripe");
+    }
 
-  await set(ref(db,"userChannels/"+user.uid),id);
-  /* CREATION WALLET */
+    const accountId = stripeData.account_id;
+    const onboarding = stripeData.onboarding_url;
 
-await set(ref(db,"wallets/"+user.uid),{
- totalEarned:0,
- totalWithdrawn:0,
- stripeAccountId:accountId,
- createdAt:Date.now()
-});
+    progress(50);
 
-  /* sauvegarde stripe dans user */
+    /* ================= INSERT CHANNEL ================= */
 
-  
-  await set(ref(db,"users/"+user.uid+"/stripe_account_id"),accountId);
-  await set(ref(db,"users/"+user.uid+"/stripe_onboarded"),false);
+    const { data: channel, error } = await supabase
+      .from("channels")
+      .insert({
+        name,
+        description: desc,
+        category: cat,
 
-  progress(100);
+        owner: user.id,
 
-  alert("Chaîne créée ! Configure ton paiement Stripe.");
+        photo_url: photo64,
+        banner_url: banner64,
 
-  /* redirection onboarding stripe */
+        stripe_account_id: accountId,
 
-  window.location.href=onboarding;
+        monetization: true,
+        comments: true
+      })
+      .select()
+      .single();
 
- }catch(err){
+    if(error) throw error;
 
-  console.error(err);
-  errBox().textContent=err.message || "Erreur serveur";
-  btn().disabled=false;
+    progress(70);
 
- }
+    /* ================= WALLET ================= */
+
+    await supabase.from("wallets").insert({
+      user_id: user.id,
+      stripe_account_id: accountId
+    });
+
+    /* ================= UPDATE USER ================= */
+
+    await supabase
+      .from("users")
+      .update({
+        stripe_account_id: accountId,
+        stripe_onboarded: false
+      })
+      .eq("id", user.id);
+
+    progress(100);
+
+    alert("Chaîne créée !");
+
+    window.location.href = onboarding;
+
+  }catch(err){
+    console.error(err);
+    errorBox.textContent = err.message;
+    btn.disabled=false;
+  }
 };
 
 </script>
