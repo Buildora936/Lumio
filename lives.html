@@ -112,25 +112,10 @@ header{
 </div>
 
 <script type="module">
-import { initializeApp } from
- "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 
-import { getDatabase, ref, onValue, get }
- from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { supabase } from "./supabase.js";
 
-/* ================= INIT ================= */
-
-const app = initializeApp({
-  apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain:"lumio-822f0.firebaseapp.com",
-  databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId:"lumio-822f0",
-  storageBucket:"lumio-822f0.firebasestorage.app",
-  messagingSenderId:"833325770824",
-  appId:"1:833325770824:web:b1a87a7bda0b00ee20907d"
-});
-
-const db = getDatabase(app);
+/* ================= DOM ================= */
 
 const container = document.getElementById("livesContainer");
 const empty = document.getElementById("empty");
@@ -145,43 +130,43 @@ const cardsMap = {};
 function thumb(url){
   return url || "https://via.placeholder.com/640x360?text=Live";
 }
-function avatar(){
-  return "https://ui-avatars.com/api/?background=ff0000&color=fff&name=L";
+
+function avatar(name="L"){
+  return `https://ui-avatars.com/api/?background=ff0000&color=fff&name=${name}`;
 }
 
-/* ================= LOAD + TRI ================= */
+/* ================= LOAD LIVES ================= */
 
-onValue(ref(db,"lives"), snap=>{
+async function loadLives(){
+
+  loading.style.display="block";
+
+  const { data, error } = await supabase
+    .from("lives")
+    .select("*")
+    .eq("status","live")
+    .order("created_at",{ ascending:false });
+
+  loading.style.display="none";
+
+  if(error){
+    console.error(error);
+    empty.style.display="block";
+    return;
+  }
 
   container.innerHTML="";
   Object.keys(cardsMap).forEach(k=>delete cardsMap[k]);
 
-  let lives = [];
-
-  snap.forEach(l=>{
-    const live = l.val();
-    if(live.status !== "live") return;
-
-    lives.push({
-      id: l.key,
-      ...live
-    });
-  });
-
-  // 🔥 TRI PAR DATE
-  lives.sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-
-  loading.style.display="none";
-
-  if(lives.length === 0){
+  if(!data || data.length===0){
     empty.style.display="block";
     return;
   }
 
   empty.style.display="none";
 
-  lives.forEach(live=>{
-    const card = createCard(live.id, live);
+  data.forEach(live=>{
+    const card = createCard(live);
     container.appendChild(card);
 
     cardsMap[live.id] = card;
@@ -189,11 +174,11 @@ onValue(ref(db,"lives"), snap=>{
     listenViewers(live.id);
   });
 
-});
+}
 
 /* ================= CARD ================= */
 
-function createCard(liveId, live){
+function createCard(live){
 
   const card = document.createElement("div");
   card.className="live-card";
@@ -203,57 +188,78 @@ function createCard(liveId, live){
       <img src="${thumb(live.thumbnail)}"
            onerror="this.src='https://via.placeholder.com/640x360?text=Live'">
       <div class="badge-live">LIVE</div>
-      <div class="viewers" id="v_${liveId}">0 spectateurs</div>
+      <div class="viewers" id="v_${live.id}">0 spectateurs</div>
     </div>
 
     <div class="info">
       <h3>${live.title || "Live"}</h3>
       <div class="channel">
-        <img src="${avatar()}">
+        <img src="${avatar(live.title?.charAt(0) || "L")}">
         <span>${live.channelName || "Créateur"}</span>
       </div>
     </div>
   `;
 
-  // 🔒 NAVIGATION SÉCURISÉE
+  /* 🔒 NAVIGATION SECURE */
+
   card.onclick = async ()=>{
 
-    const snap = await get(ref(db,`lives/${liveId}`));
+    const { data, error } = await supabase
+      .from("lives")
+      .select("status")
+      .eq("id", live.id)
+      .single();
 
-    if(!snap.exists()){
+    if(error || !data){
       alert("Live introuvable");
       return;
     }
 
-    if(snap.val().status !== "live"){
+    if(data.status !== "live"){
       alert("Ce live est terminé");
       return;
     }
 
-    location.href=`live.html?id=${liveId}`;
+    location.href = `live.html?id=${live.id}`;
   };
 
   return card;
 }
 
-/* ================= VIEWERS TEMPS RÉEL ================= */
+/* ================= VIEWERS REALTIME ================= */
 
 function listenViewers(liveId){
 
   const el = document.getElementById(`v_${liveId}`);
+  if(!el) return;
 
-  onValue(ref(db,`liveViewers/${liveId}`), snap=>{
+  supabase
+    .channel("viewers_"+liveId)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "viewers",
+        filter: `live_id=eq.${liveId}`
+      },
+      async ()=>{
+        const { count } = await supabase
+          .from("viewers")
+          .select("*",{ count:"exact", head:true })
+          .eq("live_id", liveId);
 
-    if(!el) return;
+        el.textContent = (count || 0) + " spectateurs";
+      }
+    )
+    .subscribe();
 
-    const count = snap.exists()
-      ? Object.keys(snap.val()).length
-      : 0;
-
-    el.textContent = count + " spectateurs";
-  });
 }
-</script>
 
+/* ================= INIT ================= */
+
+loadLives();
+
+</script>
 </body>
 </html>
