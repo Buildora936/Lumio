@@ -209,7 +209,6 @@ video{
 
 import { supabase } from "./supabase.js";
 
-
 /* ================= PARAMS ================= */
 
 const params = new URLSearchParams(location.search);
@@ -218,7 +217,6 @@ if (!liveId) location.href = "index.html";
 
 /* ================= DOM ================= */
 
-const remoteVideo = document.getElementById("remoteVideo");
 const viewerCountEl = document.getElementById("viewerCount");
 const messages = document.getElementById("messages");
 const sendBtn = document.getElementById("sendBtn");
@@ -229,18 +227,15 @@ const msgInput = document.getElementById("msgInput");
 let currentUser = null;
 let viewerId = null;
 let lastMessageTime = 0;
-const MESSAGE_DELAY = 1500;
 
 /* ================= AUTH ================= */
 
 const { data: { user } } = await supabase.auth.getUser();
 
-if (!user) {
-  location.href = "login.html";
-} else {
-  currentUser = user;
-  viewerId = user.id;
-}
+if (!user) location.href = "login.html";
+
+currentUser = user;
+viewerId = user.id;
 
 /* ================= LOAD LIVE ================= */
 
@@ -261,50 +256,50 @@ if (live.status === "ended") {
 }
 
 document.getElementById("liveTitle").textContent = "🔴 " + live.title;
-document.getElementById("channelName").textContent = live.channel_name;
+document.getElementById("channelName").textContent = live.channel_name || "Créateur";
 
-/* ================= PRESENCE (VIEWERS) ================= */
+/* ================= PRESENCE ================= */
 
-const channel = supabase.channel("live_" + liveId, {
-  config: {
-    presence: {
-      key: viewerId
-    }
+const presenceChannel = supabase.channel("live_" + liveId, {
+  config:{
+    presence:{ key: viewerId }
   }
 });
 
-channel.on("presence", { event: "sync" }, () => {
-  const state = channel.presenceState();
+presenceChannel.on("presence",{ event:"sync" },()=>{
+  const state = presenceChannel.presenceState();
   const count = Object.keys(state).length;
   viewerCountEl.textContent = count + " spectateurs";
 });
 
-await channel.subscribe(async (status) => {
-  if (status === "SUBSCRIBED") {
-    await channel.track({
-      user: viewerId
+await presenceChannel.subscribe(async (status)=>{
+  if(status==="SUBSCRIBED"){
+    await presenceChannel.track({
+      user_id: viewerId
     });
   }
 });
 
-/* ================= CHAT REALTIME ================= */
+/* ================= CHAT ================= */
 
 const chatChannel = supabase.channel("chat_" + liveId);
 
 chatChannel.on(
   "postgres_changes",
   {
-    event: "INSERT",
-    schema: "public",
-    table: "messages",
-    filter: `live_id=eq.${liveId}`
+    event:"INSERT",
+    schema:"public",
+    table:"chat_messages",
+    filter:`live_id=eq.${liveId}`
   },
-  (payload) => {
+  (payload)=>{
+
     const msg = payload.new;
 
     const div = document.createElement("div");
     div.className = "msg";
-    div.innerHTML = `<span>${msg.user_name}</span>: ${msg.text}`;
+
+    div.innerHTML = `<span>${msg.user_name}</span>: ${msg.message}`;
 
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
@@ -315,29 +310,43 @@ chatChannel.subscribe();
 
 /* ================= SEND MESSAGE ================= */
 
-sendBtn.onclick = async () => {
+sendBtn.onclick = async ()=>{
 
   const now = Date.now();
 
-  if (now - lastMessageTime < MESSAGE_DELAY) {
+  if(now - lastMessageTime < 1200){
     alert("Trop rapide");
     return;
   }
 
   const text = msgInput.value.trim();
-  if (!text) return;
 
-  if (text.length > 200) {
+  if(!text) return;
+
+  if(text.length > 200){
     alert("Message trop long");
     return;
   }
 
-  msgInput.value = "";
+  // 🔒 check ban
+  const { data:ban } = await supabase
+    .from("bans")
+    .select("*")
+    .eq("live_id", liveId)
+    .eq("user_id", viewerId)
+    .maybeSingle();
+
+  if(ban){
+    alert("Tu es banni");
+    return;
+  }
+
+  msgInput.value="";
   lastMessageTime = now;
 
   await supabase.from("chat_messages").insert({
     live_id: liveId,
-    user_id: currentUser.id,
+    user_id: viewerId,
     user_name: currentUser.user_metadata?.name || "Invité",
     message: text,
     created_at: new Date().toISOString()
@@ -346,23 +355,11 @@ sendBtn.onclick = async () => {
 
 /* ================= INPUT UX ================= */
 
-msgInput.addEventListener("input", () => {
+msgInput.addEventListener("input", ()=>{
   sendBtn.disabled = !msgInput.value.trim();
 });
 
-/* ================= WEBRTC (TEMPORAIRE) ================= */
-
-let pc = new RTCPeerConnection({
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-});
-
-pc.ontrack = (event) => {
-  remoteVideo.srcObject = event.streams[0];
-};
-
-remoteVideo.muted = true;
-
-/* ================= STRIPE (UNCHANGED) ================= */
+/* ================= STRIPE ================= */
 
 const supportBtn = document.getElementById("supportBtn");
 const modal = document.getElementById("supportModal");
@@ -370,62 +367,68 @@ const payBtn = document.getElementById("payBtn");
 const amountInput = document.getElementById("supportAmount");
 const errorBox = document.getElementById("supportError");
 
-supportBtn.onclick = () => { modal.style.display = "flex"; };
-window.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+supportBtn.onclick = ()=> modal.style.display="flex";
+window.onclick = (e)=>{
+  if(e.target === modal) modal.style.display="none";
+};
 
 const stripeJs = await import("https://js.stripe.com/v3/index.js");
 const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
+
 const elements = stripe.elements();
 const cardElement = elements.create("card");
 cardElement.mount("#card-element");
 
-payBtn.onclick = async () => {
+/* ================= PAYMENT ================= */
+
+payBtn.onclick = async ()=>{
 
   errorBox.textContent = "";
+
   const amount = parseFloat(amountInput.value);
 
-  if (!amount || amount < 1) {
+  if(!amount || amount < 1){
     errorBox.textContent = "Montant invalide";
     return;
   }
 
-  try {
+  try{
 
-    const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-support-payment-intent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount,
-        connectedAccountId: live.creator_stripe_id,
-        payment_method_type: "card"
-      })
-    });
+    const res = await fetch(
+      "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/create-support-payment-intent",
+      {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          amount,
+          connectedAccountId: live.creator_stripe_id,
+          payment_method_type:"card"
+        })
+      }
+    );
 
     const data = await res.json();
 
-    const result = await stripe.confirmCardPayment(data.clientSecret, {
-      payment_method: { card: cardElement }
+    const result = await stripe.confirmCardPayment(data.clientSecret,{
+      payment_method:{ card: cardElement }
     });
 
-    if (result.paymentIntent.status === "succeeded") {
+    if(result.paymentIntent.status === "succeeded"){
+
+      /* SAVE SUPPORT */
 
       await supabase.from("supports").insert({
         live_id: liveId,
-        user_id: currentUser.id,
-        amount: amount
+        user_id: viewerId,
+        amount: amount,
         created_at: new Date().toISOString()
       });
 
-      await supabase.rpc("increment_support", {
-        live_id_input: liveId,
-        amount_input: amount
-      });
-
       alert("Paiement réussi");
-      modal.style.display = "none";
+      modal.style.display="none";
     }
 
-  } catch (err) {
+  }catch(err){
     console.error(err);
     errorBox.textContent = "Erreur paiement";
   }
