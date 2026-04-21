@@ -205,13 +205,7 @@ video{
   </div>
 </div>
 <script type="module">
-import {
-  Room,
-  connect
-} from "https://cdn.skypack.dev/livekit-client";
-</script>
-<script type="module">
-
+import { Room } from "https://cdn.skypack.dev/livekit-client";
 import { supabase } from "./supabase.js";
 
 /* ================= PARAMS ================= */
@@ -226,11 +220,13 @@ const viewerCountEl = document.getElementById("viewerCount");
 const messages = document.getElementById("messages");
 const sendBtn = document.getElementById("sendBtn");
 const msgInput = document.getElementById("msgInput");
+const videoContainer = document.getElementById("videoContainer");
 
 /* ================= STATE ================= */
 
 let currentUser = null;
 let viewerId = null;
+let room = null;
 let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
@@ -244,13 +240,13 @@ viewerId = user.id;
 
 /* ================= LOAD LIVE ================= */
 
-const { data: live, error } = await supabase
+const { data: live } = await supabase
   .from("lives")
   .select("*")
   .eq("id", liveId)
   .single();
 
-if (error || !live) {
+if (!live) {
   alert("Live introuvable");
   location.href = "index.html";
 }
@@ -263,6 +259,46 @@ if (live.status === "ended") {
 document.getElementById("liveTitle").textContent = "🔴 " + live.title;
 document.getElementById("channelName").textContent = live.channel_name || "Créateur";
 
+/* ================= LIVEKIT JOIN ================= */
+
+async function joinLiveKit(){
+
+  const roomName = live.livekit_room || liveId;
+
+  // token backend
+  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      room: roomName,
+      user: viewerId
+    })
+  });
+
+  const { token } = await res.json();
+
+  room = new Room();
+
+  await room.connect(
+    "wss://lumio-streaming-2k1h55ws.livekit.cloud",
+    token
+  );
+
+  room.on("trackSubscribed", (track) => {
+
+    const element = track.attach();
+    videoContainer.appendChild(element);
+
+  });
+
+  room.on("participantConnected", () => {
+    console.log("viewer joined");
+  });
+
+}
+
+joinLiveKit();
+
 /* ================= PRESENCE ================= */
 
 const presenceChannel = supabase.channel("live_" + liveId, {
@@ -272,9 +308,12 @@ const presenceChannel = supabase.channel("live_" + liveId, {
 });
 
 presenceChannel.on("presence",{ event:"sync" },()=>{
+
   const state = presenceChannel.presenceState();
   const count = Object.keys(state).length;
+
   viewerCountEl.textContent = count + " spectateurs";
+
 });
 
 await presenceChannel.subscribe(async (status)=>{
@@ -325,26 +364,7 @@ sendBtn.onclick = async ()=>{
   }
 
   const text = msgInput.value.trim();
-
   if(!text) return;
-
-  if(text.length > 200){
-    alert("Message trop long");
-    return;
-  }
-
-  // 🔒 check ban
-  const { data:ban } = await supabase
-    .from("bans")
-    .select("*")
-    .eq("live_id", liveId)
-    .eq("user_id", viewerId)
-    .maybeSingle();
-
-  if(ban){
-    alert("Tu es banni");
-    return;
-  }
 
   msgInput.value="";
   lastMessageTime = now;
@@ -364,7 +384,7 @@ msgInput.addEventListener("input", ()=>{
   sendBtn.disabled = !msgInput.value.trim();
 });
 
-/* ================= STRIPE ================= */
+/* ================= SUPPORT ================= */
 
 const supportBtn = document.getElementById("supportBtn");
 const modal = document.getElementById("supportModal");
@@ -373,27 +393,24 @@ const amountInput = document.getElementById("supportAmount");
 const errorBox = document.getElementById("supportError");
 
 supportBtn.onclick = ()=> modal.style.display="flex";
-window.onclick = (e)=>{
+window.onclick = (e)=> {
   if(e.target === modal) modal.style.display="none";
 };
 
-const stripeJs = await import("https://js.stripe.com/v3/index.js");
 const stripe = Stripe("pk_test_51T5dLtDvG1O1eTGy2yb8ADAX15shxntgDaS31pjExCuVEDoAfc4O3Fet70rVdM7az2HhAcv3qrr4WQF2m0QDgoJW00rtDoDjdA");
 
 const elements = stripe.elements();
 const cardElement = elements.create("card");
 cardElement.mount("#card-element");
 
-/* ================= PAYMENT ================= */
-
 payBtn.onclick = async ()=>{
 
-  errorBox.textContent = "";
+  errorBox.textContent="";
 
   const amount = parseFloat(amountInput.value);
 
   if(!amount || amount < 1){
-    errorBox.textContent = "Montant invalide";
+    errorBox.textContent="Montant invalide";
     return;
   }
 
@@ -420,8 +437,6 @@ payBtn.onclick = async ()=>{
 
     if(result.paymentIntent.status === "succeeded"){
 
-      /* SAVE SUPPORT */
-
       await supabase.from("supports").insert({
         live_id: liveId,
         user_id: viewerId,
@@ -435,7 +450,7 @@ payBtn.onclick = async ()=>{
 
   }catch(err){
     console.error(err);
-    errorBox.textContent = "Erreur paiement";
+    errorBox.textContent="Erreur paiement";
   }
 };
 
