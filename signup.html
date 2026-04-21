@@ -7,166 +7,275 @@
 
 <style>
 *{box-sizing:border-box}
+
 body{
   margin:0;
   font-family:system-ui;
-  background:#181818;
+  background:linear-gradient(135deg,#0f0f0f,#1a1a1a);
   color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
 }
+
+/* CARD */
 .container{
-  max-width:480px;
-  margin:40px auto;
-  padding:20px;
-  background:#0f0f0f;
-  border-radius:14px;
-  box-shadow:0 0 20px #000;
-}
-h2{text-align:center;margin-bottom:20px;}
-input, select, button{
   width:100%;
-  margin:8px 0;
-  padding:12px;
-  border-radius:10px;
-  border:none;
-  background:#1f1f1f;
-  color:white;
+  max-width:420px;
+  background:#181818;
+  padding:30px;
+  border-radius:20px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  animation:fadeIn .6s ease;
 }
+
+/* TITLE */
+h2{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+/* INPUT */
+input, select{
+  width:100%;
+  padding:14px;
+  margin-bottom:12px;
+  border:none;
+  border-radius:10px;
+  background:#222;
+  color:white;
+  outline:none;
+  transition:.2s;
+}
+
+input:focus, select:focus{
+  background:#2a2a2a;
+  box-shadow:0 0 0 2px #ff9800;
+}
+
+/* BUTTON */
 button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:10px;
   background:#ff9800;
   color:black;
   font-weight:700;
   cursor:pointer;
+  transition:.2s;
 }
-button:hover{background:#e68a00;}
-.error{color:#ff5555;text-align:center;font-size:14px;margin-top:8px;}
+
+button:hover{
+  background:#ffaa33;
+}
+
+button:disabled{
+  opacity:.6;
+}
+
+/* STATES */
+.error{
+  color:#ff4d4d;
+  font-size:14px;
+  text-align:center;
+  margin-bottom:10px;
+}
+
+.success{
+  color:#00ffae;
+  text-align:center;
+  margin-bottom:10px;
+}
+
+.info{
+  color:#aaa;
+  font-size:13px;
+  text-align:center;
+  margin-top:10px;
+}
+
+/* PROGRESS */
 .progress-container{
-  margin:20px 0;
-  background:#202020;
+  width:100%;
+  height:10px;
+  background:#333;
   border-radius:10px;
   overflow:hidden;
-  height:20px;
+  margin-bottom:15px;
 }
+
 .progress-bar{
   height:100%;
   width:0%;
   background:#ff9800;
-  transition:width 0.5s ease;
+  transition:width .3s;
+}
+
+/* LOADER */
+.loader{
+  width:18px;
+  height:18px;
+  border:2px solid #000;
+  border-top:2px solid transparent;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+  display:inline-block;
+}
+
+/* ANIM */
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
 }
 </style>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
-
-/* 🔥 Firebase configuration */
-const firebaseConfig = {
-  apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
-  authDomain: "lumio-822f0.firebaseapp.com",
-  databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
-  projectId: "lumio-822f0",
-  storageBucket: "lumio-822f0.firebasestorage.app",
-  messagingSenderId: "833325770824",
-  appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-/* Progress bar */
-function updateProgress(p){
-  document.getElementById("progressBar").style.width = p+"%";
-}
-
-window.onload = ()=>{
-  const form = document.getElementById("signupForm");
-  const errorBox = document.getElementById("error");
-
-  form.onsubmit = async (e)=>{
-    e.preventDefault();
-    errorBox.textContent="";
-    updateProgress(10);
-
-    const email = document.getElementById("emailInput").value.trim();
-    const password = document.getElementById("passwordInput").value;
-    const confirm = document.getElementById("confirmInput").value;
-    const username = document.getElementById("usernameInput").value.trim().toLowerCase();
-    const birthdate = document.getElementById("birthInput").value;
-    const country = document.getElementById("countryInput").value;
-
-    if(password !== confirm) return errorBox.textContent="Mots de passe différents";
-    if(password.length < 8) return errorBox.textContent="Mot de passe trop court";
-
-    updateProgress(25);
-
-    try{
-      /* Vérifier username unique */
-      const snap = await get(ref(db,"usernames/"+username));
-      if(snap.exists()) return errorBox.textContent="Nom déjà pris";
-
-      /* Création utilisateur Firebase */
-      const cred = await createUserWithEmailAndPassword(auth,email,password);
-      const uid = cred.user.uid;
-
-      updateProgress(60);
-
-      /* Sauvegarde utilisateur */
-      await set(ref(db,"users/"+uid),{
-        email,
-        username,
-        birthdate,
-        country,
-        role:"user",
-        createdAt: Date.now()
-      });
-
-      await set(ref(db,"usernames/"+username),uid);
-
-      updateProgress(100);
-
-      /* Redirection vers le dashboard */
-      window.location.href = "index.html";
-
-    }catch(err){
-      console.error(err);
-      errorBox.textContent = err.message;
-    }
-  };
-};
-</script>
 </head>
 
 <body>
+
 <div class="container">
-<h2>Créer un compte Lumio</h2>
+<h2>Créer un compte</h2>
 
-<form id="signupForm">
+<form id="form">
 
-<input id="emailInput" type="email" placeholder="Email" required>
-<input id="passwordInput" type="password" placeholder="Mot de passe" required>
-<input id="confirmInput" type="password" placeholder="Confirmer mot de passe" required>
-<input id="usernameInput" placeholder="Nom d’utilisateur public" required>
+<input id="email" type="email" placeholder="Email" required>
+<input id="password" type="password" placeholder="Mot de passe (min 8)" required>
+<input id="confirm" type="password" placeholder="Confirmer mot de passe" required>
+<input id="username" placeholder="Nom d’utilisateur" required>
 
-<label>Date de naissance</label>
-<input id="birthInput" type="date" required>
+<input id="birth" type="date" required>
 
-<select id="countryInput" required>
+<select id="country" required>
 <option value="">Pays</option>
 <option value="HT">Haïti</option>
 <option value="FR">France</option>
 <option value="US">États-Unis</option>
-<option value="+">autre</option>
+<option value="other">Autre</option>
 </select>
 
 <div class="progress-container">
-<div id="progressBar" class="progress-bar"></div>
+  <div id="bar" class="progress-bar"></div>
 </div>
 
-<div class="error" id="error"></div>
-<button type="submit">Créer le compte</button>
+<div id="message"></div>
+
+<button id="btn" type="submit">Créer le compte</button>
 
 </form>
+
+<div class="info">
+🔒 Données sécurisées • Lumio protège votre compte
 </div>
+
+</div>
+
+<script type="module">
+
+import { supabase } from "./supabase.js";
+
+const form = document.getElementById("form");
+const btn = document.getElementById("btn");
+const bar = document.getElementById("bar");
+const message = document.getElementById("message");
+
+function setProgress(p){
+  bar.style.width = p + "%";
+}
+
+form.onsubmit = async (e)=>{
+  e.preventDefault();
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const confirm = document.getElementById("confirm").value;
+  const username = document.getElementById("username").value.trim().toLowerCase();
+  const birth = document.getElementById("birth").value;
+  const country = document.getElementById("country").value;
+
+  message.innerHTML="";
+  btn.disabled = true;
+  btn.innerHTML = `<span class="loader"></span>`;
+
+  if(password !== confirm){
+    message.innerHTML = `<div class="error">Mots de passe différents</div>`;
+    resetBtn();
+    return;
+  }
+
+  if(password.length < 8){
+    message.innerHTML = `<div class="error">Mot de passe trop court</div>`;
+    resetBtn();
+    return;
+  }
+
+  try{
+
+    setProgress(20);
+
+    /* 🔹 vérifier username unique */
+    const { data: existing } = await supabase
+      .from("users")
+      .select("username")
+      .eq("username", username)
+      .single();
+
+    if(existing){
+      message.innerHTML = `<div class="error">Nom déjà pris</div>`;
+      resetBtn();
+      return;
+    }
+
+    setProgress(40);
+
+    /* 🔹 création auth */
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options:{
+        data:{
+          name: username
+        }
+      }
+    });
+
+    if(error) throw error;
+
+    const user = data.user;
+
+    setProgress(70);
+
+    /* 🔹 insert user DB */
+    await supabase.from("users").insert({
+      id: user.id,
+      email,
+      username,
+      created_at: new Date().toISOString()
+    });
+
+    setProgress(100);
+
+    message.innerHTML = `<div class="success">Compte créé avec succès</div>`;
+
+    setTimeout(()=>{
+      location.href="add-channel.html";
+    },1000);
+
+  }catch(err){
+    console.error(err);
+    message.innerHTML = `<div class="error">${err.message}</div>`;
+    resetBtn();
+  }
+};
+
+function resetBtn(){
+  btn.disabled = false;
+  btn.textContent = "Créer le compte";
+  setProgress(0);
+}
+
+</script>
+
 </body>
 </html>
