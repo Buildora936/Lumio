@@ -171,13 +171,10 @@ video{
 
 </div>
 
- <script type="module">
-import {
-  Room,
-  connect
-} from "https://cdn.skypack.dev/livekit-client";
-</script>
 <script type="module">
+import {
+  Room
+} from "https://cdn.skypack.dev/livekit-client";
 
 import { supabase } from "./supabase.js";
 
@@ -198,7 +195,7 @@ const chatBox = document.getElementById("messages");
 /* ================= STATE ================= */
 
 let currentUser = null;
-let localStream = null;
+let room = null;
 let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
@@ -218,35 +215,85 @@ async function setLiveStatus(status){
     .eq("id", liveId);
 }
 
-/* ================= STREAM ================= */
+/* ================= LIVEKIT INIT ================= */
 
-async function startCamera(){
-  localStream = await navigator.mediaDevices.getUserMedia({
-    video:true,
-    audio:true
+async function startLiveKit(){
+
+  // 1. récupérer room
+  const { data: live } = await supabase
+    .from("lives")
+    .select("*")
+    .eq("id", liveId)
+    .single();
+
+  const roomName = live.livekit_room || liveId;
+
+  // 2. récupérer token backend
+  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      room: roomName,
+      user: currentUser.id
+    })
   });
 
-  video.srcObject = localStream;
+  const { token } = await res.json();
+
+  // 3. connexion room
+  room = new Room();
+
+  await room.connect(
+    "wss://lumio-streaming-2k1h55ws.livekit.cloud",
+    token
+  );
+
+  // 4. publier caméra + micro
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: true
+  });
+
+  await room.localParticipant.publishTrack(
+    stream.getVideoTracks()[0]
+  );
+
+  await room.localParticipant.publishTrack(
+    stream.getAudioTracks()[0]
+  );
+
+  video.srcObject = stream;
 
   await setLiveStatus("live");
 }
 
-async function startScreen(){
-  const screen = await navigator.mediaDevices.getDisplayMedia({video:true});
-  const mic = await navigator.mediaDevices.getUserMedia({audio:true});
+/* ================= UI STREAM ================= */
+
+camBtn.onclick = startLiveKit;
+screenBtn.onclick = async () => {
+
+  const screen = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: true
+  });
+
+  const mic = await navigator.mediaDevices.getUserMedia({
+    audio: true
+  });
 
   screen.addTrack(mic.getAudioTracks()[0]);
-  localStream = screen;
 
-  video.srcObject = localStream;
+  video.srcObject = screen;
+
+  if(room){
+    await room.localParticipant.publishTrack(screen.getVideoTracks()[0]);
+    await room.localParticipant.publishTrack(screen.getAudioTracks()[0]);
+  }
 
   await setLiveStatus("live");
-}
+};
 
-camBtn.onclick = startCamera;
-screenBtn.onclick = startScreen;
-
-/* ================= VIEWERS (PRESENCE) ================= */
+/* ================= VIEWERS ================= */
 
 const presenceChannel = supabase.channel("live_" + liveId, {
   config:{
@@ -261,7 +308,6 @@ presenceChannel.on("presence",{ event:"sync" },()=>{
 
   viewersEl.textContent = count + " spectateurs";
 
-  // cache DB (optionnel mais utile)
   supabase.from("lives")
     .update({ viewers: count })
     .eq("id", liveId);
@@ -277,7 +323,7 @@ await presenceChannel.subscribe(async (status)=>{
   }
 });
 
-/* ================= GAINS ================= */
+/* ================= SUPPORTS ================= */
 
 const supportsChannel = supabase.channel("supports_" + liveId);
 
@@ -296,12 +342,10 @@ supportsChannel.subscribe();
 
 async function loadSupports(){
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("supports")
     .select("user_id, amount")
     .eq("live_id", liveId);
-
-  if(error) return;
 
   let total = 0;
   const supporters = {};
@@ -382,7 +426,6 @@ sendBtn.onclick = async ()=>{
     return;
   }
 
-  // check ban
   const { data:ban } = await supabase
     .from("bans")
     .select("*")
@@ -424,7 +467,11 @@ window.endLive = async ()=>{
 
   await setLiveStatus("ended");
 
-  localStream?.getTracks().forEach(t=>t.stop());
+  if(room){
+    await room.disconnect();
+  }
+
+  localStream?.getTracks?.().forEach?.(t => t.stop());
 
   await presenceChannel.unsubscribe();
 
@@ -434,4 +481,4 @@ window.endLive = async ()=>{
 
 </script>
 </body>
-</html> 
+</html>
