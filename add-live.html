@@ -96,51 +96,46 @@ button:disabled{
 
 <script type="module">
 
-/* ================= FIREBASE ================= */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-/* ================= SUPABASE ================= */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
+/* ================= SUPABASE ================= */
+
 const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ================= FIREBASE CONFIG (NON MODIFIÉE) ================= */
-const firebaseConfig = {
- apiKey: "AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
- authDomain: "lumio-822f0.firebaseapp.com",
- databaseURL: "https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId: "lumio-822f0",
- storageBucket: "lumio-822f0.firebasestorage.app",
- messagingSenderId: "833325770824",
- appId: "1:833325770824:web:b1a87a7bda0b00ee20907d"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
 /* ================= STATE ================= */
+
 let currentUser = null;
 
-/* ================= AUTH ================= */
-onAuthStateChanged(auth, (u) => {
-  if (!u) location.href = "login.html";
-  currentUser = u;
-});
+/* ================= AUTH (SUPABASE) ================= */
+
+const { data: { user } } = await supabase.auth.getUser();
+
+if (!user) {
+  location.href = "login.html";
+} else {
+  currentUser = user;
+}
 
 /* ================= DOM ================= */
+
 const createBtn = document.getElementById("createBtn");
 const progressBar = document.getElementById("progressBar");
 const progressText = document.getElementById("progressText");
 const progressContainer = document.getElementById("progressContainer");
 const message = document.getElementById("message");
 
+/* ================= HELPERS ================= */
+
+function updateProgress(p, text) {
+  progressBar.style.width = p + "%";
+  progressText.textContent = text;
+}
+
 /* ================= CREATE LIVE ================= */
+
 createBtn.onclick = async () => {
 
   const title = document.getElementById("title").value.trim();
@@ -154,12 +149,13 @@ createBtn.onclick = async () => {
 
   createBtn.disabled = true;
   progressContainer.style.display = "block";
-  progressBar.style.width = "0%";
-  progressText.textContent = "Upload en cours...";
 
   try {
 
-    /* ================= UPLOAD SUPABASE ================= */
+    /* ================= 1. UPLOAD IMAGE ================= */
+
+    updateProgress(10, "Upload image...");
+
     const fileName = `live_${Date.now()}_${file.name}`;
 
     const { error: uploadError } = await supabase.storage
@@ -168,53 +164,61 @@ createBtn.onclick = async () => {
 
     if (uploadError) throw uploadError;
 
-    progressBar.style.width = "50%";
-    progressText.textContent = "Upload terminé";
-
     const { data: publicUrlData } = supabase.storage
       .from("thumbnails")
       .getPublicUrl(fileName);
 
-    /* ================= STRIPE ID (Firebase user) ================= */
-    const userSnap = await get(ref(db, "users/" + currentUser.uid));
+    updateProgress(40, "Image OK");
 
-    let creatorStripeId = null;
+    /* ================= 2. GET USER DATA ================= */
 
-    if (userSnap.exists()) {
-      creatorStripeId = userSnap.val().stripe_account_id || null;
-    }
+    updateProgress(55, "Récupération utilisateur...");
 
-    progressBar.style.width = "75%";
-    progressText.textContent = "Création live...";
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("stripe_account_id, display_name")
+      .eq("id", currentUser.id)
+      .single();
 
-    /* ================= LIVE ID ================= */
+    if (userError) throw userError;
+
+    const creatorStripeId = userData?.stripe_account_id || null;
+    const channelName = userData?.display_name || "Créateur";
+
+    /* ================= 3. CREATE LIVE ================= */
+
+    updateProgress(75, "Création live...");
+
     const liveId = "live_" + Date.now();
 
-    /* ================= SAVE LIVE ================= */
-    await set(ref(db, "lives/" + liveId), {
+    const { error: insertError } = await supabase
+      .from("lives")
+      .insert({
+        id: liveId,
 
-      title,
-      description,
-      thumbnail: publicUrlData.publicUrl,
+        title: title,
+        description: description,
+        thumbnail: publicUrlData.publicUrl,
 
-      creatorId: currentUser.uid,
-      channelName: currentUser.displayName || "Créateur",
+        creator_id: currentUser.id,
+        channel_name: channelName,
 
-      creatorStripeId: creatorStripeId,
+        creator_stripe_id: creatorStripeId,
 
-      status: "waiting",
-      createdAt: Date.now(),
+        status: "waiting",
+        created_at: new Date().toISOString(),
 
-      viewers: 0,
-      totalSupport: 0,
+        viewers: 0,
+        total_support: 0,
 
-      streamKey: "stream_" + Math.random().toString(36).substring(2),
+        stream_key: "stream_" + Math.random().toString(36).substring(2),
 
-      isPaid: false
-    });
+        is_paid: false
+      });
 
-    progressBar.style.width = "100%";
-    progressText.textContent = "Terminé";
+    if (insertError) throw insertError;
+
+    updateProgress(100, "Live créé");
 
     message.innerHTML = "<div class='success'>✅ Live créé avec succès</div>";
 
