@@ -170,275 +170,233 @@ video{
   </div>
 
 </div>
-
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth,onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getDatabase,ref,set,onValue,push,remove,get } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-/* ================= INIT ================= */
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const app=initializeApp({
- apiKey:"AIzaSyAZPXNlfQ4ukMIZGP2faczlDxLvqGJc8c8",
- authDomain:"lumio-822f0.firebaseapp.com",
- databaseURL:"https://lumio-822f0-default-rtdb.firebaseio.com",
- projectId:"lumio-822f0"
-});
+/* ================= SUPABASE ================= */
 
-const auth=getAuth(app);
-const db=getDatabase(app);
+const SUPABASE_URL = "https://ymcrkbcsuloijemdbqzy.supabase.co";
 
-const params=new URLSearchParams(location.search);
-const liveId=params.get("id");
-if(!liveId) location.href="index.html";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltY3JrYmNzdWxvaWplbWRicXp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTg0OTUsImV4cCI6MjA4NTg5NDQ5NX0.DH7S5cdFSwD5i1RNs_QYyubJUar8ANtdEImyj1ZqOjw";
 
-/* ================= STATE ================= */
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentUser=null;
-let localStream=null;
-let peerConnections={};
+/* ================= PARAMS ================= */
+
+const params = new URLSearchParams(location.search);
+const liveId = params.get("id");
+if (!liveId) location.href = "index.html";
 
 /* ================= DOM ================= */
 
-const video=document.getElementById("localVideo");
-const viewersEl=document.getElementById("viewerCount");
-const earnedEl=document.getElementById("totalEarned");
-const topBox=document.getElementById("topSupporters");
+const video = document.getElementById("localVideo");
+const viewersEl = document.getElementById("viewerCount");
+const earnedEl = document.getElementById("totalEarned");
+const topBox = document.getElementById("topSupporters");
+
+/* ================= STATE ================= */
+
+let currentUser = null;
+let localStream = null;
 
 /* ================= AUTH ================= */
 
-onAuthStateChanged(auth,u=>{
- if(!u) location.href="auth.html";
- currentUser=u;
-});
+const { data: { user } } = await supabase.auth.getUser();
+
+if (!user) location.href = "login.html";
+
+currentUser = user;
+
+/* ================= SET LIVE STATUS ================= */
+
+async function setLiveStatus(status){
+  await supabase
+    .from("lives")
+    .update({ status })
+    .eq("id", liveId);
+}
 
 /* ================= STREAM ================= */
 
 async function startCamera(){
- localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
- video.srcObject=localStream;
- set(ref(db,`lives/${liveId}/status`),"live");
+  localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  video.srcObject = localStream;
+  await setLiveStatus("live");
 }
 
 async function startScreen(){
- const screen=await navigator.mediaDevices.getDisplayMedia({video:true});
- const mic=await navigator.mediaDevices.getUserMedia({audio:true});
- screen.addTrack(mic.getAudioTracks()[0]);
+  const screen = await navigator.mediaDevices.getDisplayMedia({video:true});
+  const mic = await navigator.mediaDevices.getUserMedia({audio:true});
 
- localStream=screen;
- video.srcObject=localStream;
+  screen.addTrack(mic.getAudioTracks()[0]);
+  localStream = screen;
 
- set(ref(db,`lives/${liveId}/status`),"live");
+  video.srcObject = localStream;
+
+  await setLiveStatus("live");
 }
 
-camBtn.onclick=startCamera;
-screenBtn.onclick=startScreen;
+camBtn.onclick = startCamera;
+screenBtn.onclick = startScreen;
 
-/* ================= WEBRTC ================= */
+/* ================= VIEWERS (PRESENCE) ================= */
 
-const iceServers={iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
-
-async function createConnection(viewerId){
-
- const pc=new RTCPeerConnection(iceServers);
-
- localStream.getTracks().forEach(track=>{
-   pc.addTrack(track,localStream);
- });
-
- pc.onicecandidate=e=>{
-   if(e.candidate){
-     push(ref(db,`liveSignals/${liveId}/ice/${viewerId}`), e.candidate.toJSON());
-   }
- };
-
- pc.onconnectionstatechange=()=>{
-   if(pc.connectionState==="disconnected" || pc.connectionState==="failed"){
-     cleanupViewer(viewerId);
-   }
-
-   if(pc.connectionState==="connected"){
-     // nettoyage signaling inutile
-     set(ref(db,`liveSignals/${liveId}/offers/${viewerId}`), null);
-   }
- };
-
- peerConnections[viewerId]=pc;
- return pc;
-}
-
-/* ================= VIEWERS ================= */
-
-onValue(ref(db,`liveViewers/${liveId}`),snap=>{
-
- const viewers=snap.val()||{};
- const ids=Object.keys(viewers);
-
- viewersEl.textContent=ids.length+" spectateurs";
-
- // sync cache
- set(ref(db,`lives/${liveId}/viewers`), ids.length);
-
- ids.forEach(async uid=>{
-
-   if(uid===currentUser?.uid) return;
-   if(peerConnections[uid]) return;
-   if(!localStream) return;
-
-   const pc=await createConnection(uid);
-
-   const offer=await pc.createOffer();
-   await pc.setLocalDescription(offer);
-
-   await set(ref(db,`liveSignals/${liveId}/offers/${uid}`), offer);
- });
-
- // cleanup viewers morts
- Object.keys(peerConnections).forEach(uid=>{
-   if(!viewers[uid]) cleanupViewer(uid);
- });
-
+const channel = supabase.channel("live_" + liveId, {
+  config: {
+    presence: { key: currentUser.id }
+  }
 });
 
-/* ================= ANSWERS ================= */
+channel.on("presence", { event: "sync" }, () => {
+  const state = channel.presenceState();
+  const count = Object.keys(state).length;
 
-onValue(ref(db,`liveSignals/${liveId}/answers`),snap=>{
+  viewersEl.textContent = count + " spectateurs";
 
- snap.forEach(viewerSnap=>{
-   const uid=viewerSnap.key;
-   const pc=peerConnections[uid];
-   if(!pc) return;
-
-   if(!pc.currentRemoteDescription){
-     pc.setRemoteDescription(new RTCSessionDescription(viewerSnap.val()));
-   }
- });
-
+  // update DB (cache)
+  supabase.from("lives")
+    .update({ viewers: count })
+    .eq("id", liveId);
 });
 
-/* ================= ICE ================= */
-
-onValue(ref(db,`liveSignals/${liveId}/ice`),snap=>{
-
- snap.forEach(viewerSnap=>{
-   const uid=viewerSnap.key;
-   const pc=peerConnections[uid];
-   if(!pc) return;
-
-   viewerSnap.forEach(c=>{
-     try{
-       pc.addIceCandidate(new RTCIceCandidate(c.val()));
-     }catch(e){}
-   });
- });
-
+await channel.subscribe(async (status) => {
+  if (status === "SUBSCRIBED") {
+    await channel.track({ user: currentUser.id });
+  }
 });
-
-/* ================= CLEANUP ================= */
-
-function cleanupViewer(uid){
-
- try{ peerConnections[uid].close(); }catch(e){}
-
- delete peerConnections[uid];
-
- set(ref(db,`liveSignals/${liveId}/offers/${uid}`), null);
- set(ref(db,`liveSignals/${liveId}/answers/${uid}`), null);
- set(ref(db,`liveSignals/${liveId}/ice/${uid}`), null);
-}
 
 /* ================= GAINS ================= */
 
-onValue(ref(db,"supports"),snap=>{
+const supportsChannel = supabase.channel("supports_" + liveId);
 
- let total=0;
- const supporters={};
+supportsChannel.on(
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "supports",
+    filter: `live_id=eq.${liveId}`
+  },
+  async () => {
+    loadSupports();
+  }
+);
 
- snap.forEach(s=>{
-   const d=s.val();
-   if(d.liveId!==liveId) return;
+supportsChannel.subscribe();
 
-   total+=Number(d.amount)||0;
+async function loadSupports(){
 
-   const name=d.userEmail||"Anonyme";
-   supporters[name]=(supporters[name]||0)+Number(d.amount);
- });
+  const { data } = await supabase
+    .from("supports")
+    .select("*")
+    .eq("live_id", liveId);
 
- earnedEl.textContent="💰 $"+total.toFixed(2);
+  let total = 0;
+  const supporters = {};
 
- // top supporters
- const sorted=Object.entries(supporters)
-   .sort((a,b)=>b[1]-a[1])
-   .slice(0,3);
+  data.forEach(s => {
 
- topBox.innerHTML="";
- const medals=["🥇","🥈","🥉"];
+    total += Number(s.amount);
 
- sorted.forEach((s,i)=>{
-   const div=document.createElement("div");
-   div.textContent=`${medals[i]} ${s[0]} — $${s[1]}`;
-   topBox.appendChild(div);
- });
+    const name = s.user_id;
 
-});
+    supporters[name] = (supporters[name] || 0) + Number(s.amount);
+  });
+
+  earnedEl.textContent = "💰 $" + total.toFixed(2);
+
+  const sorted = Object.entries(supporters)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3);
+
+  topBox.innerHTML = "";
+
+  const medals = ["🥇","🥈","🥉"];
+
+  sorted.forEach((s,i)=>{
+    const div = document.createElement("div");
+    div.textContent = `${medals[i]} ${s[0]} — $${s[1]}`;
+    topBox.appendChild(div);
+  });
+}
+
+loadSupports();
 
 /* ================= CHAT ================= */
 
-onValue(ref(db,`liveChat/${liveId}`),snap=>{
- const box=document.getElementById("messages");
- box.innerHTML="";
+const chatBox = document.getElementById("messages");
 
- snap.forEach(m=>{
-   const d=document.createElement("div");
-   d.className="msg";
-   d.innerHTML=`
-     <b>${m.val().user}</b>: ${m.val().text}
-     <span class="ban" onclick="ban('${m.val().uid}')">Ban</span>
-   `;
-   box.appendChild(d);
- });
+const chatChannel = supabase.channel("chat_" + liveId);
 
- box.scrollTop=box.scrollHeight;
-});
+chatChannel.on(
+  "postgres_changes",
+  {
+    event: "INSERT",
+    schema: "public",
+    table: "chat_messages",
+    filter: `live_id=eq.${liveId}`
+  },
+  (payload) => {
 
-sendBtn.onclick=async()=>{
- const text=msgInput.value.trim();
- if(!text) return;
+    const m = payload.new;
 
- msgInput.value="";
+    const div = document.createElement("div");
+    div.className = "msg";
 
- await push(ref(db,`liveChat/${liveId}`),{
-   user:currentUser.displayName||"Créateur",
-   text,
-   uid:currentUser.uid,
-   createdAt:Date.now()
- });
+    div.innerHTML = `
+      <b>${m.user_name}</b>: ${m.message}
+      <span class="ban" onclick="ban('${m.user_id}')">Ban</span>
+    `;
+
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+);
+
+chatChannel.subscribe();
+
+/* ================= SEND MESSAGE ================= */
+
+sendBtn.onclick = async () => {
+
+  const text = msgInput.value.trim();
+  if (!text) return;
+
+  msgInput.value = "";
+
+  await supabase.from("chat_messages").insert({
+    live_id: liveId,
+    user_id: currentUser.id,
+    user_name: currentUser.user_metadata?.name || "Créateur",
+    message: text,
+    created_at: new Date().toISOString()
+  });
 };
 
 /* ================= BAN ================= */
 
-window.ban=async(uid)=>{
- await set(ref(db,`liveBans/${liveId}/${uid}`),true);
+window.ban = async (uid) => {
+
+  await supabase.from("bans").insert({
+    live_id: liveId,
+    user_id: uid
+  });
+
 };
 
 /* ================= END LIVE ================= */
 
-window.endLive=async()=>{
+window.endLive = async () => {
 
- await set(ref(db,`lives/${liveId}/status`),"ended");
+  await setLiveStatus("ended");
 
- Object.values(peerConnections).forEach(pc=>{
-   try{ pc.close(); }catch(e){}
- });
+  localStream?.getTracks().forEach(t => t.stop());
 
- localStream?.getTracks().forEach(t=>t.stop());
-
- alert("Live terminé");
- location.href="index.html";
+  alert("Live terminé");
+  location.href = "index.html";
 };
 
 </script>
-
-</script>
 </body>
-</html>
+</html> 
