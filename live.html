@@ -341,11 +341,11 @@ sendBtn.onclick = async () => {
   msgInput.value = "";
   lastMessageTime = now;
 
-  await supabase.from("messages").insert({
+  await supabase.from("chat_messages").insert({
     live_id: liveId,
     user_id: currentUser.id,
     user_name: currentUser.user_metadata?.name || "Invité",
-    text: text,
+    message: text,
     created_at: new Date().toISOString()
   });
 };
@@ -419,6 +419,7 @@ payBtn.onclick = async () => {
         live_id: liveId,
         user_id: currentUser.id,
         amount: amount
+        created_at: new Date().toISOString()
       });
 
       await supabase.rpc("increment_support", {
