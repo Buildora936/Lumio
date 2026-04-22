@@ -216,11 +216,12 @@ if (!liveId) location.href = "index.html";
 
 /* ================= DOM ================= */
 
+const remoteVideo = document.getElementById("remoteVideo");
 const viewerCountEl = document.getElementById("viewerCount");
 const messages = document.getElementById("messages");
 const sendBtn = document.getElementById("sendBtn");
 const msgInput = document.getElementById("msgInput");
-const videoContainer = document.getElementById("videoContainer");
+const statusBox = document.getElementById("videoStatus");
 
 /* ================= STATE ================= */
 
@@ -228,6 +229,7 @@ let currentUser = null;
 let viewerId = null;
 let room = null;
 let lastMessageTime = 0;
+let reconnectAttempts = 0;
 
 /* ================= AUTH ================= */
 
@@ -259,43 +261,91 @@ if (live.status === "ended") {
 document.getElementById("liveTitle").textContent = "🔴 " + live.title;
 document.getElementById("channelName").textContent = live.channel_name || "Créateur";
 
-/* ================= LIVEKIT JOIN ================= */
+/* ================= LIVEKIT ================= */
 
 async function joinLiveKit(){
 
-  const roomName = live.livekit_room || liveId;
+  try{
 
-  // token backend
-  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      room: roomName,
-      user: viewerId
-    })
-  });
+    statusBox.textContent = "Connexion au live...";
 
-  const { token } = await res.json();
+    const roomName = live.livekit_room || liveId;
 
-  room = new Room();
+    const res = await fetch(
+      "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token",
+      {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          room: roomName,
+          identity: viewerId
+        })
+      }
+    );
 
-  await room.connect(
-    "wss://lumio-streaming-2k1h55ws.livekit.cloud",
-    token
-  );
+    const { token } = await res.json();
 
-  room.on("trackSubscribed", (track) => {
+    room = new Room();
 
-    const element = track.attach();
-    videoContainer.appendChild(element);
+    await room.connect(
+      "wss://lumio-streaming-2k1h55ws.livekit.cloud",
+      token
+    );
 
-  });
+    statusBox.textContent = "🔴 Live en cours";
 
-  room.on("participantConnected", () => {
-    console.log("viewer joined");
-  });
+    room.on("trackSubscribed", (track) => {
+
+      if (track.kind === "video") {
+        track.attach(remoteVideo);
+      }
+
+    });
+
+    room.on("participantConnected", updateViewers);
+    room.on("participantDisconnected", updateViewers);
+
+    room.on("disconnected", () => {
+      statusBox.textContent = "Reconnexion...";
+      attemptReconnect();
+    });
+
+    updateViewers();
+
+  }catch(err){
+
+    console.error(err);
+    statusBox.textContent = "Erreur connexion";
+    attemptReconnect();
+
+  }
+}
+
+/* ================= RECONNECT ================= */
+
+function attemptReconnect(){
+
+  if(reconnectAttempts > 5){
+    statusBox.textContent = "Impossible de se reconnecter";
+    return;
+  }
+
+  reconnectAttempts++;
+
+  setTimeout(() => {
+    joinLiveKit();
+  }, 2000);
 
 }
+
+/* ================= VIEWERS ================= */
+
+function updateViewers(){
+  const count = room ? room.participants.size + 1 : 1;
+  viewerCountEl.textContent = count + " spectateurs";
+}
+
+/* ================= START ================= */
 
 joinLiveKit();
 
@@ -384,7 +434,7 @@ msgInput.addEventListener("input", ()=>{
   sendBtn.disabled = !msgInput.value.trim();
 });
 
-/* ================= SUPPORT ================= */
+/* ================= STRIPE ================= */
 
 const supportBtn = document.getElementById("supportBtn");
 const modal = document.getElementById("supportModal");
@@ -393,7 +443,8 @@ const amountInput = document.getElementById("supportAmount");
 const errorBox = document.getElementById("supportError");
 
 supportBtn.onclick = ()=> modal.style.display="flex";
-window.onclick = (e)=> {
+
+window.onclick = (e)=>{
   if(e.target === modal) modal.style.display="none";
 };
 
@@ -453,7 +504,6 @@ payBtn.onclick = async ()=>{
     errorBox.textContent="Erreur paiement";
   }
 };
-
 </script>
 </body>
 </html>
