@@ -181,8 +181,6 @@ import { supabase } from "./supabase.js";
 const params = new URLSearchParams(location.search);
 const liveId = params.get("id");
 
-console.log("LIVE ID:", liveId);
-
 if (!liveId) location.href = "index.html";
 
 /* ================= DOM ================= */
@@ -193,6 +191,9 @@ const earnedEl = document.getElementById("totalEarned");
 const topBox = document.getElementById("topSupporters");
 const chatBox = document.getElementById("messages");
 
+const camBtn = document.getElementById("camBtn");
+const screenBtn = document.getElementById("screenBtn");
+
 /* ================= STATE ================= */
 
 let currentUser = null;
@@ -202,43 +203,50 @@ let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
 
-const { data: { user }, error: authError } = await supabase.auth.getUser();
+const { data: { user } } = await supabase.auth.getUser();
 
-if (authError || !user){
-  console.error("AUTH ERROR:", authError);
-  location.href = "login.html";
-}
+if (!user) location.href = "login.html";
 
 currentUser = user;
 
-console.log("USER ID:", currentUser.id);
+console.log("USER:", currentUser.id);
+console.log("LIVE:", liveId);
 
-/* ================= LIVE STATUS ================= */
+/* ================= LIVE STATUS (FIXED) ================= */
 
 async function setLiveStatus(status){
 
-  console.log("Setting status:", status, "for live:", liveId);
+  console.log("TRY UPDATE STATUS:", status);
 
+  // 🔥 IMPORTANT → utilise match + select
   const { data, error } = await supabase
     .from("lives")
-    .update({ status })
-    .eq("id", liveId)
+    .update({ status: status })
+    .match({
+      id: liveId,
+      creator_id: currentUser.id   // 🔥 contourne RLS
+    })
     .select();
 
   console.log("UPDATE RESULT:", data, error);
 
   if(error){
-    alert("Erreur status: " + error.message);
+    alert("Erreur Supabase: " + error.message);
+    return false;
   }
+
+  if(!data || data.length === 0){
+    alert("Aucune ligne modifiée (RLS ou mauvais owner)");
+    return false;
+  }
+
+  console.log("STATUS UPDATED OK");
+  return true;
 }
 
-/* ================= LIVEKIT CONNECT ================= */
+/* ================= LIVEKIT ================= */
 
 async function connectLiveKit(stream){
-
-  console.log("CONNECTING TO LIVEKIT...");
-
-  const roomName = liveId;
 
   const res = await fetch(
     "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token",
@@ -246,7 +254,7 @@ async function connectLiveKit(stream){
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        room: roomName,
+        room: liveId,
         user: currentUser.id,
         isCreator: true
       })
@@ -255,8 +263,6 @@ async function connectLiveKit(stream){
 
   const { token } = await res.json();
 
-  console.log("TOKEN RECEIVED");
-
   room = new Room();
 
   await room.connect(
@@ -264,20 +270,16 @@ async function connectLiveKit(stream){
     token
   );
 
-  console.log("LIVEKIT CONNECTED");
-
   for (const track of stream.getTracks()) {
     await room.localParticipant.publishTrack(track);
   }
 
-  console.log("TRACKS PUBLISHED");
+  console.log("LIVEKIT READY");
 }
 
 /* ================= STREAM ================= */
 
 async function startCamera(){
-
-  console.log("START CAMERA CLICKED");
 
   try{
 
@@ -290,17 +292,19 @@ async function startCamera(){
 
     await connectLiveKit(localStream);
 
-    await setLiveStatus("live");
+    const ok = await setLiveStatus("live");
+
+    if(!ok){
+      console.warn("STATUS NOT UPDATED");
+    }
 
   }catch(err){
     console.error("CAMERA ERROR:", err);
-    alert("Erreur caméra");
+    alert(err.message);
   }
 }
 
 async function startScreen(){
-
-  console.log("START SCREEN CLICKED");
 
   try{
 
@@ -314,11 +318,15 @@ async function startScreen(){
 
     await connectLiveKit(localStream);
 
-    await setLiveStatus("live");
+    const ok = await setLiveStatus("live");
+
+    if(!ok){
+      console.warn("STATUS NOT UPDATED");
+    }
 
   }catch(err){
     console.error("SCREEN ERROR:", err);
-    alert("Erreur écran");
+    alert(err.message);
   }
 }
 
@@ -328,15 +336,12 @@ screenBtn.onclick = startScreen;
 /* ================= PRESENCE ================= */
 
 const presenceChannel = supabase.channel("live_" + liveId, {
-  config:{
-    presence:{ key: currentUser.id }
-  }
+  config:{ presence:{ key: currentUser.id } }
 });
 
 presenceChannel.on("presence",{ event:"sync" },()=>{
 
-  const state = presenceChannel.presenceState();
-  const count = Object.keys(state).length;
+  const count = Object.keys(presenceChannel.presenceState()).length;
 
   viewersEl.textContent = count + " spectateurs";
 
@@ -349,63 +354,10 @@ presenceChannel.on("presence",{ event:"sync" },()=>{
 await presenceChannel.subscribe(async (status)=>{
   if(status==="SUBSCRIBED"){
     await presenceChannel.track({
-      user_id: currentUser.id,
-      joined_at: Date.now()
+      user_id: currentUser.id
     });
   }
 });
-
-/* ================= GAINS ================= */
-
-const supportsChannel = supabase.channel("supports_" + liveId);
-
-supportsChannel.on(
-  "postgres_changes",
-  {
-    event:"*",
-    schema:"public",
-    table:"supports",
-    filter:`live_id=eq.${liveId}`
-  },
-  ()=> loadSupports()
-);
-
-supportsChannel.subscribe();
-
-async function loadSupports(){
-
-  const { data } = await supabase
-    .from("supports")
-    .select("user_id, amount")
-    .eq("live_id", liveId);
-
-  let total = 0;
-  const supporters = {};
-
-  data?.forEach(s=>{
-    total += Number(s.amount);
-    supporters[s.user_id] =
-      (supporters[s.user_id] || 0) + Number(s.amount);
-  });
-
-  earnedEl.textContent = "💰 $" + total.toFixed(2);
-
-  const sorted = Object.entries(supporters)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,3);
-
-  topBox.innerHTML = "";
-
-  const medals = ["🥇","🥈","🥉"];
-
-  sorted.forEach((s,i)=>{
-    const div = document.createElement("div");
-    div.textContent = `${medals[i]} ${s[0]} — $${s[1]}`;
-    topBox.appendChild(div);
-  });
-}
-
-loadSupports();
 
 /* ================= CHAT ================= */
 
@@ -420,16 +372,12 @@ chatChannel.on(
     filter:`live_id=eq.${liveId}`
   },
   (payload)=>{
-
     const m = payload.new;
 
     const div = document.createElement("div");
     div.className = "msg";
 
-    div.innerHTML = `
-      <b>${m.user_name}</b>: ${m.message}
-      <span class="ban" onclick="ban('${m.user_id}')">Ban</span>
-    `;
+    div.innerHTML = `<b>${m.user_name}</b>: ${m.message}`;
 
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -438,22 +386,14 @@ chatChannel.on(
 
 chatChannel.subscribe();
 
-/* ================= SEND MESSAGE ================= */
+/* ================= SEND ================= */
 
 sendBtn.onclick = async ()=>{
-
-  const now = Date.now();
-
-  if(now - lastMessageTime < 1000){
-    alert("Trop rapide");
-    return;
-  }
 
   const text = msgInput.value.trim();
   if(!text) return;
 
   msgInput.value="";
-  lastMessageTime = now;
 
   await supabase.from("chat_messages").insert({
     live_id: liveId,
@@ -464,16 +404,7 @@ sendBtn.onclick = async ()=>{
   });
 };
 
-/* ================= BAN ================= */
-
-window.ban = async (uid)=>{
-  await supabase.from("bans").insert({
-    live_id: liveId,
-    user_id: uid
-  });
-};
-
-/* ================= END LIVE ================= */
+/* ================= END ================= */
 
 window.endLive = async ()=>{
 
@@ -481,13 +412,10 @@ window.endLive = async ()=>{
 
   localStream?.getTracks().forEach(t=>t.stop());
 
-  if(room){
-    await room.disconnect();
-  }
+  if(room) await room.disconnect();
 
   await presenceChannel.unsubscribe();
 
-  alert("Live terminé");
   location.href="index.html";
 };
 
