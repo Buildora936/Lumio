@@ -180,6 +180,9 @@ import { supabase } from "./supabase.js";
 
 const params = new URLSearchParams(location.search);
 const liveId = params.get("id");
+
+console.log("LIVE ID:", liveId);
+
 if (!liveId) location.href = "index.html";
 
 /* ================= DOM ================= */
@@ -199,11 +202,16 @@ let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
 
-const { data: { user } } = await supabase.auth.getUser();
+const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-if (!user) location.href = "login.html";
+if (authError || !user){
+  console.error("AUTH ERROR:", authError);
+  location.href = "login.html";
+}
 
 currentUser = user;
+
+console.log("USER ID:", currentUser.id);
 
 /* ================= LIVE STATUS ================= */
 
@@ -211,35 +219,43 @@ async function setLiveStatus(status){
 
   console.log("Setting status:", status, "for live:", liveId);
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("lives")
     .update({ status })
-    .eq("id", liveId);
+    .eq("id", liveId)
+    .select();
+
+  console.log("UPDATE RESULT:", data, error);
 
   if(error){
-    console.error("UPDATE ERROR:", error);
-    alert(error.message);
-  } else {
-    console.log("STATUS UPDATED OK");
+    alert("Erreur status: " + error.message);
   }
 }
+
 /* ================= LIVEKIT CONNECT ================= */
 
 async function connectLiveKit(stream){
 
+  console.log("CONNECTING TO LIVEKIT...");
+
   const roomName = liveId;
 
-  const res = await fetch("https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      room: roomName,
-      user: currentUser.id,
-      isCreator: true
-    })
-  });
+  const res = await fetch(
+    "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token",
+    {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        room: roomName,
+        user: currentUser.id,
+        isCreator: true
+      })
+    }
+  );
 
   const { token } = await res.json();
+
+  console.log("TOKEN RECEIVED");
 
   room = new Room();
 
@@ -248,42 +264,62 @@ async function connectLiveKit(stream){
     token
   );
 
-  // 🔥 publier caméra/audio
+  console.log("LIVEKIT CONNECTED");
+
   for (const track of stream.getTracks()) {
     await room.localParticipant.publishTrack(track);
   }
 
+  console.log("TRACKS PUBLISHED");
 }
 
 /* ================= STREAM ================= */
 
 async function startCamera(){
 
-  localStream = await navigator.mediaDevices.getUserMedia({
-    video:true,
-    audio:true
-  });
+  console.log("START CAMERA CLICKED");
 
-  video.srcObject = localStream;
+  try{
 
-  await connectLiveKit(localStream);
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video:true,
+      audio:true
+    });
 
-  await setLiveStatus("live");
+    video.srcObject = localStream;
+
+    await connectLiveKit(localStream);
+
+    await setLiveStatus("live");
+
+  }catch(err){
+    console.error("CAMERA ERROR:", err);
+    alert("Erreur caméra");
+  }
 }
 
 async function startScreen(){
 
-  const screen = await navigator.mediaDevices.getDisplayMedia({ video:true });
-  const mic = await navigator.mediaDevices.getUserMedia({ audio:true });
+  console.log("START SCREEN CLICKED");
 
-  screen.addTrack(mic.getAudioTracks()[0]);
-  localStream = screen;
+  try{
 
-  video.srcObject = localStream;
+    const screen = await navigator.mediaDevices.getDisplayMedia({ video:true });
+    const mic = await navigator.mediaDevices.getUserMedia({ audio:true });
 
-  await connectLiveKit(localStream);
+    screen.addTrack(mic.getAudioTracks()[0]);
+    localStream = screen;
 
-  await setLiveStatus("live");
+    video.srcObject = localStream;
+
+    await connectLiveKit(localStream);
+
+    await setLiveStatus("live");
+
+  }catch(err){
+    console.error("SCREEN ERROR:", err);
+    alert("Erreur écran");
+  }
 }
 
 camBtn.onclick = startCamera;
@@ -346,7 +382,7 @@ async function loadSupports(){
   let total = 0;
   const supporters = {};
 
-  data.forEach(s=>{
+  data?.forEach(s=>{
     total += Number(s.amount);
     supporters[s.user_id] =
       (supporters[s.user_id] || 0) + Number(s.amount);
