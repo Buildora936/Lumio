@@ -96,136 +96,322 @@ button:disabled{
 
 <script type="module">
 
+import { Room } from "https://cdn.skypack.dev/livekit-client";
 import { supabase } from "./supabase.js";
+
+/* ================= PARAMS ================= */
+
+const params = new URLSearchParams(location.search);
+const liveId = params.get("id");
+
+console.log("LIVE ID:", liveId);
+
+if (!liveId) location.href = "index.html";
+
+/* ================= DOM ================= */
+
+const video = document.getElementById("localVideo");
+const viewersEl = document.getElementById("viewerCount");
+const earnedEl = document.getElementById("totalEarned");
+const topBox = document.getElementById("topSupporters");
+const chatBox = document.getElementById("messages");
 
 /* ================= STATE ================= */
 
 let currentUser = null;
+let localStream = null;
+let room = null;
+let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
 
-const { data, error } = await supabase.auth.getUser();
+const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-if (error || !data.user) {
+if (authError || !user){
+  console.error("AUTH ERROR:", authError);
   location.href = "login.html";
-} else {
-  currentUser = data.user;
 }
 
-/* ================= DOM ================= */
+currentUser = user;
 
-const createBtn = document.getElementById("createBtn");
-const progressBar = document.getElementById("progressBar");
-const progressText = document.getElementById("progressText");
-const progressContainer = document.getElementById("progressContainer");
-const message = document.getElementById("message");
+console.log("USER ID:", currentUser.id);
 
-/* ================= HELPERS ================= */
+/* ================= LIVE STATUS ================= */
 
-function updateProgress(p, text) {
-  progressBar.style.width = p + "%";
-  progressText.textContent = text;
+async function setLiveStatus(status){
+
+  console.log("Setting status:", status, "for live:", liveId);
+
+  const { data, error } = await supabase
+    .from("lives")
+    .update({ status })
+    .eq("id", liveId)
+    .select();
+
+  console.log("UPDATE RESULT:", data, error);
+
+  if(error){
+    alert("Erreur status: " + error.message);
+  }
 }
 
-/* ================= CREATE LIVE ================= */
+/* ================= LIVEKIT CONNECT ================= */
 
-createBtn.onclick = async () => {
+async function connectLiveKit(stream){
 
-  const title = document.getElementById("title").value.trim();
-  const description = document.getElementById("description").value.trim();
-  const file = document.getElementById("thumbnailInput").files[0];
+  console.log("CONNECTING TO LIVEKIT...");
 
-  if (!title || !file) {
-    alert("Titre et miniature obligatoires");
+  const roomName = liveId;
+
+  const res = await fetch(
+    "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token",
+    {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        room: roomName,
+        user: currentUser.id,
+        isCreator: true
+      })
+    }
+  );
+
+  const { token } = await res.json();
+
+  console.log("TOKEN RECEIVED");
+
+  room = new Room();
+
+  await room.connect(
+    "wss://lumio-streaming-2k1h55ws.livekit.cloud",
+    token
+  );
+
+  console.log("LIVEKIT CONNECTED");
+
+  for (const track of stream.getTracks()) {
+    await room.localParticipant.publishTrack(track);
+  }
+
+  console.log("TRACKS PUBLISHED");
+}
+
+/* ================= STREAM ================= */
+
+async function startCamera(){
+
+  console.log("START CAMERA CLICKED");
+
+  try{
+
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video:true,
+      audio:true
+    });
+
+    video.srcObject = localStream;
+
+    await connectLiveKit(localStream);
+
+    await setLiveStatus("live");
+
+  }catch(err){
+    console.error("CAMERA ERROR:", err);
+    alert("Erreur caméra");
+  }
+}
+
+async function startScreen(){
+
+  console.log("START SCREEN CLICKED");
+
+  try{
+
+    const screen = await navigator.mediaDevices.getDisplayMedia({ video:true });
+    const mic = await navigator.mediaDevices.getUserMedia({ audio:true });
+
+    screen.addTrack(mic.getAudioTracks()[0]);
+    localStream = screen;
+
+    video.srcObject = localStream;
+
+    await connectLiveKit(localStream);
+
+    await setLiveStatus("live");
+
+  }catch(err){
+    console.error("SCREEN ERROR:", err);
+    alert("Erreur écran");
+  }
+}
+
+camBtn.onclick = startCamera;
+screenBtn.onclick = startScreen;
+
+/* ================= PRESENCE ================= */
+
+const presenceChannel = supabase.channel("live_" + liveId, {
+  config:{
+    presence:{ key: currentUser.id }
+  }
+});
+
+presenceChannel.on("presence",{ event:"sync" },()=>{
+
+  const state = presenceChannel.presenceState();
+  const count = Object.keys(state).length;
+
+  viewersEl.textContent = count + " spectateurs";
+
+  supabase.from("lives")
+    .update({ viewers: count })
+    .eq("id", liveId);
+
+});
+
+await presenceChannel.subscribe(async (status)=>{
+  if(status==="SUBSCRIBED"){
+    await presenceChannel.track({
+      user_id: currentUser.id,
+      joined_at: Date.now()
+    });
+  }
+});
+
+/* ================= GAINS ================= */
+
+const supportsChannel = supabase.channel("supports_" + liveId);
+
+supportsChannel.on(
+  "postgres_changes",
+  {
+    event:"*",
+    schema:"public",
+    table:"supports",
+    filter:`live_id=eq.${liveId}`
+  },
+  ()=> loadSupports()
+);
+
+supportsChannel.subscribe();
+
+async function loadSupports(){
+
+  const { data } = await supabase
+    .from("supports")
+    .select("user_id, amount")
+    .eq("live_id", liveId);
+
+  let total = 0;
+  const supporters = {};
+
+  data?.forEach(s=>{
+    total += Number(s.amount);
+    supporters[s.user_id] =
+      (supporters[s.user_id] || 0) + Number(s.amount);
+  });
+
+  earnedEl.textContent = "💰 $" + total.toFixed(2);
+
+  const sorted = Object.entries(supporters)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3);
+
+  topBox.innerHTML = "";
+
+  const medals = ["🥇","🥈","🥉"];
+
+  sorted.forEach((s,i)=>{
+    const div = document.createElement("div");
+    div.textContent = `${medals[i]} ${s[0]} — $${s[1]}`;
+    topBox.appendChild(div);
+  });
+}
+
+loadSupports();
+
+/* ================= CHAT ================= */
+
+const chatChannel = supabase.channel("chat_" + liveId);
+
+chatChannel.on(
+  "postgres_changes",
+  {
+    event:"INSERT",
+    schema:"public",
+    table:"chat_messages",
+    filter:`live_id=eq.${liveId}`
+  },
+  (payload)=>{
+
+    const m = payload.new;
+
+    const div = document.createElement("div");
+    div.className = "msg";
+
+    div.innerHTML = `
+      <b>${m.user_name}</b>: ${m.message}
+      <span class="ban" onclick="ban('${m.user_id}')">Ban</span>
+    `;
+
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+);
+
+chatChannel.subscribe();
+
+/* ================= SEND MESSAGE ================= */
+
+sendBtn.onclick = async ()=>{
+
+  const now = Date.now();
+
+  if(now - lastMessageTime < 1000){
+    alert("Trop rapide");
     return;
   }
 
-  createBtn.disabled = true;
-  progressContainer.style.display = "block";
+  const text = msgInput.value.trim();
+  if(!text) return;
 
-  try {
+  msgInput.value="";
+  lastMessageTime = now;
 
-    /* ================= 1. UPLOAD IMAGE ================= */
+  await supabase.from("chat_messages").insert({
+    live_id: liveId,
+    user_id: currentUser.id,
+    user_name: currentUser.user_metadata?.name || "Créateur",
+    message: text,
+    created_at: new Date().toISOString()
+  });
+};
 
-    updateProgress(10, "Upload image...");
+/* ================= BAN ================= */
 
-    const fileName = `live_${Date.now()}_${file.name}`;
+window.ban = async (uid)=>{
+  await supabase.from("bans").insert({
+    live_id: liveId,
+    user_id: uid
+  });
+};
 
-    const { error: uploadError } = await supabase.storage
-      .from("thumbnails")
-      .upload(fileName, file);
+/* ================= END LIVE ================= */
 
-    if (uploadError) throw uploadError;
+window.endLive = async ()=>{
 
-    const { data: publicUrlData } = supabase.storage
-      .from("thumbnails")
-      .getPublicUrl(fileName);
+  await setLiveStatus("ended");
 
-    updateProgress(40, "Image OK");
+  localStream?.getTracks().forEach(t=>t.stop());
 
-    /* ================= 2. GET USER DATA ================= */
-
-    updateProgress(55, "Récupération utilisateur...");
-
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("stripe_account_id, username")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (userError || !userData) {
-      throw new Error("Utilisateur introuvable en base");
-    }
-
-    const creatorStripeId = userData.stripe_account_id || null;
-    const channelName = userData.username || "Créateur";
-
-    /* ================= 3. CREATE LIVE ================= */
-
-    updateProgress(75, "Création live...");
-
-    const liveId = "live_" + Date.now();
-
-    const { error: insertError } = await supabase
-      .from("lives")
-      .insert({
-        id: liveId,
-
-        title: title,
-        description: description,
-        thumbnail: publicUrlData.publicUrl,
-
-        creator_id: currentUser.id,
-        channel_name: channelName,
-
-        creator_stripe_id: creatorStripeId,
-
-        status: "waiting",
-        created_at: new Date().toISOString(),
-
-        viewers: 0,
-        total_support: 0,
-
-        stream_key: "stream_" + Math.random().toString(36).substring(2),
-
-        is_paid: false
-      });
-
-    if (insertError) throw insertError;
-
-    updateProgress(100, "Live créé");
-
-    message.innerHTML = "<div class='success'>✅ Live créé avec succès</div>";
-
-    setTimeout(() => {
-      location.href = "live-control.html?id=" + liveId;
-    }, 1200);
-
-  } catch (err) {
-    console.error("CREATE LIVE ERROR:", err);
-    message.innerHTML = `<div class='error'>${err.message}</div>`;
-    createBtn.disabled = false;
+  if(room){
+    await room.disconnect();
   }
+
+  await presenceChannel.unsubscribe();
+
+  alert("Live terminé");
+  location.href="index.html";
 };
 
 </script>
