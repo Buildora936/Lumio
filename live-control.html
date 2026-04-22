@@ -209,16 +209,18 @@ currentUser = user;
 
 async function setLiveStatus(status){
 
-  const { data, error } = await supabase
+  console.log("Setting status:", status, "for live:", liveId);
+
+  const { error } = await supabase
     .from("lives")
     .update({ status })
-    .eq("id", liveId)
-    .select();
-
-  console.log("STATUS UPDATE RESULT:", data, error);
+    .eq("id", liveId);
 
   if(error){
-    alert("Erreur status: " + error.message);
+    console.error("UPDATE ERROR:", error);
+    alert(error.message);
+  } else {
+    console.log("STATUS UPDATED OK");
   }
 }
 /* ================= LIVEKIT CONNECT ================= */
