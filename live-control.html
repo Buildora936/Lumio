@@ -208,12 +208,19 @@ currentUser = user;
 /* ================= LIVE STATUS ================= */
 
 async function setLiveStatus(status){
-  await supabase
+
+  const { data, error } = await supabase
     .from("lives")
     .update({ status })
-    .eq("id", liveId);
-}
+    .eq("id", liveId)
+    .select();
 
+  console.log("STATUS UPDATE RESULT:", data, error);
+
+  if(error){
+    alert("Erreur status: " + error.message);
+  }
+}
 /* ================= LIVEKIT CONNECT ================= */
 
 async function connectLiveKit(stream){
