@@ -187,19 +187,12 @@ if (!liveId) location.href = "index.html";
 
 const video = document.getElementById("localVideo");
 const viewersEl = document.getElementById("viewerCount");
-const earnedEl = document.getElementById("totalEarned");
-const topBox = document.getElementById("topSupporters");
-const chatBox = document.getElementById("messages");
-
-const camBtn = document.getElementById("camBtn");
-const screenBtn = document.getElementById("screenBtn");
 
 /* ================= STATE ================= */
 
 let currentUser = null;
 let localStream = null;
 let room = null;
-let lastMessageTime = 0;
 
 /* ================= AUTH ================= */
 
@@ -209,75 +202,72 @@ if (!user) location.href = "login.html";
 
 currentUser = user;
 
-console.log("USER:", currentUser.id);
-console.log("LIVE:", liveId);
-
-/* ================= LIVE STATUS (FIXED) ================= */
+/* ================= LIVE STATUS ================= */
 
 async function setLiveStatus(status){
 
-  console.log("TRY UPDATE STATUS:", status);
-
-  // 🔥 IMPORTANT → utilise match + select
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("lives")
     .update({ status: status })
-    .match({
-      id: liveId,
-      creator_id: currentUser.id   // 🔥 contourne RLS
-    })
-    .select();
-
-  console.log("UPDATE RESULT:", data, error);
+    .eq("id", liveId);
 
   if(error){
-    alert("Erreur Supabase: " + error.message);
-    return false;
+    console.error("STATUS ERROR:", error);
+    alert("Erreur status: " + error.message);
+  }else{
+    console.log("STATUS UPDATED:", status);
   }
-
-  if(!data || data.length === 0){
-    alert("Aucune ligne modifiée (RLS ou mauvais owner)");
-    return false;
-  }
-
-  console.log("STATUS UPDATED OK");
-  return true;
 }
 
-/* ================= LIVEKIT ================= */
+/* ================= LIVEKIT (SAFE) ================= */
 
 async function connectLiveKit(stream){
 
-  const res = await fetch(
-    "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token",
-    {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        room: liveId,
-        user: currentUser.id,
-        isCreator: true
-      })
+  try{
+
+    const res = await fetch(
+      "https://ymcrkbcsuloijemdbqzy.supabase.co/functions/v1/livekit-token",
+      {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          room: liveId,
+          user: currentUser.id,
+          isCreator: true
+        })
+      }
+    );
+
+    if(!res.ok){
+      throw new Error("Token API failed");
     }
-  );
 
-  const { token } = await res.json();
+    const { token } = await res.json();
 
-  room = new Room();
+    room = new Room();
 
-  await room.connect(
-    "wss://lumio-streaming-2k1h55ws.livekit.cloud",
-    token
-  );
+    await room.connect(
+      "wss://lumio-streaming-2k1h55ws.livekit.cloud",
+      token
+    );
 
-  for (const track of stream.getTracks()) {
-    await room.localParticipant.publishTrack(track);
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
+
+    console.log("LIVEKIT OK");
+
+  }catch(err){
+
+    console.error("LIVEKIT ERROR:", err);
+
+    // ❗ IMPORTANT: on laisse le live continuer même si LiveKit plante
+    alert("Streaming indisponible, mais le live est lancé");
+
   }
-
-  console.log("LIVEKIT READY");
 }
 
-/* ================= STREAM ================= */
+/* ================= CAMERA ================= */
 
 async function startCamera(){
 
@@ -290,19 +280,21 @@ async function startCamera(){
 
     video.srcObject = localStream;
 
+    // ✅ ON MET LE STATUS AVANT (IMPORTANT)
+    await setLiveStatus("live");
+
+    // streaming ensuite
     await connectLiveKit(localStream);
 
-    const ok = await setLiveStatus("live");
-
-    if(!ok){
-      console.warn("STATUS NOT UPDATED");
-    }
-
   }catch(err){
+
     console.error("CAMERA ERROR:", err);
-    alert(err.message);
+    alert("Erreur caméra: " + err.message);
+
   }
 }
+
+/* ================= SCREEN ================= */
 
 async function startScreen(){
 
@@ -316,19 +308,20 @@ async function startScreen(){
 
     video.srcObject = localStream;
 
+    // ✅ STATUS AVANT
+    await setLiveStatus("live");
+
     await connectLiveKit(localStream);
 
-    const ok = await setLiveStatus("live");
-
-    if(!ok){
-      console.warn("STATUS NOT UPDATED");
-    }
-
   }catch(err){
+
     console.error("SCREEN ERROR:", err);
-    alert(err.message);
+    alert("Erreur écran: " + err.message);
+
   }
 }
+
+/* ================= BUTTONS ================= */
 
 camBtn.onclick = startCamera;
 screenBtn.onclick = startScreen;
@@ -336,12 +329,15 @@ screenBtn.onclick = startScreen;
 /* ================= PRESENCE ================= */
 
 const presenceChannel = supabase.channel("live_" + liveId, {
-  config:{ presence:{ key: currentUser.id } }
+  config:{
+    presence:{ key: currentUser.id }
+  }
 });
 
 presenceChannel.on("presence",{ event:"sync" },()=>{
 
-  const count = Object.keys(presenceChannel.presenceState()).length;
+  const state = presenceChannel.presenceState();
+  const count = Object.keys(state).length;
 
   viewersEl.textContent = count + " spectateurs";
 
@@ -359,52 +355,7 @@ await presenceChannel.subscribe(async (status)=>{
   }
 });
 
-/* ================= CHAT ================= */
-
-const chatChannel = supabase.channel("chat_" + liveId);
-
-chatChannel.on(
-  "postgres_changes",
-  {
-    event:"INSERT",
-    schema:"public",
-    table:"chat_messages",
-    filter:`live_id=eq.${liveId}`
-  },
-  (payload)=>{
-    const m = payload.new;
-
-    const div = document.createElement("div");
-    div.className = "msg";
-
-    div.innerHTML = `<b>${m.user_name}</b>: ${m.message}`;
-
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-);
-
-chatChannel.subscribe();
-
-/* ================= SEND ================= */
-
-sendBtn.onclick = async ()=>{
-
-  const text = msgInput.value.trim();
-  if(!text) return;
-
-  msgInput.value="";
-
-  await supabase.from("chat_messages").insert({
-    live_id: liveId,
-    user_id: currentUser.id,
-    user_name: currentUser.user_metadata?.name || "Créateur",
-    message: text,
-    created_at: new Date().toISOString()
-  });
-};
-
-/* ================= END ================= */
+/* ================= END LIVE ================= */
 
 window.endLive = async ()=>{
 
@@ -412,10 +363,13 @@ window.endLive = async ()=>{
 
   localStream?.getTracks().forEach(t=>t.stop());
 
-  if(room) await room.disconnect();
+  if(room){
+    await room.disconnect();
+  }
 
   await presenceChannel.unsubscribe();
 
+  alert("Live terminé");
   location.href="index.html";
 };
 
